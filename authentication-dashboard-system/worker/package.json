@@ -1,0 +1,27 @@
+{
+  "name": "your-app-api",
+  "version": "1.0.0",
+  "description": "Enhanced authentication API for multi-tenant SaaS dashboard",
+  "main": "index.js",
+  "type": "module",
+  "dependencies": {
+    "jose": "^5.2.0",
+    "otpauth": "^9.4.1"
+  },
+  "devDependencies": {
+    "wrangler": "^4.28.1"
+  },
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "dev": "wrangler dev",
+    "tail": "wrangler tail"
+  },
+  "keywords": [
+    "cloudflare-workers",
+    "authentication",
+    "saas-dashboard",
+    "hipaa-compliance"
+  ],
+  "author": "Your Team Name",
+  "license": "MIT"
+}

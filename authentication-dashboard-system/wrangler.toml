@@ -1,0 +1,11 @@
+name = "your-app-dashboard"
+compatibility_date = "2024-09-23"
+pages_build_output_dir = "dist"
+
+[env.production]
+name = "your-app-dashboard"
+vars = { ENVIRONMENT = "production" }
+
+[env.preview]
+name = "your-app-dashboard-preview"
+vars = { ENVIRONMENT = "preview" }
