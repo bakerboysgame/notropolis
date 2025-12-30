@@ -6,6 +6,10 @@ on:
       - main
       - master
 
+defaults:
+  run:
+    working-directory: authentication-dashboard-system
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
