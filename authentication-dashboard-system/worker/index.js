@@ -3,7 +3,7 @@
 
 import { Database } from './src/database.js';
 import { AuthService } from './src/auth.js';
-import { EmailService } from './src/email.js';
+import { EmailService } from './src/email-postmark.js';
 import { SecurityService } from './src/security.js';
 import { BrevoAnalytics } from './src/analytics.js';
 import { generateJWT, verifyJWT } from './src/jwt.js';
