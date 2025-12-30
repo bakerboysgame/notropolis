@@ -8,9 +8,7 @@ import { LoginPage } from './pages/LoginPage';
 import { MagicLinkVerification } from './components/auth/MagicLinkVerification';
 import { InvitationAcceptance } from './components/auth/InvitationAcceptance';
 import Layout from './components/Layout';
-import Dashboard from './pages/Dashboard';
-import Analytics from './pages/Analytics';
-import Reports from './pages/Reports';
+import Home from './pages/Home';
 import Settings from './pages/Settings';
 import UserManagement from './pages/UserManagement';
 import CompanyUserManagement from './pages/CompanyUserManagement';
@@ -106,40 +104,59 @@ function App() {
               <Route path="/accept-invitation" element={<InvitationAcceptance />} />
 
               {/* Protected Routes with Page-Level Access Control */}
-              <Route path="/dashboard" element={
-                <ProtectedRoute>
-                  <ProtectedPageRoute pageKey="dashboard">
-                    <Layout>
-                      <Dashboard />
-                    </Layout>
-                  </ProtectedPageRoute>
-                </ProtectedRoute>
-              } />
-
-              {/* Legacy Dashboard Routes - Protected */}
               <Route path="/" element={
                 <ProtectedRoute>
                   <ProtectedPageRoute pageKey="dashboard">
                     <Layout>
-                      <Dashboard />
+                      <Home />
                     </Layout>
                   </ProtectedPageRoute>
                 </ProtectedRoute>
               } />
-              <Route path="/analytics" element={
+              <Route path="/headquarters" element={
                 <ProtectedRoute>
-                  <ProtectedPageRoute pageKey="analytics">
+                  <ProtectedPageRoute pageKey="headquarters">
                     <Layout>
-                      <Analytics />
+                      <div className="text-center py-20">
+                        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Headquarters</h1>
+                        <p className="text-gray-600 dark:text-gray-400 mt-2">Coming soon...</p>
+                      </div>
                     </Layout>
                   </ProtectedPageRoute>
                 </ProtectedRoute>
               } />
-              <Route path="/reports" element={
+              <Route path="/statistics" element={
                 <ProtectedRoute>
-                  <ProtectedPageRoute pageKey="reports">
+                  <ProtectedPageRoute pageKey="statistics">
                     <Layout>
-                      <Reports />
+                      <div className="text-center py-20">
+                        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Statistics</h1>
+                        <p className="text-gray-600 dark:text-gray-400 mt-2">Coming soon...</p>
+                      </div>
+                    </Layout>
+                  </ProtectedPageRoute>
+                </ProtectedRoute>
+              } />
+              <Route path="/events" element={
+                <ProtectedRoute>
+                  <ProtectedPageRoute pageKey="events">
+                    <Layout>
+                      <div className="text-center py-20">
+                        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Events</h1>
+                        <p className="text-gray-600 dark:text-gray-400 mt-2">Coming soon...</p>
+                      </div>
+                    </Layout>
+                  </ProtectedPageRoute>
+                </ProtectedRoute>
+              } />
+              <Route path="/chat" element={
+                <ProtectedRoute>
+                  <ProtectedPageRoute pageKey="chat">
+                    <Layout>
+                      <div className="text-center py-20">
+                        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Chat</h1>
+                        <p className="text-gray-600 dark:text-gray-400 mt-2">Coming soon...</p>
+                      </div>
                     </Layout>
                   </ProtectedPageRoute>
                 </ProtectedRoute>

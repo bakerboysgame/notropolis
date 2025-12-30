@@ -1,9 +1,11 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useState, useMemo } from 'react'
 import {
-  LayoutDashboard,
+  Home,
+  Building2,
   BarChart3,
-  FileText,
+  Calendar,
+  MessageCircle,
   Settings,
   ChevronLeft,
   ChevronRight,
@@ -28,9 +30,11 @@ interface NavigationItem {
 }
 
 const navigation: NavigationItem[] = [
-  { name: 'Dashboard', href: '/', icon: LayoutDashboard, pageKey: 'dashboard' },
-  { name: 'Analytics', href: '/analytics', icon: BarChart3, pageKey: 'analytics' },
-  { name: 'Reports', href: '/reports', icon: FileText, pageKey: 'reports' },
+  { name: 'Home', href: '/', icon: Home, pageKey: 'dashboard' },
+  { name: 'Headquarters', href: '/headquarters', icon: Building2, pageKey: 'headquarters' },
+  { name: 'Statistics', href: '/statistics', icon: BarChart3, pageKey: 'statistics' },
+  { name: 'Events', href: '/events', icon: Calendar, pageKey: 'events' },
+  { name: 'Chat', href: '/chat', icon: MessageCircle, pageKey: 'chat' },
 ]
 
 export default function Sidebar() {
