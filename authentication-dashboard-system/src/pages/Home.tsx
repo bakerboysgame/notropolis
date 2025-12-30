@@ -1,55 +1,149 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 
-// Grid cell types
-type CellType = 'empty' | 'building' | 'water' | 'tree' | 'road';
+// Grid cell types matching the game screenshot
+type CellType = 'grass' | 'building' | 'building_light' | 'road' | 'dirt_road' | 'water' | 'owned' | 'special';
 
-// Colors for each cell type
+// Colors matching the screenshot
 const cellColors: Record<CellType, string> = {
-  empty: '#e5e7eb',      // Gray
-  building: '#6b7280',   // Dark gray
-  water: '#3b82f6',      // Blue
-  tree: '#22c55e',       // Green
-  road: '#374151',       // Dark slate
+  grass: '#4a7c23',           // Green grass (border)
+  building: '#c41e1e',        // Red buildings
+  building_light: '#d4a574',  // Light tan/beige buildings
+  road: '#6b6b6b',            // Grey paved roads
+  dirt_road: '#8b7355',       // Brown dirt tracks
+  water: '#4a90d9',           // Blue water
+  owned: '#00d4ff',           // Cyan - your properties
+  special: '#9b59b6',         // Purple - special buildings
 };
 
-// Generate a procedural map
-function generateMap(width: number, height: number): CellType[][] {
+// Seeded random for consistent map generation
+function seededRandom(seed: number) {
+  const x = Math.sin(seed++) * 10000;
+  return x - Math.floor(x);
+}
+
+// Generate a map that looks like the screenshot
+function generateMap(width: number, height: number, seed: number = 12345): CellType[][] {
   const map: CellType[][] = [];
+  let seedCounter = seed;
+
+  const rand = () => seededRandom(seedCounter++);
+
+  // Pre-calculate road positions for a grid pattern
+  const mainRoads = new Set<string>();
+  const dirtRoads = new Set<string>();
+
+  // Main road grid (every 6-8 tiles)
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      // Vertical main roads
+      if (x === 8 || x === 18 || x === 28 || x === 38 || x === 48) {
+        mainRoads.add(`${x},${y}`);
+      }
+      // Horizontal main roads
+      if (y === 6 || y === 14 || y === 22 || y === 30 || y === 38 || y === 46) {
+        mainRoads.add(`${x},${y}`);
+      }
+      // Some diagonal/curved roads
+      if (Math.abs(x - y) < 2 && x > 10 && x < 40 && y > 10 && y < 40) {
+        if (rand() > 0.5) mainRoads.add(`${x},${y}`);
+      }
+    }
+  }
+
+  // Dirt roads (connecting areas)
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      if ((x === 4 || x === 12 || x === 24 || x === 34 || x === 44) && rand() > 0.3) {
+        dirtRoads.add(`${x},${y}`);
+      }
+      if ((y === 3 || y === 10 || y === 18 || y === 26 || y === 34 || y === 42) && rand() > 0.3) {
+        dirtRoads.add(`${x},${y}`);
+      }
+    }
+  }
+
+  // Water areas (river/ponds)
+  const waterAreas: { x: number; y: number; radius: number }[] = [
+    { x: 45, y: 12, radius: 3 },
+    { x: 10, y: 35, radius: 2 },
+    { x: 30, y: 25, radius: 2 },
+  ];
 
   for (let y = 0; y < height; y++) {
     const row: CellType[] = [];
     for (let x = 0; x < width; x++) {
-      // Create some patterns
-      const rand = Math.random();
+      const key = `${x},${y}`;
+      const r = rand();
 
-      // Roads - horizontal and vertical main roads
-      if (y === Math.floor(height / 2) || x === Math.floor(width / 2)) {
-        row.push('road');
+      // Grass border (2 tiles thick on edges)
+      if (x < 2 || x >= width - 2 || y < 2 || y >= height - 2) {
+        row.push('grass');
+        continue;
       }
-      // Secondary roads
-      else if (y % 8 === 0 || x % 10 === 0) {
-        row.push('road');
+
+      // Check for water
+      let isWater = false;
+      for (const area of waterAreas) {
+        const dist = Math.sqrt((x - area.x) ** 2 + (y - area.y) ** 2);
+        if (dist < area.radius) {
+          isWater = true;
+          break;
+        }
       }
-      // Water - create a river/lake area
-      else if (x > width * 0.7 && y > height * 0.6 && rand > 0.3) {
+      if (isWater) {
         row.push('water');
+        continue;
       }
-      // Forest area
-      else if (x < width * 0.25 && y < height * 0.4 && rand > 0.4) {
-        row.push('tree');
+
+      // Roads
+      if (mainRoads.has(key)) {
+        row.push('road');
+        continue;
       }
-      // Buildings - scattered in urban areas
-      else if (rand > 0.7 && x > width * 0.2 && x < width * 0.8) {
+
+      // Dirt roads
+      if (dirtRoads.has(key)) {
+        row.push('dirt_road');
+        continue;
+      }
+
+      // Special buildings (rare purple)
+      if (r > 0.995) {
+        row.push('special');
+        continue;
+      }
+
+      // Owned properties (scattered cyan) - ~3% of tiles
+      if (r > 0.97) {
+        row.push('owned');
+        continue;
+      }
+
+      // Light buildings (tan areas) - create clusters
+      const lightBuildingZone = (
+        (x > 15 && x < 25 && y > 8 && y < 18) ||
+        (x > 35 && x < 45 && y > 25 && y < 35) ||
+        (x > 5 && x < 15 && y > 20 && y < 30)
+      );
+      if (lightBuildingZone && r > 0.3) {
+        row.push('building_light');
+        continue;
+      }
+
+      // Regular red buildings (majority)
+      if (r > 0.15) {
         row.push('building');
+        continue;
       }
-      // Random trees
-      else if (rand > 0.85) {
-        row.push('tree');
+
+      // Some scattered light buildings elsewhere
+      if (r > 0.08) {
+        row.push('building_light');
+        continue;
       }
-      // Empty space
-      else {
-        row.push('empty');
-      }
+
+      // Remaining is grass patches within city
+      row.push('grass');
     }
     map.push(row);
   }
@@ -58,67 +152,149 @@ function generateMap(width: number, height: number): CellType[][] {
 }
 
 export default function Home() {
-  const [gridSize] = useState({ width: 50, height: 30 });
+  const [gridSize] = useState({ width: 55, height: 50 });
   const [map, setMap] = useState<CellType[][]>([]);
   const [hoveredCell, setHoveredCell] = useState<{ x: number; y: number } | null>(null);
+  const [seed, setSeed] = useState(12345);
+  const [zoom, setZoom] = useState(1);
 
-  // Generate map on mount and when size changes
+  // Generate map on mount and when seed changes
   useEffect(() => {
-    setMap(generateMap(gridSize.width, gridSize.height));
-  }, [gridSize.width, gridSize.height]);
+    setMap(generateMap(gridSize.width, gridSize.height, seed));
+  }, [gridSize.width, gridSize.height, seed]);
 
-  // Regenerate map
+  // Regenerate with new seed
   const regenerateMap = useCallback(() => {
-    setMap(generateMap(gridSize.width, gridSize.height));
-  }, [gridSize.width, gridSize.height]);
+    setSeed(Math.floor(Math.random() * 100000));
+  }, []);
+
+  // Calculate stats
+  const stats = useMemo(() => {
+    const flat = map.flat();
+    return {
+      buildings: flat.filter(c => c === 'building' || c === 'building_light').length,
+      owned: flat.filter(c => c === 'owned').length,
+      water: flat.filter(c => c === 'water').length,
+      roads: flat.filter(c => c === 'road' || c === 'dirt_road').length,
+    };
+  }, [map]);
+
+  // Cell size based on zoom
+  const cellSize = Math.max(4, Math.floor(8 * zoom));
 
   return (
-    <div className="h-full flex flex-col">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Notropolis</h1>
-          <p className="text-gray-600 dark:text-gray-400">City Overview Map</p>
+    <div className="h-screen w-screen overflow-hidden bg-gray-900 flex flex-col">
+      {/* Floating Header */}
+      <div className="absolute top-4 left-4 right-4 z-20 flex items-center justify-between pointer-events-none">
+        <div className="pointer-events-auto bg-black/70 backdrop-blur-sm rounded-lg px-4 py-2">
+          <h1 className="text-xl font-bold text-white">Notropolis</h1>
+          <p className="text-gray-400 text-sm">City Map</p>
         </div>
-        <div className="flex items-center gap-4">
-          {/* Legend */}
-          <div className="flex items-center gap-3 bg-white dark:bg-gray-800 rounded-lg px-4 py-2 shadow-sm">
-            {Object.entries(cellColors).map(([type, color]) => (
-              <div key={type} className="flex items-center gap-1.5">
-                <div
-                  className="w-4 h-4 rounded-sm"
-                  style={{ backgroundColor: color }}
-                />
-                <span className="text-xs text-gray-600 dark:text-gray-400 capitalize">{type}</span>
-              </div>
-            ))}
+
+        <div className="flex items-center gap-3 pointer-events-auto">
+          {/* Zoom controls */}
+          <div className="bg-black/70 backdrop-blur-sm rounded-lg px-3 py-2 flex items-center gap-2">
+            <button
+              onClick={() => setZoom(z => Math.max(0.5, z - 0.25))}
+              className="w-8 h-8 flex items-center justify-center text-white hover:bg-white/20 rounded"
+            >
+              −
+            </button>
+            <span className="text-white text-sm w-12 text-center">{Math.round(zoom * 100)}%</span>
+            <button
+              onClick={() => setZoom(z => Math.min(2, z + 0.25))}
+              className="w-8 h-8 flex items-center justify-center text-white hover:bg-white/20 rounded"
+            >
+              +
+            </button>
           </div>
+
           <button
             onClick={regenerateMap}
-            className="px-4 py-2 bg-primary-600 hover:bg-primary-700 text-white rounded-lg text-sm font-medium transition-colors"
+            className="bg-black/70 backdrop-blur-sm hover:bg-black/80 text-white rounded-lg px-4 py-2 text-sm font-medium transition-colors"
           >
-            Regenerate
+            New Map
           </button>
         </div>
       </div>
 
-      {/* Map Container */}
-      <div className="flex-1 bg-white dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden relative">
-        {/* Grid Map */}
+      {/* Legend - bottom left */}
+      <div className="absolute bottom-4 left-4 z-20 bg-black/70 backdrop-blur-sm rounded-lg px-4 py-3 pointer-events-auto">
+        <div className="text-white text-xs font-semibold mb-2">Legend</div>
+        <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+          {[
+            { type: 'building', label: 'Buildings' },
+            { type: 'building_light', label: 'Light Buildings' },
+            { type: 'road', label: 'Roads' },
+            { type: 'dirt_road', label: 'Dirt Tracks' },
+            { type: 'water', label: 'Water' },
+            { type: 'owned', label: 'Your Properties' },
+            { type: 'special', label: 'Special' },
+            { type: 'grass', label: 'Grass' },
+          ].map(({ type, label }) => (
+            <div key={type} className="flex items-center gap-2">
+              <div
+                className="w-3 h-3 rounded-sm border border-white/30"
+                style={{ backgroundColor: cellColors[type as CellType] }}
+              />
+              <span className="text-gray-300 text-xs">{label}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Stats - bottom right */}
+      <div className="absolute bottom-4 right-4 z-20 bg-black/70 backdrop-blur-sm rounded-lg px-4 py-3 pointer-events-auto">
+        <div className="text-white text-xs font-semibold mb-2">Stats</div>
+        <div className="space-y-1 text-xs">
+          <div className="flex justify-between gap-6">
+            <span className="text-gray-400">Buildings:</span>
+            <span className="text-white font-mono">{stats.buildings.toLocaleString()}</span>
+          </div>
+          <div className="flex justify-between gap-6">
+            <span className="text-cyan-400">Your Properties:</span>
+            <span className="text-cyan-400 font-mono">{stats.owned}</span>
+          </div>
+          <div className="flex justify-between gap-6">
+            <span className="text-gray-400">Roads:</span>
+            <span className="text-white font-mono">{stats.roads}</span>
+          </div>
+          <div className="flex justify-between gap-6">
+            <span className="text-gray-400">Water:</span>
+            <span className="text-white font-mono">{stats.water}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Coordinates overlay */}
+      {hoveredCell && (
+        <div className="absolute top-20 left-4 z-20 bg-black/70 backdrop-blur-sm text-white px-3 py-2 rounded-lg text-sm">
+          <span className="font-mono">
+            ({hoveredCell.x}, {hoveredCell.y})
+          </span>
+          <span className="ml-2 text-gray-400">
+            {map[hoveredCell.y]?.[hoveredCell.x] || 'unknown'}
+          </span>
+        </div>
+      )}
+
+      {/* Map Container - Full screen */}
+      <div className="flex-1 overflow-auto flex items-center justify-center p-8">
         <div
-          className="absolute inset-0 overflow-auto p-4"
+          className="rounded-lg overflow-hidden shadow-2xl"
           style={{
             display: 'grid',
-            gridTemplateColumns: `repeat(${gridSize.width}, 1fr)`,
-            gridTemplateRows: `repeat(${gridSize.height}, 1fr)`,
+            gridTemplateColumns: `repeat(${gridSize.width}, ${cellSize}px)`,
+            gridTemplateRows: `repeat(${gridSize.height}, ${cellSize}px)`,
             gap: '1px',
-            backgroundColor: '#1f2937',
+            backgroundColor: '#1a1a1a',
           }}
         >
           {map.flat().map((cell, index) => {
             const x = index % gridSize.width;
             const y = Math.floor(index / gridSize.width);
             const isHovered = hoveredCell?.x === x && hoveredCell?.y === y;
+            const isOwned = cell === 'owned';
 
             return (
               <div
@@ -127,45 +303,13 @@ export default function Home() {
                 style={{
                   backgroundColor: cellColors[cell],
                   opacity: isHovered ? 0.7 : 1,
-                  transform: isHovered ? 'scale(1.1)' : 'scale(1)',
-                  zIndex: isHovered ? 10 : 1,
+                  boxShadow: isOwned ? 'inset 0 0 0 1px rgba(255,255,255,0.5)' : 'none',
                 }}
                 onMouseEnter={() => setHoveredCell({ x, y })}
                 onMouseLeave={() => setHoveredCell(null)}
-                title={`${cell} (${x}, ${y})`}
               />
             );
           })}
-        </div>
-
-        {/* Coordinates overlay */}
-        {hoveredCell && (
-          <div className="absolute bottom-4 left-4 bg-black/70 text-white px-3 py-1.5 rounded-lg text-sm">
-            <span className="font-mono">
-              ({hoveredCell.x}, {hoveredCell.y}) - {map[hoveredCell.y]?.[hoveredCell.x] || 'unknown'}
-            </span>
-          </div>
-        )}
-
-        {/* Stats overlay */}
-        <div className="absolute top-4 right-4 bg-black/70 text-white px-4 py-3 rounded-lg text-sm space-y-1">
-          <div className="font-semibold mb-2">Map Stats</div>
-          <div className="flex justify-between gap-8">
-            <span className="text-gray-300">Buildings:</span>
-            <span className="font-mono">{map.flat().filter(c => c === 'building').length}</span>
-          </div>
-          <div className="flex justify-between gap-8">
-            <span className="text-gray-300">Trees:</span>
-            <span className="font-mono">{map.flat().filter(c => c === 'tree').length}</span>
-          </div>
-          <div className="flex justify-between gap-8">
-            <span className="text-gray-300">Water:</span>
-            <span className="font-mono">{map.flat().filter(c => c === 'water').length}</span>
-          </div>
-          <div className="flex justify-between gap-8">
-            <span className="text-gray-300">Roads:</span>
-            <span className="font-mono">{map.flat().filter(c => c === 'road').length}</span>
-          </div>
         </div>
       </div>
     </div>
