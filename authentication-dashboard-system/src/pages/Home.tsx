@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 
 // Grid cell types matching the game screenshot
 type CellType = 'grass' | 'building' | 'building_light' | 'road' | 'dirt_road' | 'water' | 'owned' | 'special';
@@ -157,6 +157,23 @@ export default function Home() {
   const [hoveredCell, setHoveredCell] = useState<{ x: number; y: number } | null>(null);
   const [seed, setSeed] = useState(12345);
   const [zoom, setZoom] = useState(1);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
+
+  // Measure container size
+  useEffect(() => {
+    const updateSize = () => {
+      if (containerRef.current) {
+        setContainerSize({
+          width: containerRef.current.clientWidth,
+          height: containerRef.current.clientHeight,
+        });
+      }
+    };
+    updateSize();
+    window.addEventListener('resize', updateSize);
+    return () => window.removeEventListener('resize', updateSize);
+  }, []);
 
   // Generate map on mount and when seed changes
   useEffect(() => {
@@ -179,8 +196,19 @@ export default function Home() {
     };
   }, [map]);
 
-  // Cell size based on zoom
-  const cellSize = Math.max(4, Math.floor(8 * zoom));
+  // Calculate cell size to fill available space
+  const baseCellSize = useMemo(() => {
+    if (containerSize.width === 0 || containerSize.height === 0) return 10;
+    // Account for gaps (1px per cell)
+    const availableWidth = containerSize.width - 32; // padding
+    const availableHeight = containerSize.height - 32;
+    const cellWidth = availableWidth / gridSize.width;
+    const cellHeight = availableHeight / gridSize.height;
+    // Use the smaller dimension to fit, minimum 6px
+    return Math.max(6, Math.floor(Math.min(cellWidth, cellHeight)));
+  }, [containerSize, gridSize]);
+
+  const cellSize = Math.max(4, Math.floor(baseCellSize * zoom));
 
   return (
     <div className="h-screen w-screen overflow-hidden bg-gray-900 flex flex-col">
@@ -279,7 +307,10 @@ export default function Home() {
       )}
 
       {/* Map Container - Full screen */}
-      <div className="flex-1 overflow-auto flex items-center justify-center p-8">
+      <div
+        ref={containerRef}
+        className="flex-1 overflow-auto flex items-center justify-center p-4"
+      >
         <div
           className="rounded-lg overflow-hidden shadow-2xl"
           style={{

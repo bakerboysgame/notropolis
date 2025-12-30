@@ -158,7 +158,7 @@ export default function Sidebar() {
 
   // Calculate glass effect styles
   const glassOpacity = transparency / 100
-  const blurAmount = Math.max(0, (100 - transparency) / 5) // 0-20px blur
+  const blurAmount = Math.max(0, (100 - transparency) / 12) // 0-7px blur (subtle)
 
   // Combine navigation items based on user role, feature flags, and page access permissions
   const allNavigation: NavigationItem[] = useMemo(() => {
