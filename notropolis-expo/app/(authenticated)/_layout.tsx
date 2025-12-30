@@ -1,6 +1,7 @@
 import { Stack, Redirect } from 'expo-router';
 import { View, ActivityIndicator } from 'react-native';
 import { useAuth } from '../../contexts/AuthContext';
+import { ResponsiveLayout } from '../../components/layout/ResponsiveLayout';
 
 export default function AuthenticatedLayout() {
   const { user, isInitialized } = useAuth();
@@ -19,10 +20,12 @@ export default function AuthenticatedLayout() {
     return <Redirect href="/login" />;
   }
 
-  // User is authenticated, render protected routes
+  // User is authenticated, render protected routes with responsive layout
   return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="home" />
-    </Stack>
+    <ResponsiveLayout>
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="home" />
+      </Stack>
+    </ResponsiveLayout>
   );
 }
