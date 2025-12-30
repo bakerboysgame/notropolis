@@ -120,7 +120,7 @@ export function LoginPage() {
             alt="Company Logo"
           />
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Welcome back</h1>
-          <p className="text-[#666666] dark:text-gray-400">Sign in to your dashboard</p>
+          <p className="text-[#666666] dark:text-gray-400">It's a dog eat dog world in there.....</p>
         </div>
 
         <LoginForm
