@@ -199,13 +199,13 @@ export default function Home() {
   // Calculate cell size to fill available space
   const baseCellSize = useMemo(() => {
     if (containerSize.width === 0 || containerSize.height === 0) return 10;
-    // Account for gaps (1px per cell)
-    const availableWidth = containerSize.width - 32; // padding
-    const availableHeight = containerSize.height - 32;
+    // Account for padding and gaps (1px gap between each cell = gridSize - 1 gaps)
+    const availableWidth = containerSize.width - 32 - (gridSize.width - 1); // padding + gaps
+    const availableHeight = containerSize.height - 32 - (gridSize.height - 1);
     const cellWidth = availableWidth / gridSize.width;
     const cellHeight = availableHeight / gridSize.height;
-    // Use the smaller dimension to fit, minimum 6px
-    return Math.max(6, Math.floor(Math.min(cellWidth, cellHeight)));
+    // Use the smaller dimension to fit, minimum 4px for mobile
+    return Math.max(4, Math.floor(Math.min(cellWidth, cellHeight)));
   }, [containerSize, gridSize]);
 
   const cellSize = Math.max(4, Math.floor(baseCellSize * zoom));

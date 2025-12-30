@@ -13,8 +13,7 @@ import {
   ScrollText,
   Sun,
   Moon,
-  LucideIcon,
-  Menu
+  LucideIcon
 } from 'lucide-react'
 import { clsx } from 'clsx'
 import { useAuth } from '../contexts/AuthContext'
@@ -158,7 +157,7 @@ export default function Sidebar() {
 
   // Calculate glass effect styles
   const glassOpacity = transparency / 100
-  const blurAmount = Math.max(0, (100 - transparency) / 12) // 0-7px blur (subtle)
+  const blurAmount = Math.max(0, (100 - transparency) / 25) // 0-3px blur (very subtle)
 
   // Combine navigation items based on user role, feature flags, and page access permissions
   const allNavigation: NavigationItem[] = useMemo(() => {
@@ -197,26 +196,25 @@ export default function Sidebar() {
     WebkitBackdropFilter: blurAmount > 0 ? `blur(${blurAmount}px) saturate(180%)` : 'none',
   }
 
-  // Minimized state: just show a small tab with arrow (or hamburger on mobile)
+  // Minimized state: just show a small tab with arrow
   if (isMinimized) {
     return (
       <div className="h-screen relative">
         <button
           onClick={expandFromMinimized}
           className={clsx(
-            'absolute left-0 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 shadow-md transition-all duration-300 group z-50',
-            // Mobile: larger hamburger button at top
+            'absolute left-0 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border border-gray-200 dark:border-gray-600 shadow-md transition-all duration-300 group z-50 rounded-r-lg',
+            // Mobile: smaller, positioned below header area
             isMobile
-              ? 'top-4 rounded-r-xl p-3 active:bg-gray-100 dark:active:bg-gray-700'
-              : 'top-8 rounded-r-lg p-2 hover:bg-gray-50 dark:hover:bg-gray-700 hover:pl-4'
+              ? 'top-20 p-2 active:bg-gray-100 dark:active:bg-gray-700'
+              : 'top-8 p-2 hover:bg-gray-50 dark:hover:bg-gray-700 hover:pl-4'
           )}
           aria-label="Open menu"
         >
-          {isMobile ? (
-            <Menu className="w-6 h-6 text-gray-600 dark:text-gray-400" />
-          ) : (
-            <ChevronRight className="w-5 h-5 text-gray-600 dark:text-gray-400 group-hover:text-primary-600 transition-colors" />
-          )}
+          <ChevronRight className={clsx(
+            'text-gray-600 dark:text-gray-400 transition-colors',
+            isMobile ? 'w-5 h-5' : 'w-5 h-5 group-hover:text-primary-600'
+          )} />
         </button>
       </div>
     )
@@ -260,8 +258,7 @@ export default function Sidebar() {
       >
         <ChevronLeft className={clsx(
           'text-gray-600 dark:text-gray-400 transition-transform duration-300',
-          isMobile ? 'w-5 h-5' : 'w-4 h-4',
-          isCollapsed && !isMobile && 'rotate-180'
+          isMobile ? 'w-5 h-5' : 'w-4 h-4'
         )} />
       </button>
 
@@ -292,7 +289,7 @@ export default function Sidebar() {
                 <Link
                   to={item.href}
                   className={clsx(
-                    'flex items-center rounded-lg font-medium transition-colors',
+                    'flex items-center rounded-lg font-medium transition-all',
                     // Mobile: larger touch targets (min 44px)
                     isMobile
                       ? 'space-x-4 px-4 py-3.5 text-base'
@@ -300,8 +297,8 @@ export default function Sidebar() {
                         ? 'justify-center px-3 py-3 text-sm'
                         : 'space-x-3 px-3 py-2 text-sm',
                     isActive
-                      ? 'bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400 border-r-2 border-primary-600'
-                      : 'text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100 active:bg-gray-100 dark:active:bg-gray-700',
+                      ? 'bg-white/40 dark:bg-white/10 backdrop-blur-sm text-primary-700 dark:text-primary-300 shadow-sm border border-white/30 dark:border-white/10'
+                      : 'text-gray-600 dark:text-gray-400 hover:bg-white/20 dark:hover:bg-white/5 hover:text-gray-900 dark:hover:text-gray-100 active:bg-white/30 dark:active:bg-white/10',
                     isMasterAdminItem ? 'relative' : ''
                   )}
                   title={isCollapsed && !isMobile ? item.name : undefined}
@@ -335,13 +332,15 @@ export default function Sidebar() {
           <button
             onClick={() => navigate('/settings')}
             className={clsx(
-              'flex items-center rounded-lg font-medium transition-colors text-gray-600 dark:text-gray-400 hover:bg-gray-50/50 dark:hover:bg-gray-800/50 hover:text-gray-900 dark:hover:text-gray-100 active:bg-gray-100 dark:active:bg-gray-700',
+              'flex items-center rounded-lg font-medium transition-all',
               isMobile
                 ? 'space-x-3 px-4 py-3 text-base'
                 : isCollapsed
                   ? 'p-3 text-sm'
                   : 'space-x-2 px-3 py-2 text-sm',
-              location.pathname === '/settings' && 'bg-primary-50/80 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400'
+              location.pathname === '/settings'
+                ? 'bg-white/40 dark:bg-white/10 backdrop-blur-sm text-primary-700 dark:text-primary-300 shadow-sm border border-white/30 dark:border-white/10'
+                : 'text-gray-600 dark:text-gray-400 hover:bg-white/20 dark:hover:bg-white/5 hover:text-gray-900 dark:hover:text-gray-100 active:bg-white/30 dark:active:bg-white/10'
             )}
             title="Settings"
           >
@@ -353,7 +352,7 @@ export default function Sidebar() {
           <button
             onClick={toggleTheme}
             className={clsx(
-              'flex items-center rounded-lg font-medium transition-colors text-gray-600 dark:text-gray-400 hover:bg-gray-50/50 dark:hover:bg-gray-800/50 hover:text-gray-900 dark:hover:text-gray-100 active:bg-gray-100 dark:active:bg-gray-700',
+              'flex items-center rounded-lg font-medium transition-all text-gray-600 dark:text-gray-400 hover:bg-white/20 dark:hover:bg-white/5 hover:text-gray-900 dark:hover:text-gray-100 active:bg-white/30 dark:active:bg-white/10',
               isMobile
                 ? 'p-3'
                 : isCollapsed
