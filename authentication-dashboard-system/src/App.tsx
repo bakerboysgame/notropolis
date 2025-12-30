@@ -113,6 +113,15 @@ function App() {
                   </ProtectedPageRoute>
                 </ProtectedRoute>
               } />
+              <Route path="/home" element={
+                <ProtectedRoute>
+                  <ProtectedPageRoute pageKey="dashboard">
+                    <Layout>
+                      <Home />
+                    </Layout>
+                  </ProtectedPageRoute>
+                </ProtectedRoute>
+              } />
               <Route path="/headquarters" element={
                 <ProtectedRoute>
                   <ProtectedPageRoute pageKey="headquarters">

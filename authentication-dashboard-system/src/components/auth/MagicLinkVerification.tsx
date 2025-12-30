@@ -22,7 +22,7 @@ export function MagicLinkVerification() {
         }
 
         await verifyMagicLink(token);
-        navigate('/dashboard');
+        navigate('/home');
       } catch (error: any) {
         setError(error.message || 'Failed to verify magic link');
         setLoading(false);

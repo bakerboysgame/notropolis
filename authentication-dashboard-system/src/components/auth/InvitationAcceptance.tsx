@@ -45,7 +45,7 @@ export function InvitationAcceptance() {
           // Force page reload to initialize AuthContext with new token
           // This is the same approach as magic link login
           setTimeout(() => {
-            window.location.href = '/dashboard';
+            window.location.href = '/home';
           }, 1500);
         } else {
           throw new Error('Invalid response from server');

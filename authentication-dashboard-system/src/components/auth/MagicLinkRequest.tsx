@@ -54,7 +54,7 @@ export function MagicLinkRequest({ email, onCancel, onSuccess }: MagicLinkReques
         if (onSuccess) {
           onSuccess();
         } else {
-          navigate('/dashboard');
+          navigate('/home');
         }
       }, 1000);
     } catch (error: any) {
