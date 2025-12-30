@@ -25,7 +25,7 @@ export default {
     
     // Enhanced CORS headers for SaaS dashboard
     const corsHeaders = {
-      'Access-Control-Allow-Origin': env.CORS_ORIGIN || 'https://dashboard.your-domain.com',
+      'Access-Control-Allow-Origin': env.CORS_ORIGIN || 'https://bossmode.notropolis.net',
       'Access-Control-Allow-Methods': 'GET, POST, PATCH, PUT, DELETE, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type, Authorization',
       'Access-Control-Allow-Credentials': 'true',
@@ -354,7 +354,7 @@ async function handleLogin(request, authService, emailService, env, securityServ
 
   // CORS headers
   const corsHeaders = {
-    'Access-Control-Allow-Origin': env.CORS_ORIGIN || 'https://dashboard.your-domain.com',
+    'Access-Control-Allow-Origin': env.CORS_ORIGIN || 'https://bossmode.notropolis.net',
     'Access-Control-Allow-Methods': 'GET, POST, PATCH, PUT, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Access-Control-Allow-Credentials': 'true',
@@ -426,7 +426,7 @@ async function handleMagicLinkRequest(request, authService, emailService, env, s
 
   // CORS headers
   const corsHeaders = {
-    'Access-Control-Allow-Origin': env.CORS_ORIGIN || 'https://dashboard.your-domain.com',
+    'Access-Control-Allow-Origin': env.CORS_ORIGIN || 'https://bossmode.notropolis.net',
     'Access-Control-Allow-Methods': 'GET, POST, PATCH, PUT, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Access-Control-Allow-Credentials': 'true',
@@ -473,7 +473,7 @@ async function handleMagicLinkVerify(request, authService, env) {
   
   // CORS headers
   const corsHeaders = {
-    'Access-Control-Allow-Origin': env.CORS_ORIGIN || 'https://dashboard.your-domain.com',
+    'Access-Control-Allow-Origin': env.CORS_ORIGIN || 'https://bossmode.notropolis.net',
     'Access-Control-Allow-Methods': 'GET, POST, PATCH, PUT, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Access-Control-Allow-Credentials': 'true',
@@ -511,7 +511,7 @@ async function handleMagicLinkCodeVerify(request, authService, env, securityServ
 
   // CORS headers
   const corsHeaders = {
-    'Access-Control-Allow-Origin': env.CORS_ORIGIN || 'https://dashboard.your-domain.com',
+    'Access-Control-Allow-Origin': env.CORS_ORIGIN || 'https://bossmode.notropolis.net',
     'Access-Control-Allow-Methods': 'GET, POST, PATCH, PUT, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Access-Control-Allow-Credentials': 'true',
@@ -554,7 +554,7 @@ async function handle2FARequest(request, authService, env, securityService, clie
 
   // CORS headers
   const corsHeaders = {
-    'Access-Control-Allow-Origin': env.CORS_ORIGIN || 'https://dashboard.your-domain.com',
+    'Access-Control-Allow-Origin': env.CORS_ORIGIN || 'https://bossmode.notropolis.net',
     'Access-Control-Allow-Methods': 'GET, POST, PATCH, PUT, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Access-Control-Allow-Credentials': 'true',
@@ -593,7 +593,7 @@ async function handle2FAVerify(request, authService, env, securityService, clien
 
   // CORS headers
   const corsHeaders = {
-    'Access-Control-Allow-Origin': env.CORS_ORIGIN || 'https://dashboard.your-domain.com',
+    'Access-Control-Allow-Origin': env.CORS_ORIGIN || 'https://bossmode.notropolis.net',
     'Access-Control-Allow-Methods': 'GET, POST, PATCH, PUT, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Access-Control-Allow-Credentials': 'true',
@@ -636,7 +636,7 @@ async function handle2FAVerify(request, authService, env, securityService, clien
 async function handleAcceptInvitation(request, authService, db, env) {
   // CORS headers
   const corsHeaders = {
-    'Access-Control-Allow-Origin': env.CORS_ORIGIN || 'https://dashboard.your-domain.com',
+    'Access-Control-Allow-Origin': env.CORS_ORIGIN || 'https://bossmode.notropolis.net',
     'Access-Control-Allow-Methods': 'GET, POST, PATCH, PUT, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Access-Control-Allow-Credentials': 'true',
@@ -816,7 +816,7 @@ async function handleAcceptInvitation(request, authService, db, env) {
 async function handleTOTPSetup(request, authService, env) {
   // CORS headers
   const corsHeaders = {
-    'Access-Control-Allow-Origin': env.CORS_ORIGIN || 'https://dashboard.your-domain.com',
+    'Access-Control-Allow-Origin': env.CORS_ORIGIN || 'https://bossmode.notropolis.net',
     'Access-Control-Allow-Methods': 'GET, POST, PATCH, PUT, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Access-Control-Allow-Credentials': 'true',
@@ -865,7 +865,7 @@ async function handleTOTPVerifySetup(request, authService, env) {
   
   // CORS headers
   const corsHeaders = {
-    'Access-Control-Allow-Origin': env.CORS_ORIGIN || 'https://dashboard.your-domain.com',
+    'Access-Control-Allow-Origin': env.CORS_ORIGIN || 'https://bossmode.notropolis.net',
     'Access-Control-Allow-Methods': 'GET, POST, PATCH, PUT, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Access-Control-Allow-Credentials': 'true',
@@ -922,7 +922,7 @@ async function handleTOTPVerifySetup(request, authService, env) {
 async function handleTOTPDisable(request, authService, env) {
   // CORS headers
   const corsHeaders = {
-    'Access-Control-Allow-Origin': env.CORS_ORIGIN || 'https://dashboard.your-domain.com',
+    'Access-Control-Allow-Origin': env.CORS_ORIGIN || 'https://bossmode.notropolis.net',
     'Access-Control-Allow-Methods': 'GET, POST, PATCH, PUT, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Access-Control-Allow-Credentials': 'true',
@@ -969,7 +969,7 @@ async function handleTOTPDisable(request, authService, env) {
 async function handleTOTPStatus(request, authService, env) {
   // CORS headers
   const corsHeaders = {
-    'Access-Control-Allow-Origin': env.CORS_ORIGIN || 'https://dashboard.your-domain.com',
+    'Access-Control-Allow-Origin': env.CORS_ORIGIN || 'https://bossmode.notropolis.net',
     'Access-Control-Allow-Methods': 'GET, POST, PATCH, PUT, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Access-Control-Allow-Credentials': 'true',
@@ -1037,7 +1037,7 @@ async function handleMagicLinkRedirect(request, authService, env) {
 async function handleGetProfile(request, authService) {
   // CORS headers
   const corsHeaders = {
-    'Access-Control-Allow-Origin': authService.env.CORS_ORIGIN || 'https://dashboard.your-domain.com',
+    'Access-Control-Allow-Origin': authService.env.CORS_ORIGIN || 'https://bossmode.notropolis.net',
     'Access-Control-Allow-Methods': 'GET, POST, PATCH, PUT, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Access-Control-Allow-Credentials': 'true',
@@ -1082,7 +1082,7 @@ async function handleGetProfile(request, authService) {
 async function handleGetSessions(request, authService, db) {
   // CORS headers
   const corsHeaders = {
-    'Access-Control-Allow-Origin': authService.env.CORS_ORIGIN || 'https://dashboard.your-domain.com',
+    'Access-Control-Allow-Origin': authService.env.CORS_ORIGIN || 'https://bossmode.notropolis.net',
     'Access-Control-Allow-Methods': 'GET, POST, PATCH, PUT, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Access-Control-Allow-Credentials': 'true',
@@ -1128,7 +1128,7 @@ async function handleGetSessions(request, authService, db) {
 async function handleDeleteSession(request, authService, db) {
   // CORS headers
   const corsHeaders = {
-    'Access-Control-Allow-Origin': authService.env.CORS_ORIGIN || 'https://dashboard.your-domain.com',
+    'Access-Control-Allow-Origin': authService.env.CORS_ORIGIN || 'https://bossmode.notropolis.net',
     'Access-Control-Allow-Methods': 'GET, POST, PATCH, PUT, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Access-Control-Allow-Credentials': 'true',
@@ -1194,7 +1194,7 @@ async function handleDeleteSession(request, authService, db) {
 async function handleDeleteAllSessions(request, authService, db) {
   // CORS headers
   const corsHeaders = {
-    'Access-Control-Allow-Origin': authService.env.CORS_ORIGIN || 'https://dashboard.your-domain.com',
+    'Access-Control-Allow-Origin': authService.env.CORS_ORIGIN || 'https://bossmode.notropolis.net',
     'Access-Control-Allow-Methods': 'GET, POST, PATCH, PUT, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Access-Control-Allow-Credentials': 'true',
@@ -1353,7 +1353,7 @@ async function handleDisableMagicLink(request, authService) {
 
 async function handleSetPassword(request, authService, db, env) {
   const corsHeaders = {
-    'Access-Control-Allow-Origin': env.CORS_ORIGIN || 'https://dashboard.your-domain.com',
+    'Access-Control-Allow-Origin': env.CORS_ORIGIN || 'https://bossmode.notropolis.net',
     'Access-Control-Allow-Methods': 'GET, POST, PATCH, PUT, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Access-Control-Allow-Credentials': 'true'
@@ -1565,7 +1565,7 @@ async function handleVerificationRequest(request, authService, emailService, cli
 async function handleVerifyEmail(request, authService, db, env) {
   // CORS headers
   const corsHeaders = {
-    'Access-Control-Allow-Origin': env.CORS_ORIGIN || 'https://dashboard.your-domain.com',
+    'Access-Control-Allow-Origin': env.CORS_ORIGIN || 'https://bossmode.notropolis.net',
     'Access-Control-Allow-Methods': 'GET, POST, PATCH, PUT, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Access-Control-Allow-Credentials': 'true',
@@ -1641,7 +1641,7 @@ async function handleCompanyRoutes(request, authService, db) {
   
   // CORS headers
   const corsHeaders = {
-    'Access-Control-Allow-Origin': authService.env.CORS_ORIGIN || 'https://dashboard.your-domain.com',
+    'Access-Control-Allow-Origin': authService.env.CORS_ORIGIN || 'https://bossmode.notropolis.net',
     'Access-Control-Allow-Methods': 'GET, POST, PATCH, PUT, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Access-Control-Max-Age': '86400',
@@ -2662,7 +2662,7 @@ async function handleUserRoutes(request, authService, db, emailService) {
   
   // CORS headers
   const corsHeaders = {
-    'Access-Control-Allow-Origin': authService.env.CORS_ORIGIN || 'https://dashboard.your-domain.com',
+    'Access-Control-Allow-Origin': authService.env.CORS_ORIGIN || 'https://bossmode.notropolis.net',
     'Access-Control-Allow-Methods': 'GET, POST, PATCH, PUT, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
     'Access-Control-Max-Age': '86400',

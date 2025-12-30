@@ -15,8 +15,8 @@ import {
 // Email sender configuration
 // These will be overridden by environment variables if set
 const DEFAULT_SENDER = {
-  name: 'Your App',
-  email: 'app@your-domain.com'
+  name: 'Notropolis',
+  email: 'no-reply@notropolis.net'
 };
 
 export class EmailService {

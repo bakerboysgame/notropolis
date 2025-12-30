@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { api, apiHelpers } from '../services/api';
-import { Smartphone, Monitor, XCircle, Shield, AlertTriangle, Lock, Key } from 'lucide-react';
+import { Smartphone, Monitor, XCircle, Shield, AlertTriangle, Lock, Key, LogOut } from 'lucide-react';
 import { useToast } from '../components/ui/Toast';
 import { useAuth } from '../contexts/AuthContext';
 import { useFeatureFlags } from '../hooks/useFeatureFlags';
@@ -23,6 +24,7 @@ interface Session {
 }
 
 export default function Settings() {
+  const navigate = useNavigate();
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -34,9 +36,22 @@ export default function Settings() {
   const [showSetPasswordModal, setShowSetPasswordModal] = useState(false);
   const [hasPassword, setHasPassword] = useState(false);
   const [passwordStatusLoading, setPasswordStatusLoading] = useState(true);
+  const [loggingOut, setLoggingOut] = useState(false);
   const { showToast } = useToast();
-  const { getTOTPStatus, disableTOTP } = useAuth();
+  const { getTOTPStatus, disableTOTP, logout } = useAuth();
   const { twoFactorEnabled } = useFeatureFlags();
+
+  const handleLogout = async () => {
+    try {
+      setLoggingOut(true);
+      await logout();
+      navigate('/login');
+    } catch (error) {
+      console.error('Logout failed:', error);
+      showToast('Failed to logout', 'error');
+      setLoggingOut(false);
+    }
+  };
 
   useEffect(() => {
     fetchSessions();
@@ -530,6 +545,32 @@ export default function Settings() {
           <p className="text-gray-600 dark:text-gray-400">
             Account settings and preferences will be available here soon.
           </p>
+        </div>
+      </div>
+
+      {/* Logout Section */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
+        <div className="p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Sign Out</h2>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                Sign out of your account on this device
+              </p>
+            </div>
+            <button
+              onClick={handleLogout}
+              disabled={loggingOut}
+              className="flex items-center space-x-2 px-4 py-2 text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loggingOut ? (
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+              ) : (
+                <LogOut className="w-4 h-4" />
+              )}
+              <span>{loggingOut ? 'Signing out...' : 'Sign Out'}</span>
+            </button>
+          </div>
         </div>
       </div>
 

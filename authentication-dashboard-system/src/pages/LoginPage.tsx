@@ -117,7 +117,7 @@ export function LoginPage() {
           <img
             className="w-full px-4 h-auto object-contain mb-4 rounded-lg"
             src={CompanyLogo}
-            alt="Company Logo"
+            alt="Notropolis"
           />
           <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Welcome back</h1>
           <p className="text-[#666666] dark:text-gray-400">It's a dog eat dog world in there.....</p>

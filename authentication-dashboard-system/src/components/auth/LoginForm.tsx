@@ -3,6 +3,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useFeatureFlags } from '../../hooks/useFeatureFlags';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
+import { api } from '../../services/api';
 
 interface LoginFormProps {
   onSuccess?: () => void;
@@ -18,9 +19,31 @@ export function LoginForm({ onSuccess, on2FARequired, onMagicLinkRequested }: Lo
   const [loading, setLoading] = useState(false);
   const [magicLinkLoading, setMagicLinkLoading] = useState(false);
   const [error, setError] = useState('');
+  const [forgotPasswordLoading, setForgotPasswordLoading] = useState(false);
+  const [forgotPasswordSent, setForgotPasswordSent] = useState(false);
 
   // Check if email is valid
   const isValidEmail = email && email.includes('@') && email.includes('.');
+
+  const handleForgotPassword = async () => {
+    if (!isValidEmail) {
+      setError('Please enter a valid email address');
+      return;
+    }
+
+    setForgotPasswordLoading(true);
+    setError('');
+
+    try {
+      await api.post('/api/auth/password-reset/request', { email });
+      setForgotPasswordSent(true);
+    } catch (error: any) {
+      // Don't reveal if email exists or not for security
+      setForgotPasswordSent(true);
+    } finally {
+      setForgotPasswordLoading(false);
+    }
+  };
 
   const handleMagicLinkClick = async () => {
     setMagicLinkLoading(true);
@@ -104,65 +127,10 @@ export function LoginForm({ onSuccess, on2FARequired, onMagicLinkRequested }: Lo
         />
       </div>
 
-      {/* Show Magic Link and Password options when email is valid */}
+      {/* Show Password and Magic Link options when email is valid */}
       {isValidEmail && (
         <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
-          {/* Magic Link Option - Prominent (only if feature enabled) */}
-          {magicLinkEnabled && (
-            <>
-              <button
-                type="button"
-                onClick={handleMagicLinkClick}
-                disabled={magicLinkLoading}
-                className="w-full p-4 text-left border-2 border-[#0194F9] bg-[#0194F9] bg-opacity-5 dark:bg-opacity-10 rounded-lg hover:bg-opacity-10 dark:hover:bg-opacity-20 transition-colors group disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <svg className="w-5 h-5 text-[#0194F9]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                      </svg>
-                      <p className="text-sm font-semibold text-[#0194F9]">
-                        {magicLinkLoading ? 'Sending magic link...' : 'Login Using Magic Link'}
-                      </p>
-                    </div>
-                    <p className="text-xs text-[#666666] dark:text-gray-400 mt-1 ml-7">
-                      {magicLinkLoading ? 'Please wait...' : 'Secure code sent to your email • No password required'}
-                    </p>
-                  </div>
-                  {magicLinkLoading ? (
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-[#0194F9] ml-3"></div>
-                  ) : (
-                    <svg
-                      className="w-5 h-5 text-[#0194F9] ml-3 flex-shrink-0"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M9 5l7 7-7 7"
-                      />
-                    </svg>
-                  )}
-                </div>
-              </button>
-
-              {/* OR Divider */}
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-gray-200 dark:border-gray-600"></div>
-                </div>
-                <div className="relative flex justify-center text-xs">
-                  <span className="px-2 bg-white dark:bg-gray-800 text-[#666666] dark:text-gray-400">OR</span>
-                </div>
-              </div>
-            </>
-          )}
-
-          {/* Password Input */}
+          {/* Password Input - Right under email */}
           <div>
             <Input
               type="password"
@@ -172,16 +140,6 @@ export function LoginForm({ onSuccess, on2FARequired, onMagicLinkRequested }: Lo
               onChange={(e) => setPassword(e.target.value)}
               required
             />
-            {magicLinkEnabled && (
-              <p className="mt-2 text-xs text-[#666666] dark:text-gray-400 flex items-start gap-1">
-                <svg className="w-4 h-4 text-[#0194F9] flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <span>
-                  <strong>No password?</strong> Use the "Login Using Magic Link" option above or <button type="button" onClick={handleMagicLinkClick} className="text-[#0194F9] hover:underline font-medium">click here</button>.
-                </span>
-              </p>
-            )}
           </div>
 
           {error && (
@@ -198,14 +156,69 @@ export function LoginForm({ onSuccess, on2FARequired, onMagicLinkRequested }: Lo
               Forgot password?
             </button>
           </div>
-          
+
           <Button
             type="submit"
             loading={loading}
             fullWidth
           >
-            {loading ? 'Signing in...' : 'Sign in with password'}
+            {loading ? 'Signing in...' : 'Sign in'}
           </Button>
+
+          {/* Magic Link Option - At bottom (only if feature enabled) */}
+          {magicLinkEnabled && (
+            <>
+              {/* OR Divider */}
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-gray-200 dark:border-gray-600"></div>
+                </div>
+                <div className="relative flex justify-center text-xs">
+                  <span className="px-2 bg-white dark:bg-gray-800 text-[#666666] dark:text-gray-400">OR</span>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleMagicLinkClick}
+                disabled={magicLinkLoading}
+                className="w-full p-4 text-left border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors group disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <svg className="w-5 h-5 text-[#666666] dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                      </svg>
+                      <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        {magicLinkLoading ? 'Sending magic link...' : 'Sign in with Magic Link'}
+                      </p>
+                    </div>
+                    <p className="text-xs text-[#666666] dark:text-gray-400 mt-1 ml-7">
+                      {magicLinkLoading ? 'Please wait...' : 'No password required • Code sent to your email'}
+                    </p>
+                  </div>
+                  {magicLinkLoading ? (
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-[#666666] ml-3"></div>
+                  ) : (
+                    <svg
+                      className="w-5 h-5 text-[#666666] dark:text-gray-400 ml-3 flex-shrink-0"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M9 5l7 7-7 7"
+                      />
+                    </svg>
+                  )}
+                </div>
+              </button>
+            </>
+          )}
         </div>
       )}
     </form>

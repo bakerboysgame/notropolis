@@ -339,7 +339,7 @@ export class SecurityService {
       "style-src 'self' 'unsafe-inline'", // Needed for styled components
       "img-src 'self' data: https:",
       "font-src 'self' data:",
-      "connect-src 'self' https://api.your-new-domain.com https://api.brevo.com",
+      "connect-src 'self' https://api.notropolis.net https://api.brevo.com",
       "frame-ancestors 'none'",
       "base-uri 'self'",
       "form-action 'self'"
@@ -352,8 +352,8 @@ export class SecurityService {
     // CORS headers if origin provided
     if (corsOrigin) {
       const allowedOrigins = [
-        'https://dashboard.your-domain.com',
-        'https://your-domain.com',
+        'https://bossmode.notropolis.net',
+        'https://notropolis.net',
         'http://localhost:5173', // Vite dev server
         'http://localhost:3000'  // Alternative dev port
       ];
@@ -361,7 +361,7 @@ export class SecurityService {
       if (allowedOrigins.includes(corsOrigin)) {
         headers.set('Access-Control-Allow-Origin', corsOrigin);
       } else {
-        headers.set('Access-Control-Allow-Origin', 'https://dashboard.your-domain.com');
+        headers.set('Access-Control-Allow-Origin', 'https://bossmode.notropolis.net');
       }
       
       headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');

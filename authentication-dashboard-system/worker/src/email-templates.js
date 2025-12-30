@@ -1,4 +1,4 @@
-// Email Template Builder Functions for Your App
+// Email Template Builder Functions for Notropolis
 // Uses inline HTML instead of Brevo template IDs
 
 /**
@@ -182,7 +182,7 @@ export function buildInvitationEmail({ brandName, firstName, companyName, invita
 
     <p><a href="${invitationLink}" target="_blank">${invitationLink}</a></p><br>
 
-    <p>This link expires in 72 hours. Contact Your App at support@your-domain.com for a new link after this time.</p><br>
+    <p>This link expires in 72 hours. Contact Notropolis at support@notropolis.net for a new link after this time.</p><br>
 
     <p>If you weren't expecting this invitation, you can safely ignore this email.</p><br>
 

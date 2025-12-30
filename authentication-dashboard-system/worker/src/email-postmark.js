@@ -25,8 +25,8 @@ export class EmailService {
 
   // Get sender configuration from environment
   getSenderAddress() {
-    const name = this.env.SENDER_NAME || 'Your App';
-    const email = this.env.SENDER_EMAIL || 'app@your-domain.com';
+    const name = this.env.SENDER_NAME || 'Notropolis';
+    const email = this.env.SENDER_EMAIL || 'no-reply@notropolis.net';
     return `${name} <${email}>`;
   }
 

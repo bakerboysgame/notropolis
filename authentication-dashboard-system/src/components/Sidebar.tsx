@@ -1,4 +1,4 @@
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useState, useMemo } from 'react'
 import {
   LayoutDashboard,
@@ -9,12 +9,15 @@ import {
   ChevronRight,
   Users,
   ScrollText,
+  Sun,
+  Moon,
   LucideIcon
 } from 'lucide-react'
 import { clsx } from 'clsx'
 import { useAuth } from '../contexts/AuthContext'
 import { usePermissions } from '../contexts/PermissionsContext'
 import { useFeatureFlags } from '../hooks/useFeatureFlags'
+import { useTheme } from '../contexts/ThemeContext'
 
 interface NavigationItem {
   name: string;
@@ -28,14 +31,15 @@ const navigation: NavigationItem[] = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard, pageKey: 'dashboard' },
   { name: 'Analytics', href: '/analytics', icon: BarChart3, pageKey: 'analytics' },
   { name: 'Reports', href: '/reports', icon: FileText, pageKey: 'reports' },
-  { name: 'Settings', href: '/settings', icon: Settings, pageKey: 'settings' },
 ]
 
 export default function Sidebar() {
   const location = useLocation()
+  const navigate = useNavigate()
   const { user } = useAuth()
   const { hasPageAccess } = usePermissions()
   const { companyManagementEnabled, auditLoggingEnabled } = useFeatureFlags()
+  const { theme, toggleTheme } = useTheme()
   const [isCollapsed, setIsCollapsed] = useState(() => {
     const saved = localStorage.getItem('sidebarState')
     return saved === 'collapsed'
@@ -100,23 +104,13 @@ export default function Sidebar() {
 
       {/* Logo and Brand */}
       <div className={clsx('p-6', isCollapsed && 'px-4')}>
-        <div className={clsx('flex items-center relative', isCollapsed ? 'justify-center h-12' : 'justify-start h-10')}>
-          {/* Collapsed logo (icon) - replace with your logo */}
+        <div className={clsx('flex items-center justify-center', isCollapsed ? 'h-12' : 'h-10')}>
           <img
-            src="/logo-icon.png"
-            alt="Logo"
+            src="/facelogo.png"
+            alt="Notropolis"
             className={clsx(
-              'h-auto w-10 object-contain dark:brightness-110 transition-opacity duration-300 ease-in-out absolute',
-              isCollapsed ? 'opacity-100' : 'opacity-0 pointer-events-none'
-            )}
-          />
-          {/* Expanded logo (full) - replace with your logo */}
-          <img
-            src="/logo.png"
-            alt="Logo"
-            className={clsx(
-              'h-auto max-h-10 object-contain dark:brightness-110 transition-opacity duration-300 ease-in-out',
-              isCollapsed ? 'opacity-0 pointer-events-none' : 'opacity-100'
+              'object-contain dark:brightness-110 transition-all duration-300 ease-in-out',
+              isCollapsed ? 'w-10 h-10' : 'w-10 h-10'
             )}
           />
         </div>
@@ -164,6 +158,41 @@ export default function Sidebar() {
           })}
         </ul>
       </nav>
+
+      {/* Bottom Section - Settings and Dark Mode */}
+      <div className={clsx('absolute bottom-0 left-0 right-0 border-t border-gray-200 dark:border-gray-700 p-4', isCollapsed && 'px-2')}>
+        <div className={clsx('flex items-center', isCollapsed ? 'flex-col space-y-3' : 'justify-between')}>
+          {/* Settings Button */}
+          <button
+            onClick={() => navigate('/settings')}
+            className={clsx(
+              'flex items-center rounded-lg text-sm font-medium transition-colors text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100',
+              isCollapsed ? 'p-3' : 'space-x-2 px-3 py-2',
+              location.pathname === '/settings' && 'bg-primary-50 dark:bg-primary-900/30 text-primary-700 dark:text-primary-400'
+            )}
+            title="Settings"
+          >
+            <Settings className={clsx('flex-shrink-0', isCollapsed ? 'w-6 h-6' : 'w-5 h-5')} />
+            {!isCollapsed && <span>Settings</span>}
+          </button>
+
+          {/* Dark Mode Toggle */}
+          <button
+            onClick={toggleTheme}
+            className={clsx(
+              'flex items-center rounded-lg text-sm font-medium transition-colors text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-900 dark:hover:text-gray-100',
+              isCollapsed ? 'p-3' : 'p-2'
+            )}
+            title={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
+          >
+            {theme === 'light' ? (
+              <Moon className={clsx('flex-shrink-0', isCollapsed ? 'w-6 h-6' : 'w-5 h-5')} />
+            ) : (
+              <Sun className={clsx('flex-shrink-0', isCollapsed ? 'w-6 h-6' : 'w-5 h-5')} />
+            )}
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
