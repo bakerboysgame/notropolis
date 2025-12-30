@@ -29,7 +29,7 @@ export function ResponsiveLayout({ children }: ResponsiveLayoutProps) {
           onPress={() => setMobileMenuOpen(true)}
           className="p-2 -ml-2"
         >
-          <Text className="text-2xl text-white">☰</Text>
+          <Text className="text-xl text-white">▶</Text>
         </TouchableOpacity>
         <Text className="text-lg font-bold text-white">Notropolis</Text>
         <View className="w-10" />

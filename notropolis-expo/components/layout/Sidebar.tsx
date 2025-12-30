@@ -121,12 +121,12 @@ export function Sidebar({ isMobile = false, onClose }: SidebarProps) {
   // Minimized state - just show expand button
   if (isMinimized && !isMobile) {
     return (
-      <View className="h-full relative">
+      <View className="h-full relative" style={{ width: 0 }}>
         <TouchableOpacity
           onPress={() => setSidebarState('expanded')}
-          className="absolute left-0 top-8 bg-neutral-800/90 border border-neutral-700 rounded-r-lg p-2 z-50"
+          className="absolute left-0 top-8 bg-neutral-800/90 border border-neutral-700 rounded-r-lg px-1.5 py-2 z-50"
         >
-          <Text className="text-neutral-400 text-lg">▶</Text>
+          <Text className="text-neutral-400 text-sm">▶</Text>
         </TouchableOpacity>
       </View>
     );
