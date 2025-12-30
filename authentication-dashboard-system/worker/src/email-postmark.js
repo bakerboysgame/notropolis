@@ -116,6 +116,8 @@ export class EmailService {
       });
 
       // Send email via Postmark API
+      // Note: TrackLinks disabled for magic links because Postmark's click tracking
+      // interferes with the API redirect chain (302 redirects)
       const postmarkPayload = {
         From: this.getSenderAddress(),
         To: email,
@@ -124,7 +126,7 @@ export class EmailService {
         TextBody: this.stripHtml(template.htmlContent),
         MessageStream: 'outbound',
         TrackOpens: true,
-        TrackLinks: 'HtmlAndText',
+        TrackLinks: 'None',
         Metadata: {
           email_type: 'magic_link',
           company_id: companyId || '',
