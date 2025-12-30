@@ -17,7 +17,7 @@ export const config = {
   // Feature flags - Enable/disable features for your deployment
   FEATURES: {
     MAGIC_LINK: true,           // Passwordless login via email
-    TWO_FACTOR: true,           // Email-based 2FA (mandatory for password login)
+    TWO_FACTOR: true,           // 2FA support (optional - users can enable TOTP in settings)
     TOTP: true,                 // Optional authenticator app 2FA
     COMPANY_MANAGEMENT: true,   // Multi-tenant company management
     AUDIT_LOGGING: true,        // Comprehensive audit logging

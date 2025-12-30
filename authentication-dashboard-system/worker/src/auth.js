@@ -78,30 +78,32 @@ export class AuthService {
 
     // Check if user is soft-deleted and reactivate
     if (user.deleted_at) {
-      await this.db.updateUser(user.id, { 
-        deleted_at: null, 
+      await this.db.updateUser(user.id, {
+        deleted_at: null,
         is_active: 1,
         updated_at: new Date().toISOString()
       });
     }
 
-    // MANDATORY 2FA: All logins require email-based 2FA code
-    // Password validation successful - now require 2FA code
-    return {
-      requiresTwoFactor: true,
-      userId: user.id,
-      email: user.email,
-      user: {
-        id: user.id,
+    // OPTIONAL 2FA: Only require 2FA if user has TOTP enabled
+    // Check if user has TOTP 2FA enabled
+    if (user.two_factor_enabled) {
+      // User has 2FA enabled - require verification
+      return {
+        requiresTwoFactor: true,
+        userId: user.id,
         email: user.email,
-        firstName: user.first_name,
-        lastName: user.last_name,
-        companyId: user.company_id
-      }
-    };
+        user: {
+          id: user.id,
+          email: user.email,
+          firstName: user.first_name,
+          lastName: user.last_name,
+          companyId: user.company_id
+        }
+      };
+    }
 
-    // NOTE: The actual login completion happens in verify2FACode()
-    // This code below is unreachable but kept for reference
+    // No 2FA required - proceed with normal login
     // Generate JWT token with company context
     const isMobile = this.detectMobileClient(request);
     const token = await generateJWT({
