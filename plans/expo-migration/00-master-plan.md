@@ -60,16 +60,15 @@ Migrate the Notropolis frontend from React (Vite) to React Native (Expo) to enab
 
 ## Stage Index
 
-| Stage | Name | Description |
-|-------|------|-------------|
-| 01 | Project Setup | Create Expo project, configure NativeWind |
-| 02 | API & Storage | Port API client, abstract storage |
-| 03 | Auth Context | Port AuthContext with RN-compatible storage |
-| 04 | Login Screen | Build login form with email/password |
-| 05 | Magic Link Flow | Magic link request and code verification |
-| 06 | 2FA Flow | Two-factor authentication screen |
-| 07 | Navigation | Protected routes, auth flow navigation |
-| 08 | Home Screen | Basic authenticated home screen |
+| Stage | Name | Description | Status |
+|-------|------|-------------|--------|
+| 01 | Project Setup | Create Expo project, configure NativeWind | ✅ COMPLETE |
+| 02 | API & Storage | Port API client, abstract storage | ✅ COMPLETE |
+| 03 | Auth Context | Port AuthContext with RN-compatible storage | ✅ COMPLETE |
+| 04 | Login Screen | Build login form with email/password | ✅ COMPLETE |
+| 05 | Magic Link Flow | Magic link request and code verification | ✅ COMPLETE |
+| 06 | 2FA Flow | Two-factor authentication screen | ✅ COMPLETE |
+| 07 | Navigation & Home | Protected routes, auth flow navigation, home screen | ✅ COMPLETE |
 
 ---
 
