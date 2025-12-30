@@ -85,7 +85,7 @@ export default function Sidebar() {
   return (
     <div
       className={clsx(
-        'bg-white dark:bg-gray-900 shadow-sm border-r border-gray-200 dark:border-gray-700 transition-all duration-300 ease-in-out relative',
+        'h-screen flex flex-col bg-white dark:bg-gray-900 shadow-sm border-r border-gray-200 dark:border-gray-700 transition-all duration-300 ease-in-out relative',
         isCollapsed ? 'w-20' : 'w-64'
       )}
     >
@@ -103,7 +103,7 @@ export default function Sidebar() {
       </button>
 
       {/* Logo and Brand */}
-      <div className={clsx('p-6', isCollapsed && 'px-4')}>
+      <div className={clsx('p-6 flex-shrink-0', isCollapsed && 'px-4')}>
         <div className={clsx('flex items-center justify-center', isCollapsed ? 'h-12' : 'h-10')}>
           <img
             src="/facelogo.png"
@@ -115,15 +115,15 @@ export default function Sidebar() {
           />
         </div>
       </div>
-      
-      {/* Navigation */}
-      <nav className={clsx('px-4 pb-4', isCollapsed && 'px-2')}>
+
+      {/* Navigation - grows to fill space */}
+      <nav className={clsx('flex-1 px-4 pb-4 overflow-y-auto', isCollapsed && 'px-2')}>
         <ul className="space-y-2">
           {allNavigation.map((item) => {
             const isActive = location.pathname === item.href
             const isMasterAdminItem = item.requiresMasterAdmin === true
             const ItemIcon = item.icon
-            
+
             return (
               <li key={item.name}>
                 <Link
@@ -160,7 +160,7 @@ export default function Sidebar() {
       </nav>
 
       {/* Bottom Section - Settings and Dark Mode */}
-      <div className={clsx('absolute bottom-0 left-0 right-0 border-t border-gray-200 dark:border-gray-700 p-4', isCollapsed && 'px-2')}>
+      <div className={clsx('flex-shrink-0 border-t border-gray-200 dark:border-gray-700 p-4', isCollapsed && 'px-2')}>
         <div className={clsx('flex items-center', isCollapsed ? 'flex-col space-y-3' : 'justify-between')}>
           {/* Settings Button */}
           <button
