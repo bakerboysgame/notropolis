@@ -9,33 +9,69 @@ export default {
     extend: {
       fontFamily: {
         sans: ['Inter', 'system-ui', 'sans-serif'],
+        mono: ['JetBrains Mono', 'Fira Code', 'monospace'],
       },
       colors: {
+        // Primary Green - Notropolis brand color
         primary: {
-          50: '#E6F4FE',
-          100: '#CCE9FD',
-          200: '#99D3FB',
-          300: '#66BDF9',
-          400: '#33A7F7',
-          500: '#0194F9',
-          600: '#0175C7',
-          700: '#015695',
-          800: '#003863',
-          900: '#001C32',
+          50: '#ECFDF5',
+          100: '#D1FAE5',
+          200: '#A7F3D0',
+          300: '#6EE7B7',
+          400: '#34D399',
+          500: '#10B981',  // Main brand green
+          600: '#059669',
+          700: '#047857',
+          800: '#065F46',
+          900: '#064E3B',
         },
-        secondary: {
-          50: '#f8fafc',
-          100: '#f1f5f9',
-          200: '#e2e8f0',
-          300: '#cbd5e1',
-          400: '#94a3b8',
-          500: '#64748b',
-          600: '#475569',
-          700: '#334155',
-          800: '#1e293b',
-          900: '#0f172a',
-        }
-      }
+        // Neutral grays for dark theme
+        neutral: {
+          0: '#FFFFFF',
+          50: '#FAFAFA',
+          100: '#F5F5F5',
+          200: '#E5E5E5',
+          300: '#D4D4D4',
+          400: '#A3A3A3',
+          500: '#737373',
+          600: '#525252',
+          700: '#404040',
+          800: '#262626',
+          900: '#171717',
+          950: '#0A0A0A',
+        },
+        // Game-specific colors
+        game: {
+          cash: '#10B981',
+          offshore: '#6366F1',
+          prison: '#EF4444',
+          hospital: '#F59E0B',
+          level: '#8B5CF6',
+        },
+      },
+      backgroundColor: {
+        'dark-primary': '#0A0A0A',
+        'dark-secondary': '#171717',
+        'dark-elevated': '#262626',
+      },
+      textColor: {
+        'dark-primary': '#FFFFFF',
+        'dark-secondary': '#A3A3A3',
+        'dark-muted': '#525252',
+      },
+      borderColor: {
+        'dark-default': '#262626',
+        'dark-focus': '#10B981',
+      },
+      boxShadow: {
+        'glow': '0 0 20px rgba(16, 185, 129, 0.3)',
+        'glow-strong': '0 0 30px rgba(16, 185, 129, 0.5)',
+      },
+      backgroundImage: {
+        'gradient-primary': 'linear-gradient(135deg, #10B981 0%, #059669 100%)',
+        'gradient-dark': 'linear-gradient(180deg, #171717 0%, #0A0A0A 100%)',
+        'gradient-glow': 'radial-gradient(circle at center, rgba(16, 185, 129, 0.15) 0%, transparent 70%)',
+      },
     },
   },
   plugins: [],

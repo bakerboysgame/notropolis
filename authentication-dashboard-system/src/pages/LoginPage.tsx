@@ -23,14 +23,14 @@ export function LoginPage() {
   useEffect(() => {
     const token = searchParams.get('token');
     const error = searchParams.get('error');
-    
+
     if (token) {
       // Handle magic link token
       localStorage.setItem('token', token);
       window.location.href = '/home';
       return;
     }
-    
+
     if (error === 'invalid-token' || error === 'invalid-magic-link') {
       // Handle magic link errors
       setMagicLinkMessage('Invalid or expired magic link. Please request a new one.');
@@ -51,10 +51,10 @@ export function LoginPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950">
+      <div className="min-h-screen flex items-center justify-center bg-neutral-50 dark:bg-neutral-950">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#0194F9] mx-auto"></div>
-          <p className="mt-4 text-[#666666] dark:text-gray-400">Loading...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mx-auto"></div>
+          <p className="mt-4 text-neutral-500 dark:text-neutral-400">Loading...</p>
         </div>
       </div>
     );
@@ -62,8 +62,8 @@ export function LoginPage() {
 
   if (showMagicLinkRequest && magicLinkEmail) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950">
-        <div className="max-w-md w-full bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+      <div className="min-h-screen flex items-center justify-center bg-neutral-50 dark:bg-neutral-950">
+        <div className="max-w-md w-full bg-white dark:bg-neutral-900 rounded-lg shadow-lg border border-neutral-200 dark:border-neutral-800 p-6">
           <MagicLinkRequest
             email={magicLinkEmail}
             onCancel={() => {
@@ -79,8 +79,8 @@ export function LoginPage() {
 
   if (show2FA && twoFAData) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950">
-        <div className="max-w-md w-full bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+      <div className="min-h-screen flex items-center justify-center bg-neutral-50 dark:bg-neutral-950">
+        <div className="max-w-md w-full bg-white dark:bg-neutral-900 rounded-lg shadow-lg border border-neutral-200 dark:border-neutral-800 p-6">
           <TwoFactorVerification
             userId={twoFAData.userId}
             email={twoFAData.email}
@@ -98,8 +98,8 @@ export function LoginPage() {
 
   if (showMagicLinkSent) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950">
-        <div className="max-w-md w-full bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+      <div className="min-h-screen flex items-center justify-center bg-neutral-50 dark:bg-neutral-950">
+        <div className="max-w-md w-full bg-white dark:bg-neutral-900 rounded-lg shadow-lg border border-neutral-200 dark:border-neutral-800 p-6">
           <MagicLinkSent
             email=""
             message={magicLinkMessage}
@@ -111,16 +111,16 @@ export function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950">
-      <div className="max-w-md w-full bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
+    <div className="min-h-screen flex items-center justify-center bg-neutral-50 dark:bg-neutral-950">
+      <div className="max-w-md w-full bg-white dark:bg-neutral-900 rounded-lg shadow-lg border border-neutral-200 dark:border-neutral-800 p-6">
         <div className="text-center mb-6">
           <img
             className="w-full px-4 h-auto object-contain mb-4 rounded-lg"
             src={CompanyLogo}
             alt="Notropolis"
           />
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Welcome back</h1>
-          <p className="text-[#666666] dark:text-gray-400">It's a dog eat dog world in there.....</p>
+          <h1 className="text-2xl font-bold text-neutral-900 dark:text-neutral-0">Welcome back</h1>
+          <p className="text-neutral-500 dark:text-neutral-400">It's a dog eat dog world in there.....</p>
         </div>
 
         <LoginForm

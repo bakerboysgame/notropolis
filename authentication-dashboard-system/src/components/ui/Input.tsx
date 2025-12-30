@@ -14,13 +14,15 @@ export function Input({
   className = '',
   ...props
 }: InputProps) {
-  const baseClasses = 'w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-1 transition-colors bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500';
-  const errorClasses = error ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 dark:border-gray-600 focus:ring-[#0194F9] focus:border-[#0194F9]';
+  const baseClasses = 'w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-1 transition-colors bg-white dark:bg-neutral-800 text-neutral-900 dark:text-neutral-0 placeholder-neutral-400 dark:placeholder-neutral-500';
+  const errorClasses = error
+    ? 'border-red-500 focus:ring-red-500'
+    : 'border-neutral-300 dark:border-neutral-700 focus:ring-primary-500 focus:border-primary-500 dark:focus:ring-offset-neutral-900';
 
   return (
     <div className="space-y-1">
       {label && (
-        <label className="block text-sm font-medium text-[#666666] dark:text-gray-400">
+        <label className="block text-sm font-medium text-neutral-600 dark:text-neutral-400">
           {label}
         </label>
       )}
@@ -32,7 +34,7 @@ export function Input({
         <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
       )}
       {helperText && !error && (
-        <p className="text-sm text-[#666666] dark:text-gray-400">{helperText}</p>
+        <p className="text-sm text-neutral-500 dark:text-neutral-400">{helperText}</p>
       )}
     </div>
   );

@@ -7,7 +7,7 @@ interface LayoutProps {
 
 export default function Layout({ children }: LayoutProps) {
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 relative">
+    <div className="min-h-screen bg-neutral-50 dark:bg-neutral-950 relative">
       {/* Main content - full width, extends under sidebar */}
       <main className="min-h-screen">
         {children}

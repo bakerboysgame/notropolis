@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { brand } from '../brand';
 
 // Grid cell types matching the game screenshot
 type CellType = 'grass' | 'building' | 'building_light' | 'road' | 'dirt_road' | 'water' | 'owned' | 'special';
 
-// Colors matching the screenshot
+// Colors using brand palette where appropriate
 const cellColors: Record<CellType, string> = {
   grass: '#4a7c23',           // Green grass (border)
   building: '#c41e1e',        // Red buildings
@@ -11,7 +12,7 @@ const cellColors: Record<CellType, string> = {
   road: '#6b6b6b',            // Grey paved roads
   dirt_road: '#8b7355',       // Brown dirt tracks
   water: '#4a90d9',           // Blue water
-  owned: '#00d4ff',           // Cyan - your properties
+  owned: brand.colors.primary[500],  // Brand green - your properties
   special: '#9b59b6',         // Purple - special buildings
 };
 
@@ -113,7 +114,7 @@ function generateMap(width: number, height: number, seed: number = 12345): CellT
         continue;
       }
 
-      // Owned properties (scattered cyan) - ~3% of tiles
+      // Owned properties (scattered green) - ~3% of tiles
       if (r > 0.97) {
         row.push('owned');
         continue;
@@ -211,27 +212,27 @@ export default function Home() {
   const cellSize = Math.max(4, Math.floor(baseCellSize * zoom));
 
   return (
-    <div className="h-screen w-screen overflow-hidden bg-gray-900 flex flex-col">
+    <div className="h-screen w-screen overflow-hidden bg-neutral-950 flex flex-col">
       {/* Floating Header */}
       <div className="absolute top-4 left-4 right-4 z-20 flex items-center justify-between pointer-events-none">
-        <div className="pointer-events-auto bg-black/70 backdrop-blur-sm rounded-lg px-4 py-2">
+        <div className="pointer-events-auto bg-neutral-950/80 backdrop-blur-sm rounded-lg px-4 py-2 border border-neutral-800">
           <h1 className="text-xl font-bold text-white">Notropolis</h1>
-          <p className="text-gray-400 text-sm">City Map</p>
+          <p className="text-neutral-400 text-sm">City Map</p>
         </div>
 
         <div className="flex items-center gap-3 pointer-events-auto">
           {/* Zoom controls */}
-          <div className="bg-black/70 backdrop-blur-sm rounded-lg px-3 py-2 flex items-center gap-2">
+          <div className="bg-neutral-950/80 backdrop-blur-sm rounded-lg px-3 py-2 flex items-center gap-2 border border-neutral-800">
             <button
               onClick={() => setZoom(z => Math.max(0.5, z - 0.25))}
-              className="w-8 h-8 flex items-center justify-center text-white hover:bg-white/20 rounded"
+              className="w-8 h-8 flex items-center justify-center text-white hover:bg-neutral-800 rounded transition-colors"
             >
               −
             </button>
             <span className="text-white text-sm w-12 text-center">{Math.round(zoom * 100)}%</span>
             <button
               onClick={() => setZoom(z => Math.min(2, z + 0.25))}
-              className="w-8 h-8 flex items-center justify-center text-white hover:bg-white/20 rounded"
+              className="w-8 h-8 flex items-center justify-center text-white hover:bg-neutral-800 rounded transition-colors"
             >
               +
             </button>
@@ -239,7 +240,7 @@ export default function Home() {
 
           <button
             onClick={regenerateMap}
-            className="bg-black/70 backdrop-blur-sm hover:bg-black/80 text-white rounded-lg px-4 py-2 text-sm font-medium transition-colors"
+            className="bg-primary-500 hover:bg-primary-400 text-white rounded-lg px-4 py-2 text-sm font-medium transition-colors"
           >
             New Map
           </button>
@@ -247,7 +248,7 @@ export default function Home() {
       </div>
 
       {/* Legend - bottom left */}
-      <div className="absolute bottom-4 left-4 z-20 bg-black/70 backdrop-blur-sm rounded-lg px-4 py-3 pointer-events-auto">
+      <div className="absolute bottom-4 left-4 z-20 bg-neutral-950/80 backdrop-blur-sm rounded-lg px-4 py-3 pointer-events-auto border border-neutral-800">
         <div className="text-white text-xs font-semibold mb-2">Legend</div>
         <div className="grid grid-cols-2 gap-x-4 gap-y-1">
           {[
@@ -262,33 +263,33 @@ export default function Home() {
           ].map(({ type, label }) => (
             <div key={type} className="flex items-center gap-2">
               <div
-                className="w-3 h-3 rounded-sm border border-white/30"
+                className="w-3 h-3 rounded-sm border border-neutral-700"
                 style={{ backgroundColor: cellColors[type as CellType] }}
               />
-              <span className="text-gray-300 text-xs">{label}</span>
+              <span className="text-neutral-300 text-xs">{label}</span>
             </div>
           ))}
         </div>
       </div>
 
       {/* Stats - bottom right */}
-      <div className="absolute bottom-4 right-4 z-20 bg-black/70 backdrop-blur-sm rounded-lg px-4 py-3 pointer-events-auto">
+      <div className="absolute bottom-4 right-4 z-20 bg-neutral-950/80 backdrop-blur-sm rounded-lg px-4 py-3 pointer-events-auto border border-neutral-800">
         <div className="text-white text-xs font-semibold mb-2">Stats</div>
         <div className="space-y-1 text-xs">
           <div className="flex justify-between gap-6">
-            <span className="text-gray-400">Buildings:</span>
+            <span className="text-neutral-400">Buildings:</span>
             <span className="text-white font-mono">{stats.buildings.toLocaleString()}</span>
           </div>
           <div className="flex justify-between gap-6">
-            <span className="text-cyan-400">Your Properties:</span>
-            <span className="text-cyan-400 font-mono">{stats.owned}</span>
+            <span className="text-primary-400">Your Properties:</span>
+            <span className="text-primary-400 font-mono">{stats.owned}</span>
           </div>
           <div className="flex justify-between gap-6">
-            <span className="text-gray-400">Roads:</span>
+            <span className="text-neutral-400">Roads:</span>
             <span className="text-white font-mono">{stats.roads}</span>
           </div>
           <div className="flex justify-between gap-6">
-            <span className="text-gray-400">Water:</span>
+            <span className="text-neutral-400">Water:</span>
             <span className="text-white font-mono">{stats.water}</span>
           </div>
         </div>
@@ -296,11 +297,11 @@ export default function Home() {
 
       {/* Coordinates overlay */}
       {hoveredCell && (
-        <div className="absolute top-20 left-4 z-20 bg-black/70 backdrop-blur-sm text-white px-3 py-2 rounded-lg text-sm">
+        <div className="absolute top-20 left-4 z-20 bg-neutral-950/80 backdrop-blur-sm text-white px-3 py-2 rounded-lg text-sm border border-neutral-800">
           <span className="font-mono">
             ({hoveredCell.x}, {hoveredCell.y})
           </span>
-          <span className="ml-2 text-gray-400">
+          <span className="ml-2 text-neutral-400">
             {map[hoveredCell.y]?.[hoveredCell.x] || 'unknown'}
           </span>
         </div>
@@ -318,7 +319,7 @@ export default function Home() {
             gridTemplateColumns: `repeat(${gridSize.width}, ${cellSize}px)`,
             gridTemplateRows: `repeat(${gridSize.height}, ${cellSize}px)`,
             gap: '1px',
-            backgroundColor: '#1a1a1a',
+            backgroundColor: brand.colors.neutral[950],
           }}
         >
           {map.flat().map((cell, index) => {
@@ -334,7 +335,7 @@ export default function Home() {
                 style={{
                   backgroundColor: cellColors[cell],
                   opacity: isHovered ? 0.7 : 1,
-                  boxShadow: isOwned ? 'inset 0 0 0 1px rgba(255,255,255,0.5)' : 'none',
+                  boxShadow: isOwned ? `inset 0 0 0 1px ${brand.colors.primary[300]}` : 'none',
                 }}
                 onMouseEnter={() => setHoveredCell({ x, y })}
                 onMouseLeave={() => setHoveredCell(null)}

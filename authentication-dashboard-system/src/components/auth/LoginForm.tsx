@@ -48,7 +48,7 @@ export function LoginForm({ onSuccess, on2FARequired, onMagicLinkRequested }: Lo
   const handleMagicLinkClick = async () => {
     setMagicLinkLoading(true);
     setError('');
-    
+
     try {
       console.log('Sending magic link to:', email);
       const result = await requestMagicLink(email);
@@ -73,7 +73,7 @@ export function LoginForm({ onSuccess, on2FARequired, onMagicLinkRequested }: Lo
 
     try {
       const response = await login(email, password);
-      
+
       if (response.requiresTwoFactor) {
         console.log('LoginForm: Received requiresTwoFactor, calling on2FARequired callback', response);
         // Set isAuthenticating to prevent auth state clearing
@@ -88,19 +88,19 @@ export function LoginForm({ onSuccess, on2FARequired, onMagicLinkRequested }: Lo
         }
         return;
       }
-      
+
       if (response.requiresMagicLink) {
         // This shouldn't happen with the current flow, but handle it just in case
         console.log('LoginForm: Received requiresMagicLink from login response');
         return;
       }
-      
+
       // Normal login success
       onSuccess?.();
     } catch (error: any) {
       // Provide helpful error messages
       const errorMessage = error.message || 'Login failed';
-      
+
       // Check if it's a "no password set" error
       if (errorMessage.includes('No password set') || errorMessage.includes('no password')) {
         setError('No password set for this account. Please use the "Login Using Magic Link" option above instead.');
@@ -150,7 +150,7 @@ export function LoginForm({ onSuccess, on2FARequired, onMagicLinkRequested }: Lo
 
           <div className="text-right">
             {forgotPasswordSent ? (
-              <p className="text-sm text-green-600 dark:text-green-400">
+              <p className="text-sm text-primary-600 dark:text-primary-400">
                 If an account exists, a password reset link has been sent to your email.
               </p>
             ) : (
@@ -158,7 +158,7 @@ export function LoginForm({ onSuccess, on2FARequired, onMagicLinkRequested }: Lo
                 type="button"
                 onClick={handleForgotPassword}
                 disabled={forgotPasswordLoading}
-                className="text-sm text-[#666666] dark:text-gray-400 hover:underline disabled:opacity-50"
+                className="text-sm text-neutral-500 dark:text-neutral-400 hover:text-primary-500 dark:hover:text-primary-400 hover:underline disabled:opacity-50 transition-colors"
               >
                 {forgotPasswordLoading ? 'Sending...' : 'Forgot password?'}
               </button>
@@ -179,10 +179,10 @@ export function LoginForm({ onSuccess, on2FARequired, onMagicLinkRequested }: Lo
               {/* OR Divider */}
               <div className="relative">
                 <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-gray-200 dark:border-gray-600"></div>
+                  <div className="w-full border-t border-neutral-200 dark:border-neutral-700"></div>
                 </div>
                 <div className="relative flex justify-center text-xs">
-                  <span className="px-2 bg-white dark:bg-gray-800 text-[#666666] dark:text-gray-400">OR</span>
+                  <span className="px-2 bg-white dark:bg-neutral-900 text-neutral-500 dark:text-neutral-400">OR</span>
                 </div>
               </div>
 
@@ -190,27 +190,27 @@ export function LoginForm({ onSuccess, on2FARequired, onMagicLinkRequested }: Lo
                 type="button"
                 onClick={handleMagicLinkClick}
                 disabled={magicLinkLoading}
-                className="w-full p-4 text-left border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors group disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full p-4 text-left border border-neutral-200 dark:border-neutral-700 bg-neutral-50 dark:bg-neutral-800/50 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 hover:border-primary-300 dark:hover:border-primary-700 transition-colors group disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
-                      <svg className="w-5 h-5 text-[#666666] dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-5 h-5 text-neutral-500 dark:text-neutral-400 group-hover:text-primary-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                       </svg>
-                      <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      <p className="text-sm font-medium text-neutral-700 dark:text-neutral-300 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">
                         {magicLinkLoading ? 'Sending magic link...' : 'Sign in with Magic Link'}
                       </p>
                     </div>
-                    <p className="text-xs text-[#666666] dark:text-gray-400 mt-1 ml-7">
+                    <p className="text-xs text-neutral-500 dark:text-neutral-400 mt-1 ml-7">
                       {magicLinkLoading ? 'Please wait...' : 'No password required • Code sent to your email'}
                     </p>
                   </div>
                   {magicLinkLoading ? (
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-[#666666] ml-3"></div>
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary-500 ml-3"></div>
                   ) : (
                     <svg
-                      className="w-5 h-5 text-[#666666] dark:text-gray-400 ml-3 flex-shrink-0"
+                      className="w-5 h-5 text-neutral-400 dark:text-neutral-500 ml-3 flex-shrink-0 group-hover:text-primary-500 transition-colors"
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"

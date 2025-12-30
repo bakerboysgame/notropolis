@@ -10,13 +10,13 @@ interface ModalProps {
   closeOnOverlayClick?: boolean;
 }
 
-export function Modal({ 
-  isOpen, 
-  onClose, 
-  title, 
-  children, 
+export function Modal({
+  isOpen,
+  onClose,
+  title,
+  children,
   size = 'md',
-  closeOnOverlayClick = true 
+  closeOnOverlayClick = true
 }: ModalProps) {
   // Handle escape key
   useEffect(() => {
@@ -50,25 +50,25 @@ export function Modal({
     <div className="fixed inset-0 z-50 overflow-y-auto">
       {/* Overlay */}
       <div
-        className="fixed inset-0 bg-black bg-opacity-50 dark:bg-opacity-70 transition-opacity"
+        className="fixed inset-0 bg-black/50 dark:bg-black/70 transition-opacity backdrop-blur-sm"
         onClick={closeOnOverlayClick ? onClose : undefined}
       />
 
       {/* Modal */}
       <div className="flex min-h-full items-center justify-center p-4">
         <div className={clsx(
-          'relative w-full bg-white dark:bg-gray-800 rounded-lg shadow-xl',
+          'relative w-full bg-white dark:bg-neutral-900 rounded-lg shadow-xl border border-neutral-200 dark:border-neutral-800',
           sizeClasses[size]
         )}>
           {/* Header */}
           {title && (
-            <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+            <div className="flex items-center justify-between p-6 border-b border-neutral-200 dark:border-neutral-800">
+              <h3 className="text-lg font-semibold text-neutral-900 dark:text-neutral-0">
                 {title}
               </h3>
               <button
                 onClick={onClose}
-                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                className="text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-300 transition-colors"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />

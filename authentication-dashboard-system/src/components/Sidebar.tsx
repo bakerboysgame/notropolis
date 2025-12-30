@@ -187,10 +187,10 @@ export default function Sidebar() {
     return items.filter(item => hasPageAccess(item.pageKey))
   }, [user?.role, companyManagementEnabled, auditLoggingEnabled, hasPageAccess])
 
-  // Glass effect inline styles
+  // Glass effect inline styles - using brand neutral colors
   const glassStyle = {
     backgroundColor: theme === 'dark'
-      ? `rgba(17, 24, 39, ${glassOpacity})`
+      ? `rgba(10, 10, 10, ${glassOpacity})`  // neutral-950
       : `rgba(255, 255, 255, ${glassOpacity})`,
     backdropFilter: blurAmount > 0 ? `blur(${blurAmount}px) saturate(180%)` : 'none',
     WebkitBackdropFilter: blurAmount > 0 ? `blur(${blurAmount}px) saturate(180%)` : 'none',
@@ -203,17 +203,17 @@ export default function Sidebar() {
         <button
           onClick={expandFromMinimized}
           className={clsx(
-            'absolute left-0 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border border-gray-200 dark:border-gray-600 shadow-md transition-all duration-300 group z-50 rounded-r-lg',
+            'absolute left-0 bg-white/90 dark:bg-neutral-800/90 backdrop-blur-sm border border-neutral-200 dark:border-neutral-700 shadow-md transition-all duration-300 group z-50 rounded-r-lg',
             // Mobile: smaller, positioned below header area
             isMobile
-              ? 'top-20 p-2 active:bg-gray-100 dark:active:bg-gray-700'
-              : 'top-8 p-2 hover:bg-gray-50 dark:hover:bg-gray-700 hover:pl-4'
+              ? 'top-20 p-2 active:bg-neutral-100 dark:active:bg-neutral-700'
+              : 'top-8 p-2 hover:bg-neutral-50 dark:hover:bg-neutral-700 hover:pl-4'
           )}
           aria-label="Open menu"
         >
           <ChevronRight className={clsx(
-            'text-gray-600 dark:text-gray-400 transition-colors',
-            isMobile ? 'w-5 h-5' : 'w-5 h-5 group-hover:text-primary-600'
+            'text-neutral-600 dark:text-neutral-400 transition-colors',
+            isMobile ? 'w-5 h-5' : 'w-5 h-5 group-hover:text-primary-500'
           )} />
         </button>
       </div>
@@ -225,7 +225,7 @@ export default function Sidebar() {
       {/* Mobile backdrop overlay - click to close */}
       {isMobile && isOpen && (
         <div
-          className="fixed inset-0 bg-black/20 backdrop-blur-sm z-30 transition-opacity duration-300"
+          className="fixed inset-0 bg-black/30 backdrop-blur-sm z-30 transition-opacity duration-300"
           onClick={closeSidebar}
           aria-hidden="true"
         />
@@ -234,7 +234,7 @@ export default function Sidebar() {
       <div
         ref={sidebarRef}
         className={clsx(
-          'h-screen flex flex-col shadow-sm border-r border-gray-200/50 dark:border-gray-700/50 transition-all duration-300 ease-in-out relative z-40',
+          'h-screen flex flex-col shadow-lg border-r border-neutral-200/50 dark:border-neutral-800/50 transition-all duration-300 ease-in-out relative z-40',
           isCollapsed ? 'w-20' : 'w-64',
           // On mobile, skip collapsed state - just expanded or minimized
           isMobile && 'w-72'
@@ -248,16 +248,16 @@ export default function Sidebar() {
       <button
         onClick={isMobile ? closeSidebar : cycleState}
         className={clsx(
-          'absolute -right-3 top-8 bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm border border-gray-200 dark:border-gray-600 rounded-full shadow-md transition-colors z-10',
+          'absolute -right-3 top-8 bg-white/90 dark:bg-neutral-800/90 backdrop-blur-sm border border-neutral-200 dark:border-neutral-700 rounded-full shadow-md transition-colors z-10',
           isMobile
-            ? 'p-2 active:bg-gray-100 dark:active:bg-gray-700'
-            : 'p-1 hover:bg-gray-50 dark:hover:bg-gray-700'
+            ? 'p-2 active:bg-neutral-100 dark:active:bg-neutral-700'
+            : 'p-1 hover:bg-neutral-50 dark:hover:bg-neutral-700'
         )}
         aria-label={isMobile ? 'Close menu' : isCollapsed ? 'Minimize sidebar' : 'Collapse sidebar'}
         title={isMobile ? 'Close menu' : isCollapsed ? 'Click to minimize' : 'Click to collapse'}
       >
         <ChevronLeft className={clsx(
-          'text-gray-600 dark:text-gray-400 transition-transform duration-300',
+          'text-neutral-600 dark:text-neutral-400 transition-transform duration-300',
           isMobile ? 'w-5 h-5' : 'w-4 h-4'
         )} />
       </button>
@@ -297,8 +297,8 @@ export default function Sidebar() {
                         ? 'justify-center px-3 py-3 text-sm'
                         : 'space-x-3 px-3 py-2 text-sm',
                     isActive
-                      ? 'bg-white/40 dark:bg-white/10 backdrop-blur-sm text-primary-700 dark:text-primary-300 shadow-sm border border-white/30 dark:border-white/10'
-                      : 'text-gray-600 dark:text-gray-400 hover:bg-white/20 dark:hover:bg-white/5 hover:text-gray-900 dark:hover:text-gray-100 active:bg-white/30 dark:active:bg-white/10',
+                      ? 'bg-primary-500/10 dark:bg-primary-500/20 text-primary-600 dark:text-primary-400 shadow-sm border border-primary-500/20 dark:border-primary-500/30'
+                      : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 hover:text-neutral-900 dark:hover:text-neutral-100 active:bg-neutral-200 dark:active:bg-neutral-700',
                     isMasterAdminItem ? 'relative' : ''
                   )}
                   title={isCollapsed && !isMobile ? item.name : undefined}
@@ -308,14 +308,14 @@ export default function Sidebar() {
                     <span className="whitespace-nowrap flex items-center gap-2">
                       {item.name}
                       {isMasterAdminItem && (
-                        <span className="text-[10px] bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 px-1.5 py-0.5 rounded font-semibold">
+                        <span className="text-[10px] bg-primary-100 dark:bg-primary-900/50 text-primary-700 dark:text-primary-300 px-1.5 py-0.5 rounded font-semibold">
                           ADMIN
                         </span>
                       )}
                     </span>
                   )}
                   {isCollapsed && !isMobile && isMasterAdminItem && (
-                    <span className="absolute -top-1 -right-1 w-2 h-2 bg-purple-500 rounded-full"></span>
+                    <span className="absolute -top-1 -right-1 w-2 h-2 bg-primary-500 rounded-full"></span>
                   )}
                 </Link>
               </li>
@@ -325,7 +325,7 @@ export default function Sidebar() {
       </nav>
 
       {/* Bottom Section - Settings, Dark Mode, and Transparency */}
-      <div className={clsx('flex-shrink-0 border-t border-gray-200/50 dark:border-gray-700/50 p-4', isCollapsed && !isMobile && 'px-2')}>
+      <div className={clsx('flex-shrink-0 border-t border-neutral-200/50 dark:border-neutral-800/50 p-4', isCollapsed && !isMobile && 'px-2')}>
         {/* Settings and Dark Mode Row */}
         <div className={clsx('flex items-center', isCollapsed && !isMobile ? 'flex-col space-y-3' : 'justify-between')}>
           {/* Settings Button */}
@@ -339,8 +339,8 @@ export default function Sidebar() {
                   ? 'p-3 text-sm'
                   : 'space-x-2 px-3 py-2 text-sm',
               location.pathname === '/settings'
-                ? 'bg-white/40 dark:bg-white/10 backdrop-blur-sm text-primary-700 dark:text-primary-300 shadow-sm border border-white/30 dark:border-white/10'
-                : 'text-gray-600 dark:text-gray-400 hover:bg-white/20 dark:hover:bg-white/5 hover:text-gray-900 dark:hover:text-gray-100 active:bg-white/30 dark:active:bg-white/10'
+                ? 'bg-primary-500/10 dark:bg-primary-500/20 text-primary-600 dark:text-primary-400 shadow-sm border border-primary-500/20 dark:border-primary-500/30'
+                : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 hover:text-neutral-900 dark:hover:text-neutral-100 active:bg-neutral-200 dark:active:bg-neutral-700'
             )}
             title="Settings"
           >
@@ -352,7 +352,7 @@ export default function Sidebar() {
           <button
             onClick={toggleTheme}
             className={clsx(
-              'flex items-center rounded-lg font-medium transition-all text-gray-600 dark:text-gray-400 hover:bg-white/20 dark:hover:bg-white/5 hover:text-gray-900 dark:hover:text-gray-100 active:bg-white/30 dark:active:bg-white/10',
+              'flex items-center rounded-lg font-medium transition-all text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 hover:text-neutral-900 dark:hover:text-neutral-100 active:bg-neutral-200 dark:active:bg-neutral-700',
               isMobile
                 ? 'p-3'
                 : isCollapsed
@@ -371,10 +371,10 @@ export default function Sidebar() {
 
         {/* Transparency Slider - Glass Effect Control */}
         {(!isCollapsed || isMobile) && (
-          <div className="mt-4 pt-3 border-t border-gray-200/30 dark:border-gray-700/30">
+          <div className="mt-4 pt-3 border-t border-neutral-200/30 dark:border-neutral-800/30">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xs text-gray-500 dark:text-gray-400">Glass</span>
-              <span className="text-xs text-gray-400 dark:text-gray-500">{100 - transparency}%</span>
+              <span className="text-xs text-neutral-500 dark:text-neutral-400">Glass</span>
+              <span className="text-xs text-neutral-400 dark:text-neutral-500">{100 - transparency}%</span>
             </div>
             <input
               type="range"
@@ -382,10 +382,10 @@ export default function Sidebar() {
               max="100"
               value={transparency}
               onChange={(e) => setTransparency(parseInt(e.target.value, 10))}
-              className="w-full h-1.5 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer accent-primary-500
+              className="w-full h-1.5 bg-neutral-200 dark:bg-neutral-700 rounded-lg appearance-none cursor-pointer accent-primary-500
                 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-3.5 [&::-webkit-slider-thumb]:h-3.5
                 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-primary-500 [&::-webkit-slider-thumb]:shadow-md
-                [&::-webkit-slider-thumb]:hover:bg-primary-600 [&::-webkit-slider-thumb]:transition-colors
+                [&::-webkit-slider-thumb]:hover:bg-primary-400 [&::-webkit-slider-thumb]:transition-colors
                 [&::-moz-range-thumb]:w-3.5 [&::-moz-range-thumb]:h-3.5 [&::-moz-range-thumb]:rounded-full
                 [&::-moz-range-thumb]:bg-primary-500 [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:shadow-md"
               title="Adjust sidebar transparency"
@@ -398,7 +398,7 @@ export default function Sidebar() {
           <div className="mt-3 flex justify-center">
             <button
               onClick={() => setTransparency(prev => prev <= 20 ? 100 : prev - 20)}
-              className="p-2 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-50/50 dark:hover:bg-gray-800/50 transition-colors"
+              className="p-2 rounded-lg text-neutral-500 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
               title={`Glass: ${100 - transparency}% - Click to adjust`}
             >
               <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
