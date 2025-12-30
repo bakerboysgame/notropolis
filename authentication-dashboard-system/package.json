@@ -8,8 +8,8 @@
     "build": "tsc && vite build",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview",
-    "deploy": "wrangler pages deploy ./dist --project-name=your-dashboard",
-    "deploy:preview": "wrangler pages deploy ./dist --project-name=your-dashboard-preview",
+    "deploy": "wrangler pages deploy ./dist --project-name=notropolis-dashboard",
+    "deploy:preview": "wrangler pages deploy ./dist --project-name=notropolis-dashboard-preview",
     "test": "vitest",
     "test:ui": "vitest --ui",
     "test:run": "vitest run"

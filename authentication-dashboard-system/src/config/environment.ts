@@ -1,15 +1,15 @@
-// Environment configuration for Multi-Tenant SaaS Dashboard Template
+// Environment configuration for Notropolis Game Dashboard
 // Update these values for your specific application
 export const config = {
   // API Configuration
   // In production, set VITE_API_BASE_URL in your environment
-  API_BASE_URL: (import.meta as any).env?.VITE_API_BASE_URL || 'https://api.your-domain.com',
+  API_BASE_URL: (import.meta as any).env?.VITE_API_BASE_URL || 'https://api.notropolis.net',
 
   // Application Configuration
   // Customize these for your application
-  APP_NAME: (import.meta as any).env?.VITE_APP_NAME || 'Your App',
+  APP_NAME: (import.meta as any).env?.VITE_APP_NAME || 'Notropolis',
   APP_VERSION: (import.meta as any).env?.VITE_APP_VERSION || '1.0.0',
-  APP_DESCRIPTION: (import.meta as any).env?.VITE_APP_DESCRIPTION || 'Multi-tenant SaaS Dashboard',
+  APP_DESCRIPTION: (import.meta as any).env?.VITE_APP_DESCRIPTION || 'Notropolis Game Dashboard',
 
   // Environment
   ENVIRONMENT: (import.meta as any).env?.VITE_ENVIRONMENT || 'development',
@@ -26,7 +26,7 @@ export const config = {
 
   // Brand colors - Customize for your brand
   COLORS: {
-    PRIMARY: '#0194F9',  // Main brand color
+    PRIMARY: '#0194F9',  // Main brand color - update to Notropolis brand color if needed
     WHITE: '#FFFFFF',
     GRAY: '#666666',
   }

@@ -13,89 +13,89 @@
 #    - wrangler secret put BREVO_API_KEY
 #    - wrangler secret put CORS_ORIGIN
 
-name = "your-app-api"
+name = "notropolis-api"
 compatibility_date = "2024-09-23"
-account_id = "YOUR_CLOUDFLARE_ACCOUNT_ID"
+account_id = "329dc0e016dd5cd512d6566d64d8aa0c"
 main = "index.js"
 
 # ==================== D1 DATABASE ====================
-# Create: wrangler d1 create your-app-database
+# Create: wrangler d1 create notropolis-database
 [[d1_databases]]
 binding = "DB"
-database_name = "your-app-database"
-database_id = "YOUR_D1_DATABASE_ID"
+database_name = "notropolis-database"
+database_id = "9bbea853-8bb6-4e13-8713-e8086fef0528"
 
 # ==================== KV NAMESPACE (Rate Limiting) ====================
 # Create: wrangler kv:namespace create RATE_LIMIT_KV
 # Create preview: wrangler kv:namespace create RATE_LIMIT_KV --preview
 [[kv_namespaces]]
 binding = "RATE_LIMIT_KV"
-id = "YOUR_KV_NAMESPACE_ID"
-preview_id = "YOUR_KV_PREVIEW_NAMESPACE_ID"
+id = "b0bff4ae1eaa4acba02039fb14fb280b"
+preview_id = "e05954baf2de423bb0d94a404832e0f5"
 
 # ==================== R2 STORAGE (Optional) ====================
 # Uncomment if you need file storage
-# Create: wrangler r2 bucket create your-app-data
+# Create: wrangler r2 bucket create notropolis-data
 # [[r2_buckets]]
 # binding = "DATA_BUCKET"
-# bucket_name = "your-app-data"
+# bucket_name = "notropolis-data"
 
 # ==================== ENVIRONMENT VARIABLES ====================
 [vars]
 # Non-sensitive configuration (public)
 # Sensitive variables must be set as secrets in Cloudflare dashboard
 
-# Basic configuration
-JWT_EXPIRES_IN = "24h"
-SESSION_TIMEOUT = "3600000"
-BRAND_NAME = "Your App"
-CLIENT_URL = "https://dashboard.your-domain.com"
-SERVER_URL = "https://api.your-domain.com"
+# Basic configuration - 30 day sessions for game users
+JWT_EXPIRES_IN = "30d"
+SESSION_TIMEOUT = "2592000000"
+BRAND_NAME = "Notropolis"
+CLIENT_URL = "https://dashboard.notropolis.net"
+SERVER_URL = "https://api.notropolis.net"
 
-# Email sender configuration (optional, defaults in code)
-SENDER_NAME = "Your App"
-SENDER_EMAIL = "app@your-domain.com"
+# Email sender configuration
+SENDER_NAME = "Notropolis"
+SENDER_EMAIL = "noreply@notropolis.net"
 
 # Security Rate Limiting Configuration
 RATE_LIMIT_LOGIN = "20"           # Max login attempts per window
 RATE_LIMIT_LOGIN_WINDOW = "900"   # Window in seconds (15 min)
 RATE_LIMIT_API = "100"            # Max API requests per window
 RATE_LIMIT_API_WINDOW = "60"      # Window in seconds (1 min)
-SESSION_IDLE_TIMEOUT = "1800000"  # Idle timeout in ms (30 min)
+SESSION_IDLE_TIMEOUT = "2592000000"  # Idle timeout in ms (30 days to match JWT)
 
 # ==================== PRODUCTION ENVIRONMENT ====================
 [env.production]
-name = "your-app-api"
+name = "notropolis-api"
 
 [env.production.vars]
 ENVIRONMENT = "production"
-JWT_EXPIRES_IN = "24h"
-SESSION_TIMEOUT = "3600000"
-BRAND_NAME = "Your App"
-CLIENT_URL = "https://dashboard.your-domain.com"
-SERVER_URL = "https://api.your-domain.com"
-SENDER_NAME = "Your App"
-SENDER_EMAIL = "app@your-domain.com"
+JWT_EXPIRES_IN = "30d"
+SESSION_TIMEOUT = "2592000000"
+BRAND_NAME = "Notropolis"
+CLIENT_URL = "https://dashboard.notropolis.net"
+SERVER_URL = "https://api.notropolis.net"
+SENDER_NAME = "Notropolis"
+SENDER_EMAIL = "noreply@notropolis.net"
 RATE_LIMIT_LOGIN = "20"
 RATE_LIMIT_LOGIN_WINDOW = "900"
 RATE_LIMIT_API = "100"
 RATE_LIMIT_API_WINDOW = "60"
-SESSION_IDLE_TIMEOUT = "1800000"
+SESSION_IDLE_TIMEOUT = "2592000000"
 
 # D1 Database for production
 [[env.production.d1_databases]]
 binding = "DB"
-database_name = "your-app-database"
-database_id = "YOUR_D1_DATABASE_ID"
+database_name = "notropolis-database"
+database_id = "9bbea853-8bb6-4e13-8713-e8086fef0528"
 
 # KV Namespace for production
 [[env.production.kv_namespaces]]
 binding = "RATE_LIMIT_KV"
-id = "YOUR_KV_NAMESPACE_ID"
+id = "b0bff4ae1eaa4acba02039fb14fb280b"
 
 # ==================== PREVIEW ENVIRONMENT ====================
 [env.preview]
-name = "your-app-api-preview"
+name = "notropolis-api-preview"
 
 [env.preview.vars]
 ENVIRONMENT = "preview"
@@ -103,10 +103,10 @@ ENVIRONMENT = "preview"
 # D1 Database for preview (can use same as production or separate)
 [[env.preview.d1_databases]]
 binding = "DB"
-database_name = "your-app-database"
-database_id = "YOUR_D1_DATABASE_ID"
+database_name = "notropolis-database"
+database_id = "9bbea853-8bb6-4e13-8713-e8086fef0528"
 
 # KV Namespace for preview
 [[env.preview.kv_namespaces]]
 binding = "RATE_LIMIT_KV"
-id = "YOUR_KV_PREVIEW_NAMESPACE_ID"
+id = "e05954baf2de423bb0d94a404832e0f5"
