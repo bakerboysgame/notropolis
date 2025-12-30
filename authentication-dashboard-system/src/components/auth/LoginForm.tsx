@@ -149,12 +149,20 @@ export function LoginForm({ onSuccess, on2FARequired, onMagicLinkRequested }: Lo
           )}
 
           <div className="text-right">
-            <button
-              type="button"
-              className="text-sm text-[#666666] dark:text-gray-400 hover:underline"
-            >
-              Forgot password?
-            </button>
+            {forgotPasswordSent ? (
+              <p className="text-sm text-green-600 dark:text-green-400">
+                If an account exists, a password reset link has been sent to your email.
+              </p>
+            ) : (
+              <button
+                type="button"
+                onClick={handleForgotPassword}
+                disabled={forgotPasswordLoading}
+                className="text-sm text-[#666666] dark:text-gray-400 hover:underline disabled:opacity-50"
+              >
+                {forgotPasswordLoading ? 'Sending...' : 'Forgot password?'}
+              </button>
+            )}
           </div>
 
           <Button
