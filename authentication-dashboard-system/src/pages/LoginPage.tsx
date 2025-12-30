@@ -115,7 +115,7 @@ export function LoginPage() {
       <div className="max-w-md w-full bg-white dark:bg-gray-800 rounded-lg shadow-md p-6">
         <div className="text-center mb-6">
           <img
-            className="mx-auto h-auto max-h-16 object-contain mb-4 dark:brightness-110"
+            className="w-full px-4 h-auto object-contain mb-4 rounded-lg"
             src={CompanyLogo}
             alt="Company Logo"
           />
