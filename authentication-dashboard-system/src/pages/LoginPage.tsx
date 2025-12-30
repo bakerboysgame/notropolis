@@ -5,8 +5,8 @@ import { LoginForm } from '../components/auth/LoginForm';
 import { MagicLinkSent } from '../components/auth/MagicLinkSent';
 import { MagicLinkRequest } from '../components/auth/MagicLinkRequest';
 import { TwoFactorVerification } from '../components/auth/TwoFactorVerification';
-// Use logo from public folder - replace with your logo
-const CompanyLogo = '/logo.png';
+// Use logo from public folder
+const CompanyLogo = '/login.webp';
 
 export function LoginPage() {
   const { user, token, loading } = useAuth();
@@ -136,15 +136,6 @@ export function LoginPage() {
             setShowMagicLinkRequest(true);
           }}
         />
-
-        <div className="mt-6 text-center">
-          <p className="text-sm text-[#666666] dark:text-gray-400">
-            Don't have an account?{' '}
-            <a href="/signup" className="text-[#0194F9] hover:underline">
-              Sign up
-            </a>
-          </p>
-        </div>
       </div>
     </div>
   );
