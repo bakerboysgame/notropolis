@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { brand } from '../brand';
+import { useTheme } from '../contexts/ThemeContext';
 
 // Grid cell types matching the game screenshot
 type CellType = 'grass' | 'building' | 'building_light' | 'road' | 'dirt_road' | 'water' | 'owned' | 'special';
@@ -76,12 +77,6 @@ function generateMap(width: number, height: number, seed: number = 12345): CellT
       const key = `${x},${y}`;
       const r = rand();
 
-      // Grass border (2 tiles thick on edges)
-      if (x < 2 || x >= width - 2 || y < 2 || y >= height - 2) {
-        row.push('grass');
-        continue;
-      }
-
       // Check for water
       let isWater = false;
       for (const area of waterAreas) {
@@ -153,7 +148,9 @@ function generateMap(width: number, height: number, seed: number = 12345): CellT
 }
 
 export default function Home() {
-  const [gridSize] = useState({ width: 55, height: 50 });
+  const { theme } = useTheme();
+  const isDark = theme === 'dark';
+  const [gridSize] = useState({ width: 59, height: 54 });
   const [map, setMap] = useState<CellType[][]>([]);
   const [hoveredCell, setHoveredCell] = useState<{ x: number; y: number } | null>(null);
   const [seed, setSeed] = useState(12345);
@@ -248,28 +245,37 @@ export default function Home() {
     setIsDragging(false);
   }, []);
 
+  // Theme-aware styles
+  const panelBg = isDark ? 'bg-neutral-950/80' : 'bg-white/80';
+  const panelBorder = isDark ? 'border-neutral-800' : 'border-neutral-300';
+  const textPrimary = isDark ? 'text-white' : 'text-neutral-900';
+  const textSecondary = isDark ? 'text-neutral-400' : 'text-neutral-600';
+  const textTertiary = isDark ? 'text-neutral-300' : 'text-neutral-700';
+  const hoverBg = isDark ? 'hover:bg-neutral-800' : 'hover:bg-neutral-200';
+  const gridGapColor = isDark ? brand.colors.neutral[950] : brand.colors.neutral[200];
+
   return (
-    <div className="h-screen w-screen overflow-hidden bg-neutral-950 flex flex-col">
+    <div className={`h-screen w-screen overflow-hidden flex flex-col ${isDark ? 'bg-neutral-950' : 'bg-neutral-100'}`}>
       {/* Floating Header */}
       <div className="absolute top-4 left-4 right-4 z-20 flex items-center justify-between pointer-events-none">
-        <div className="pointer-events-auto bg-neutral-950/80 backdrop-blur-sm rounded-lg px-4 py-2 border border-neutral-800">
-          <h1 className="text-xl font-bold text-white">Notropolis</h1>
-          <p className="text-neutral-400 text-sm">City Map</p>
+        <div className={`pointer-events-auto ${panelBg} backdrop-blur-sm rounded-lg px-4 py-2 border ${panelBorder}`}>
+          <h1 className={`text-xl font-bold ${textPrimary}`}>Notropolis</h1>
+          <p className={`${textSecondary} text-sm`}>City Map</p>
         </div>
 
         <div className="flex items-center gap-3 pointer-events-auto">
           {/* Zoom controls */}
-          <div className="bg-neutral-950/80 backdrop-blur-sm rounded-lg px-3 py-2 flex items-center gap-2 border border-neutral-800">
+          <div className={`${panelBg} backdrop-blur-sm rounded-lg px-3 py-2 flex items-center gap-2 border ${panelBorder}`}>
             <button
               onClick={() => setZoom(z => Math.max(0.5, z - 0.25))}
-              className="w-8 h-8 flex items-center justify-center text-white hover:bg-neutral-800 rounded transition-colors"
+              className={`w-8 h-8 flex items-center justify-center ${textPrimary} ${hoverBg} rounded transition-colors`}
             >
               −
             </button>
-            <span className="text-white text-sm w-12 text-center">{Math.round(zoom * 100)}%</span>
+            <span className={`${textPrimary} text-sm w-12 text-center`}>{Math.round(zoom * 100)}%</span>
             <button
               onClick={() => setZoom(z => Math.min(2, z + 0.25))}
-              className="w-8 h-8 flex items-center justify-center text-white hover:bg-neutral-800 rounded transition-colors"
+              className={`w-8 h-8 flex items-center justify-center ${textPrimary} ${hoverBg} rounded transition-colors`}
             >
               +
             </button>
@@ -285,8 +291,8 @@ export default function Home() {
       </div>
 
       {/* Legend - bottom left */}
-      <div className="absolute bottom-4 left-4 z-20 bg-neutral-950/80 backdrop-blur-sm rounded-lg px-4 py-3 pointer-events-auto border border-neutral-800">
-        <div className="text-white text-xs font-semibold mb-2">Legend</div>
+      <div className={`absolute bottom-4 left-4 z-20 ${panelBg} backdrop-blur-sm rounded-lg px-4 py-3 pointer-events-auto border ${panelBorder}`}>
+        <div className={`${textPrimary} text-xs font-semibold mb-2`}>Legend</div>
         <div className="grid grid-cols-2 gap-x-4 gap-y-1">
           {[
             { type: 'building', label: 'Buildings' },
@@ -300,45 +306,45 @@ export default function Home() {
           ].map(({ type, label }) => (
             <div key={type} className="flex items-center gap-2">
               <div
-                className="w-3 h-3 rounded-sm border border-neutral-700"
+                className={`w-3 h-3 rounded-sm border ${isDark ? 'border-neutral-700' : 'border-neutral-400'}`}
                 style={{ backgroundColor: cellColors[type as CellType] }}
               />
-              <span className="text-neutral-300 text-xs">{label}</span>
+              <span className={`${textTertiary} text-xs`}>{label}</span>
             </div>
           ))}
         </div>
       </div>
 
       {/* Stats - bottom right */}
-      <div className="absolute bottom-4 right-4 z-20 bg-neutral-950/80 backdrop-blur-sm rounded-lg px-4 py-3 pointer-events-auto border border-neutral-800">
-        <div className="text-white text-xs font-semibold mb-2">Stats</div>
+      <div className={`absolute bottom-4 right-4 z-20 ${panelBg} backdrop-blur-sm rounded-lg px-4 py-3 pointer-events-auto border ${panelBorder}`}>
+        <div className={`${textPrimary} text-xs font-semibold mb-2`}>Stats</div>
         <div className="space-y-1 text-xs">
           <div className="flex justify-between gap-6">
-            <span className="text-neutral-400">Buildings:</span>
-            <span className="text-white font-mono">{stats.buildings.toLocaleString()}</span>
+            <span className={textSecondary}>Buildings:</span>
+            <span className={`${textPrimary} font-mono`}>{stats.buildings.toLocaleString()}</span>
           </div>
           <div className="flex justify-between gap-6">
             <span className="text-primary-400">Your Properties:</span>
             <span className="text-primary-400 font-mono">{stats.owned}</span>
           </div>
           <div className="flex justify-between gap-6">
-            <span className="text-neutral-400">Roads:</span>
-            <span className="text-white font-mono">{stats.roads}</span>
+            <span className={textSecondary}>Roads:</span>
+            <span className={`${textPrimary} font-mono`}>{stats.roads}</span>
           </div>
           <div className="flex justify-between gap-6">
-            <span className="text-neutral-400">Water:</span>
-            <span className="text-white font-mono">{stats.water}</span>
+            <span className={textSecondary}>Water:</span>
+            <span className={`${textPrimary} font-mono`}>{stats.water}</span>
           </div>
         </div>
       </div>
 
       {/* Coordinates overlay */}
       {hoveredCell && (
-        <div className="absolute top-20 left-4 z-20 bg-neutral-950/80 backdrop-blur-sm text-white px-3 py-2 rounded-lg text-sm border border-neutral-800">
+        <div className={`absolute top-20 left-4 z-20 ${panelBg} backdrop-blur-sm ${textPrimary} px-3 py-2 rounded-lg text-sm border ${panelBorder}`}>
           <span className="font-mono">
             ({hoveredCell.x}, {hoveredCell.y})
           </span>
-          <span className="ml-2 text-neutral-400">
+          <span className={`ml-2 ${textSecondary}`}>
             {map[hoveredCell.y]?.[hoveredCell.x] || 'unknown'}
           </span>
         </div>
@@ -363,7 +369,7 @@ export default function Home() {
             gridTemplateColumns: `repeat(${gridSize.width}, ${cellSize}px)`,
             gridTemplateRows: `repeat(${gridSize.height}, ${cellSize}px)`,
             gap: '1px',
-            backgroundColor: brand.colors.neutral[950],
+            backgroundColor: gridGapColor,
           }}
         >
           {map.flat().map((cell, index) => {

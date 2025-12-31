@@ -202,15 +202,15 @@ export default function Sidebar() {
       <button
         onClick={expandFromMinimized}
         className={clsx(
-          'fixed left-0 bg-neutral-900/90 backdrop-blur-sm border border-neutral-700 border-l-0 shadow-md transition-all duration-200 z-50 rounded-r-md',
-          // Mobile: positioned below header area
+          'fixed left-0 bg-neutral-900/90 backdrop-blur-sm border border-neutral-700 border-l-0 shadow-md transition-all duration-200 z-50 rounded-r-sm',
+          // Position below header area on both mobile and desktop
           isMobile
-            ? 'top-20 p-1.5 active:bg-neutral-700'
-            : 'top-8 p-1.5 hover:bg-neutral-700'
+            ? 'top-20 px-0.5 py-1 active:bg-neutral-700'
+            : 'top-16 px-0.5 py-1 hover:bg-neutral-700'
         )}
         aria-label="Open menu"
       >
-        <ChevronRight className="w-4 h-4 text-neutral-400" />
+        <ChevronRight className="w-3 h-3 text-neutral-400" />
       </button>
     )
   }
