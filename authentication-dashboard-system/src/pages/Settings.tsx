@@ -1,34 +1,17 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api, apiHelpers } from '../services/api';
-import { Smartphone, Monitor, XCircle, Shield, AlertTriangle, Lock, Key, LogOut } from 'lucide-react';
+import { Shield, AlertTriangle, Lock, Key, LogOut } from 'lucide-react';
 import { useToast } from '../components/ui/Toast';
 import { useAuth } from '../contexts/AuthContext';
 import { useFeatureFlags } from '../hooks/useFeatureFlags';
 import { TOTPSetup } from '../components/auth/TOTPSetup';
 import { Modal } from '../components/ui/Modal';
 import { SetPasswordModal } from '../components/modals/SetPasswordModal';
-
-interface Session {
-  id: string;
-  user_id: string;
-  created_at: string;
-  expires_at: string;
-  is_mobile: number;
-  last_activity: string | null;
-  user_agent?: string;
-  ip_address?: string;
-  browser?: string;
-  os?: string;
-  device_name?: string;
-}
+import { ActiveSessions } from '../components/settings/ActiveSessions';
 
 export default function Settings() {
   const navigate = useNavigate();
-  const [sessions, setSessions] = useState<Session[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [deletingSessionId, setDeletingSessionId] = useState<string | null>(null);
   const [showTOTPSetup, setShowTOTPSetup] = useState(false);
   const [totpEnabled, setTotpEnabled] = useState(false);
   const [totpLoading, setTotpLoading] = useState(false);
@@ -54,7 +37,6 @@ export default function Settings() {
   };
 
   useEffect(() => {
-    fetchSessions();
     fetchTOTPStatus();
     checkPasswordStatus();
   }, []);
@@ -83,84 +65,6 @@ export default function Settings() {
       setRecoveryCodesRemaining(status.recoveryCodesRemaining);
     } catch (error) {
       console.error('Failed to fetch TOTP status:', error);
-    }
-  };
-
-  const fetchSessions = async () => {
-    try {
-      setLoading(true);
-      const response = await api.get('/api/auth/sessions');
-      const data = apiHelpers.handleResponse<Session[]>(response);
-      // Sort by oldest activity first (oldest created_at first)
-      const sorted = data.sort((a, b) =>
-        new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-      );
-      setSessions(sorted);
-      setError(null);
-    } catch (err) {
-      setError('Failed to load active sessions');
-      console.error('Failed to fetch sessions:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    const day = date.getDate();
-    const suffix = ['th', 'st', 'nd', 'rd'][day % 10 > 3 ? 0 : (day % 100 - day % 10 !== 10 ? day % 10 : 0)];
-
-    return date.toLocaleDateString('en-GB', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false
-    }).replace(/^(\d+)/, `${day}${suffix}`);
-  };
-
-  const handleEndSession = async (sessionId: string) => {
-    if (!confirm('Are you sure you want to end this session? You will need to log in again on that device.')) {
-      return;
-    }
-
-    try {
-      setDeletingSessionId(sessionId);
-      await api.delete(`/api/auth/sessions/${sessionId}`);
-      showToast('Session ended successfully', 'success');
-      // Remove the session from the list
-      setSessions(sessions.filter(s => s.id !== sessionId));
-    } catch (err) {
-      showToast('Failed to end session', 'error');
-      console.error('Failed to delete session:', err);
-    } finally {
-      setDeletingSessionId(null);
-    }
-  };
-
-  const handleDeleteAllSessions = async () => {
-    if (!confirm('WARNING: This will log you out of ALL devices (including this one). You will need to log in again. Are you sure?')) {
-      return;
-    }
-
-    try {
-      setLoading(true);
-      await api.delete('/api/auth/sessions/all');
-
-      // CRITICAL: Clear the token from localStorage immediately
-      apiHelpers.clearToken();
-
-      showToast('All sessions ended. Logging you out...', 'success');
-
-      // Wait a moment for the user to see the message, then redirect to login
-      setTimeout(() => {
-        window.location.href = '/login';
-      }, 1500);
-    } catch (err) {
-      showToast('Failed to end all sessions', 'error');
-      console.error('Failed to delete all sessions:', err);
-      setLoading(false);
     }
   };
 
@@ -201,116 +105,7 @@ export default function Settings() {
       </div>
 
       {/* Active Sessions */}
-      <div className="bg-white dark:bg-neutral-900 rounded-lg shadow border border-neutral-200 dark:border-neutral-800">
-        <div className="px-6 py-4 border-b border-neutral-200 dark:border-neutral-800">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-0">Active Sessions</h2>
-              <p className="text-sm text-neutral-600 dark:text-neutral-400 mt-1">
-                Manage and monitor your active login sessions across all devices
-              </p>
-            </div>
-            {sessions.length > 1 && (
-              <button
-                onClick={handleDeleteAllSessions}
-                disabled={loading}
-                className="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
-              >
-                <XCircle className="w-4 h-4" />
-                <span>End All Sessions</span>
-              </button>
-            )}
-          </div>
-        </div>
-
-        <div className="p-6">
-          {loading ? (
-            <div className="text-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500 mx-auto"></div>
-              <p className="text-neutral-500 dark:text-neutral-400 mt-2">Loading sessions...</p>
-            </div>
-          ) : error ? (
-            <div className="text-center py-8">
-              <p className="text-red-500">{error}</p>
-              <button
-                onClick={fetchSessions}
-                className="mt-4 text-primary-500 hover:text-primary-400 font-medium"
-              >
-                Try Again
-              </button>
-            </div>
-          ) : sessions.length === 0 ? (
-            <div className="text-center py-8">
-              <p className="text-neutral-500 dark:text-neutral-400">No active sessions found</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-neutral-200 dark:divide-neutral-800">
-                <thead>
-                  <tr>
-                    <th className="px-6 py-3 bg-neutral-50 dark:bg-neutral-800 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
-                      Device
-                    </th>
-                    <th className="px-6 py-3 bg-neutral-50 dark:bg-neutral-800 text-left text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
-                      Activity
-                    </th>
-                    <th className="px-6 py-3 bg-neutral-50 dark:bg-neutral-800 text-right text-xs font-medium text-neutral-500 dark:text-neutral-400 uppercase tracking-wider">
-                      Action
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white dark:bg-neutral-900 divide-y divide-neutral-200 dark:divide-neutral-800">
-                  {sessions.map((session) => (
-                    <tr key={session.id} className="hover:bg-neutral-50 dark:hover:bg-neutral-800">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          {session.is_mobile ? (
-                            <Smartphone className="w-5 h-5 text-primary-500 mr-3 flex-shrink-0" />
-                          ) : (
-                            <Monitor className="w-5 h-5 text-primary-500 mr-3 flex-shrink-0" />
-                          )}
-                          <div className="flex flex-col min-w-0">
-                            <span className="text-sm font-medium text-neutral-900 dark:text-neutral-0 truncate">
-                              {session.device_name || (session.is_mobile ? 'Mobile Device' : 'Desktop Browser')}
-                            </span>
-                            {session.browser && session.os && (
-                              <span className="text-xs text-neutral-500 dark:text-neutral-400 truncate">
-                                {session.browser} on {session.os}
-                              </span>
-                            )}
-                            {session.ip_address && (
-                              <span className="text-xs text-neutral-400 dark:text-neutral-500 truncate" title={session.ip_address}>
-                                {session.ip_address}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-neutral-700 dark:text-neutral-300">
-                        {formatDate(session.created_at)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right">
-                        <button
-                          onClick={() => handleEndSession(session.id)}
-                          disabled={deletingSessionId === session.id}
-                          className="text-red-600 hover:text-red-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                          title="End this session"
-                        >
-                          {deletingSessionId === session.id ? (
-                            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-red-600"></div>
-                          ) : (
-                            <XCircle className="w-5 h-5" />
-                          )}
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
-      </div>
+      <ActiveSessions />
 
       {/* Two-Factor Authentication */}
       <div className="bg-white dark:bg-neutral-900 rounded-lg shadow border border-neutral-200 dark:border-neutral-800">

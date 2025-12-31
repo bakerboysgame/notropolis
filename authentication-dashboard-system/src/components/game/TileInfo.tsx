@@ -6,6 +6,7 @@ import { BuildModal } from './BuildModal';
 import { SellModal } from './SellModal';
 import { AttackModal } from './AttackModal';
 import { AttackResult } from './AttackResult';
+import { SecurityModal } from './SecurityModal';
 import { api, apiHelpers } from '../../services/api';
 
 interface TileInfoProps {
@@ -28,6 +29,7 @@ export function TileInfo({ mapId, x, y, map, onClose, onRefresh }: TileInfoProps
   const [showBuildModal, setShowBuildModal] = useState(false);
   const [showSellModal, setShowSellModal] = useState(false);
   const [showAttackModal, setShowAttackModal] = useState(false);
+  const [showSecurityModal, setShowSecurityModal] = useState(false);
   const [attackResult, setAttackResult] = useState<any>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -213,6 +215,16 @@ export function TileInfo({ mapId, x, y, map, onClose, onRefresh }: TileInfoProps
           </button>
         )}
 
+        {/* Security button - for buildings owned by active company that aren't collapsed */}
+        {building && building.company_id === activeCompany?.id && !building.is_collapsed && (
+          <button
+            onClick={() => setShowSecurityModal(true)}
+            className="w-full py-2 bg-blue-600 text-white rounded hover:bg-blue-500 transition-colors"
+          >
+            🔒 Security
+          </button>
+        )}
+
         {/* Cancel listing button - for buildings owned by active company that are listed */}
         {building && building.company_id === activeCompany?.id && building.is_for_sale && (
           <button
@@ -358,6 +370,13 @@ export function TileInfo({ mapId, x, y, map, onClose, onRefresh }: TileInfoProps
                 isOpen={attackResult !== null}
                 onClose={() => setAttackResult(null)}
                 result={attackResult}
+              />
+              <SecurityModal
+                isOpen={showSecurityModal}
+                onClose={() => setShowSecurityModal(false)}
+                onSuccess={handleActionSuccess}
+                building={{ id: building.id, name: building.name, cost: building.cost || 0 }}
+                security={security}
               />
             </>
           )}

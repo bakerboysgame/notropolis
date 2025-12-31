@@ -46,6 +46,17 @@ CREATE TABLE messages (
 CREATE INDEX idx_messages_map ON messages(map_id);
 CREATE INDEX idx_messages_time ON messages(created_at);
 
+-- Track when each company last read messages for each map
+CREATE TABLE message_read_status (
+  company_id TEXT NOT NULL,
+  map_id TEXT NOT NULL,
+  last_read_at TEXT DEFAULT CURRENT_TIMESTAMP,
+
+  PRIMARY KEY (company_id, map_id),
+  FOREIGN KEY (company_id) REFERENCES game_companies(id),
+  FOREIGN KEY (map_id) REFERENCES maps(id)
+);
+
 -- Temple donations
 CREATE TABLE donations (
   id TEXT PRIMARY KEY,
@@ -134,6 +145,33 @@ export async function postMessage(request: Request, env: Env, company: GameCompa
 
   return { success: true };
 }
+
+// Get unread message count for current map
+export async function getUnreadCount(env: Env, company: GameCompany) {
+  const result = await env.DB.prepare(`
+    SELECT COUNT(*) as count
+    FROM messages m
+    LEFT JOIN message_read_status mrs
+      ON mrs.company_id = ? AND mrs.map_id = m.map_id
+    WHERE m.map_id = ?
+      AND m.company_id != ?
+      AND (mrs.last_read_at IS NULL OR m.created_at > mrs.last_read_at)
+  `).bind(company.id, company.current_map_id, company.id).first();
+
+  return { unread_count: result?.count || 0 };
+}
+
+// Mark messages as read (called when viewing message board)
+export async function markMessagesAsRead(env: Env, company: GameCompany) {
+  await env.DB.prepare(`
+    INSERT INTO message_read_status (company_id, map_id, last_read_at)
+    VALUES (?, ?, CURRENT_TIMESTAMP)
+    ON CONFLICT (company_id, map_id)
+    DO UPDATE SET last_read_at = CURRENT_TIMESTAMP
+  `).bind(company.id, company.current_map_id).run();
+
+  return { success: true };
+}
 ```
 
 ### Message Board Page
@@ -145,6 +183,13 @@ export function MessageBoard() {
   const { data: messages, refetch } = useMessages(activeCompany?.current_map_id);
   const [newMessage, setNewMessage] = useState('');
   const [posting, setPosting] = useState(false);
+
+  // Mark messages as read when viewing the board
+  useEffect(() => {
+    if (activeCompany?.current_map_id) {
+      api.social.markAsRead();
+    }
+  }, [activeCompany?.current_map_id]);
 
   const handlePost = async () => {
     if (!newMessage.trim()) return;
@@ -515,6 +560,7 @@ export function Casino() {
 ## Database Changes
 
 - New `messages` table
+- New `message_read_status` table (tracks last read time per company per map)
 - New `donations` table
 - New `casino_games` table
 
@@ -525,6 +571,10 @@ export function Casino() {
 | Post message | Valid content | Message posted |
 | Post empty | Empty string | Error |
 | Post rate limit | 2 messages in 1 minute | Error: wait |
+| Unread count | New messages since last visit | Returns correct count |
+| Unread excludes own | User posts message | Own message not counted as unread |
+| Mark as read | View message board | last_read_at updated |
+| Unread after read | View then new message posted | Count shows 1 |
 | Donate | Valid amount | Cash deducted, donation logged |
 | Casino win | Bet on red, result is red | Payout received |
 | Casino lose | Bet on red, result is black | Bet lost |
@@ -535,6 +585,10 @@ export function Casino() {
 - [ ] Message board shows messages per map
 - [ ] Can post messages (500 char limit)
 - [ ] Rate limiting on messages (1/min)
+- [ ] Unread message count API works
+- [ ] Viewing message board marks messages as read
+- [ ] Unread count excludes own messages
+- [ ] UI shows unread badge/indicator
 - [ ] Temple accepts donations
 - [ ] Donation leaderboard works
 - [ ] Casino roulette spins correctly
@@ -551,10 +605,90 @@ npm run build
 CLOUDFLARE_API_TOKEN="..." CLOUDFLARE_ACCOUNT_ID="..." npx wrangler pages deploy ./dist --project-name=notropolis-dashboard
 ```
 
+## Sidebar Unread Badge Implementation
+
+The Chat nav item should show an unread count badge that matches the app branding.
+
+### Files to Modify
+
+| File | Change |
+|------|--------|
+| `src/components/Sidebar.tsx` | Add unread count fetch and badge display |
+| `src/hooks/useUnreadMessages.ts` | New hook to fetch unread count |
+
+### Unread Hook
+
+```typescript
+// src/hooks/useUnreadMessages.ts
+import { useQuery } from '@tanstack/react-query';
+import { useCompany } from '../contexts/CompanyContext';
+
+export function useUnreadMessages() {
+  const { activeCompany } = useCompany();
+
+  return useQuery({
+    queryKey: ['unread-messages', activeCompany?.id, activeCompany?.current_map_id],
+    queryFn: async () => {
+      const token = localStorage.getItem('auth_token');
+      const res = await fetch('/api/game/messages/unread', {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      const data = await res.json();
+      return data.unread_count || 0;
+    },
+    enabled: !!activeCompany,
+    refetchInterval: 30000, // Poll every 30 seconds
+    staleTime: 10000,
+  });
+}
+```
+
+### Sidebar Badge Styling
+
+Add to `Sidebar.tsx` navigation rendering (matches existing branding):
+
+```tsx
+// In the navigation map, for the Chat item:
+{item.pageKey === 'chat' && unreadCount > 0 && (
+  <>
+    {/* Expanded: show count badge */}
+    {(!isCollapsed || isMobile) && (
+      <span className="ml-auto text-[10px] bg-primary-500 text-white px-1.5 py-0.5 rounded-full font-bold min-w-[18px] text-center">
+        {unreadCount > 99 ? '99+' : unreadCount}
+      </span>
+    )}
+    {/* Collapsed: show dot indicator */}
+    {isCollapsed && !isMobile && (
+      <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-primary-500 rounded-full border-2 border-white dark:border-neutral-900"></span>
+    )}
+  </>
+)}
+```
+
+### Visual States
+
+| State | Display |
+|-------|---------|
+| Expanded, unread | `Chat` with `[3]` badge on right (primary-500 bg, white text) |
+| Collapsed, unread | Dot indicator top-right of icon (primary-500, white border) |
+| No unread | No badge shown |
+| 99+ unread | Shows `99+` to prevent overflow |
+
+### Badge Colors (matching branding)
+
+- Background: `bg-primary-500` (same as active state accent)
+- Text: `text-white` (high contrast)
+- Collapsed dot: `bg-primary-500` with `border-white dark:border-neutral-900`
+
 ## Handoff Notes
 
 - Message boards are per-map (each town has its own)
 - Messages are anonymous (only company name shown)
+- Unread tracking: `message_read_status` stores last_read_at per company per map
+- Unread count excludes user's own messages (you don't need to "read" your own posts)
+- Viewing the message board auto-marks all messages as read
+- Unread badge polls every 30 seconds for new messages
+- Badge uses primary-500 color to match app branding
 - Temple donations are cosmetic (no gameplay benefit)
 - Casino has house edge built into roulette odds
 - Consider adding more casino games in future

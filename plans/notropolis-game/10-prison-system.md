@@ -1,5 +1,7 @@
 # Stage 10: Prison System
 
+> **Spec reviewed 2025-12-31:** Fixed file paths (`.ts` → `.js`), identified existing implementations (`payFine`, `performAttack` prison check, `PrisonStatus` component), updated code snippets to match actual codebase structure.
+
 ## Objective
 
 Complete the prison mechanics including action blocking, fine payment, and prison status UI.
@@ -16,139 +18,155 @@ Complete the prison mechanics including action blocking, fine payment, and priso
 
 | File | Changes |
 |------|---------|
-| `authentication-dashboard-system/src/pages/CompanyDashboard.tsx` | Show prison status prominently |
-| `authentication-dashboard-system/src/worker/routes/game/*.ts` | Add prison check to all action endpoints |
+| `authentication-dashboard-system/worker/index.js` | Add prison check to `handleBuyLand`, `handleBuildBuilding` |
+| `authentication-dashboard-system/worker/src/routes/game/market.js` | Add prison check to all market actions |
+| `authentication-dashboard-system/worker/src/routes/game/security.js` | Add prison check to security purchase |
+| `authentication-dashboard-system/worker/src/routes/game/attacks.js` | Update `payFine` to reset tick counter |
+| `authentication-dashboard-system/src/App.tsx` | Add route for Prison page |
 
 ## Files to Create
 
 | File | Purpose |
 |------|---------|
-| `authentication-dashboard-system/src/components/game/PrisonBanner.tsx` | Prison status banner |
-| `authentication-dashboard-system/src/pages/Prison.tsx` | Full prison page |
-| `authentication-dashboard-system/src/middleware/prisonCheck.ts` | Reusable prison validation |
+| `authentication-dashboard-system/src/components/game/PrisonBanner.tsx` | Prison status banner (shown on all game pages) |
+| `authentication-dashboard-system/src/pages/Prison.tsx` | Full prison page with pay fine button |
+
+## Already Implemented (Needs Integration)
+
+| File | What Exists |
+|------|-------------|
+| `authentication-dashboard-system/src/pages/CompanyDashboard.tsx` | Already shows prison status (lines 329-340) |
+| `authentication-dashboard-system/worker/src/routes/game/attacks.js` | `performAttack` already has prison check (lines 43-46), `payFine` exists but needs tick reset fix |
+| `authentication-dashboard-system/src/components/game/PrisonStatus.tsx` | Full prison status component with pay fine button - EXISTS but not used yet |
 
 ## Implementation Details
 
-### Prison Check Middleware
+### Prison Check Helper Function
 
-```typescript
-// middleware/prisonCheck.ts
-export function requireNotInPrison(company: GameCompany) {
+Add a simple inline prison check function at the top of each route file that needs it:
+
+```javascript
+// Helper function - add to each file that needs it
+function checkPrisonStatus(company, corsHeaders) {
   if (company.is_in_prison) {
-    throw new PrisonError('You are in prison. Pay your fine to continue.');
+    return new Response(JSON.stringify({
+      success: false,
+      error: `You are in prison! Pay your fine of $${company.prison_fine?.toLocaleString()} to continue.`
+    }), {
+      status: 403,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
   }
-}
-
-export class PrisonError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = 'PrisonError';
-  }
+  return null; // Not in prison, continue
 }
 ```
 
-### Apply Prison Check to All Actions
+### Apply Prison Check to Endpoints
 
-```typescript
-// worker/routes/game/land.ts
-export async function buyLand(request: Request, env: Env, company: GameCompany) {
-  requireNotInPrison(company); // Add this line
-  // ... rest of implementation
+**In `worker/index.js` - for `handleBuyLand` and `handleBuildBuilding`:**
+
+Add early in each function after fetching the company:
+
+```javascript
+// Add after: const company = await env.DB.prepare(...).first();
+if (company.is_in_prison) {
+  return new Response(JSON.stringify({
+    success: false,
+    error: `You are in prison! Pay your fine of $${company.prison_fine?.toLocaleString()} to continue.`
+  }), {
+    status: 403,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+  });
 }
-
-// worker/routes/game/buildings.ts
-export async function buildBuilding(request: Request, env: Env, company: GameCompany) {
-  requireNotInPrison(company);
-  // ...
-}
-
-// worker/routes/game/market.ts
-export async function sellToState(request: Request, env: Env, company: GameCompany) {
-  requireNotInPrison(company);
-  // ...
-}
-
-export async function listForSale(request: Request, env: Env, company: GameCompany) {
-  requireNotInPrison(company);
-  // ...
-}
-
-export async function buyProperty(request: Request, env: Env, company: GameCompany) {
-  requireNotInPrison(company);
-  // ...
-}
-
-// worker/routes/game/attacks.ts
-export async function performAttack(request: Request, env: Env, company: GameCompany) {
-  requireNotInPrison(company);
-  // ...
-}
-
-// worker/routes/game/security.ts
-export async function purchaseSecurity(request: Request, env: Env, company: GameCompany) {
-  requireNotInPrison(company);
-  // ...
-}
-
-// Note: payFine does NOT have this check - that's how you get out!
 ```
 
-### Enhanced Pay Fine API
+**In `worker/src/routes/game/market.js` - for all market actions:**
 
-```typescript
-// worker/routes/game/attacks.ts
-export async function payFine(request: Request, env: Env, company: GameCompany) {
-  if (!company.is_in_prison) {
-    throw new Error('You are not in prison');
-  }
+Add at the start of `sellToState`, `listForSale`, `cancelListing`, `buyProperty`, `demolishBuilding`:
 
-  if (company.cash < company.prison_fine) {
-    throw new Error(`Insufficient funds. You need $${company.prison_fine.toLocaleString()} but only have $${company.cash.toLocaleString()}`);
-  }
+```javascript
+// Add as first check after function signature
+if (company.is_in_prison) {
+  throw new Error(`You are in prison! Pay your fine of $${company.prison_fine?.toLocaleString()} to continue.`);
+}
+```
 
-  const finePaid = company.prison_fine;
+**In `worker/src/routes/game/security.js` - for `purchaseSecurity`:**
 
-  await env.DB.batch([
-    // Deduct fine and release
+```javascript
+// Add as first check in purchaseSecurity
+if (company.is_in_prison) {
+  throw new Error(`You are in prison! Pay your fine of $${company.prison_fine?.toLocaleString()} to continue.`);
+}
+```
+
+**Note:** `performAttack` in attacks.js already has the prison check (lines 43-46). No change needed.
+
+### Fix Existing Pay Fine API
+
+The `payFine` function already exists in `worker/src/routes/game/attacks.js` (lines 251-283).
+
+**Required change:** Update the SQL to reset `ticks_since_action` to 0 (paying fine counts as an action):
+
+```javascript
+// In worker/src/routes/game/attacks.js, update the payFine function's UPDATE query:
+// Change from:
+    env.DB.prepare(`
+      UPDATE game_companies
+      SET cash = cash - ?,
+          is_in_prison = 0,
+          prison_fine = 0
+      WHERE id = ?
+    `).bind(fine, company.id),
+
+// Change to:
     env.DB.prepare(`
       UPDATE game_companies
       SET cash = cash - ?,
           is_in_prison = 0,
           prison_fine = 0,
+          ticks_since_action = 0,
           total_actions = total_actions + 1,
           last_action_at = ?
       WHERE id = ?
-    `).bind(finePaid, new Date().toISOString(), company.id),
-
-    // Log transaction
-    env.DB.prepare(`
-      INSERT INTO game_transactions (id, company_id, action_type, amount, details)
-      VALUES (?, ?, 'pay_fine', ?, ?)
-    `).bind(
-      crypto.randomUUID(),
-      company.id,
-      finePaid,
-      JSON.stringify({ released: true })
-    ),
-  ]);
-
-  // Reset tick counter (paying fine counts as action)
-  await resetTickCounter(env, company.id);
-
-  return {
-    success: true,
-    fine_paid: finePaid,
-    remaining_cash: company.cash - finePaid,
-  };
-}
+    `).bind(fine, new Date().toISOString(), company.id),
 ```
 
-### Prison Page
+### Integrate PrisonStatus into GameMap
+
+The `PrisonStatus` component already exists at `src/components/game/PrisonStatus.tsx`. Integrate it into the GameMap page:
+
+```tsx
+// In GameMap.tsx, add the import:
+import { PrisonStatus } from '../components/game/PrisonStatus';
+
+// Add PrisonStatus at the top of the game view (after header, before map):
+{activeCompany && (
+  <PrisonStatus
+    isInPrison={activeCompany.is_in_prison}
+    prisonFine={activeCompany.prison_fine}
+    companyCash={activeCompany.cash}
+    activeCompanyId={activeCompany.id}
+    onPaidFine={() => refreshCompany()}
+  />
+)}
+```
+
+### Prison Page (Optional - simpler approach)
+
+Since `PrisonStatus` component already provides a full UI with pay fine functionality, a dedicated Prison page is **optional**. The existing component shown on GameMap may be sufficient.
+
+If you do want a dedicated `/prison` route, create a simple wrapper:
 
 ```tsx
 // pages/Prison.tsx
+import { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useActiveCompany } from '../contexts/CompanyContext';
+import { PrisonStatus } from '../components/game/PrisonStatus';
+
 export function Prison() {
-  const { activeCompany, refreshCompany } = useCompany();
+  const { activeCompany, refreshCompany } = useActiveCompany();
   const navigate = useNavigate();
 
   // Redirect if not in prison
@@ -156,186 +174,76 @@ export function Prison() {
     if (activeCompany && !activeCompany.is_in_prison) {
       navigate('/game');
     }
-  }, [activeCompany]);
+  }, [activeCompany?.is_in_prison, navigate]);
 
-  if (!activeCompany?.is_in_prison) return null;
-
-  const canAfford = activeCompany.cash >= activeCompany.prison_fine;
-  const shortfall = activeCompany.prison_fine - activeCompany.cash;
-
-  const handlePayFine = async () => {
-    try {
-      await api.attacks.payFine();
-      await refreshCompany();
-      navigate('/game');
-    } catch (error) {
-      console.error('Failed to pay fine:', error);
-    }
-  };
+  if (!activeCompany) return null;
 
   return (
     <div className="min-h-screen bg-gray-900 flex items-center justify-center p-4">
-      <div className="max-w-md w-full bg-gray-800 rounded-lg p-8 text-center">
-        {/* Prison icon */}
-        <div className="text-8xl mb-6">🔒</div>
-
-        <h1 className="text-3xl font-bold text-red-400 mb-2">In Prison</h1>
-        <p className="text-gray-400 mb-8">
-          You were caught performing illegal activities.
-          Pay your fine to get out and continue playing.
-        </p>
-
-        {/* Fine details */}
-        <div className="bg-gray-700 rounded-lg p-6 mb-6">
-          <p className="text-gray-400 mb-2">Fine Amount</p>
-          <p className="text-4xl font-bold text-yellow-400">
-            ${activeCompany.prison_fine.toLocaleString()}
-          </p>
-        </div>
-
-        {/* Cash status */}
-        <div className="bg-gray-700 rounded-lg p-4 mb-6">
-          <div className="flex justify-between items-center">
-            <span className="text-gray-400">Your Cash</span>
-            <span className={`font-mono ${canAfford ? 'text-green-400' : 'text-red-400'}`}>
-              ${activeCompany.cash.toLocaleString()}
-            </span>
-          </div>
-          {!canAfford && (
-            <div className="mt-2 text-sm text-red-400">
-              You need ${shortfall.toLocaleString()} more
-            </div>
-          )}
-        </div>
-
-        {/* Pay button */}
-        <button
-          onClick={handlePayFine}
-          disabled={!canAfford}
-          className={`w-full py-4 rounded-lg font-bold text-lg transition ${
-            canAfford
-              ? 'bg-green-600 hover:bg-green-700 text-white'
-              : 'bg-gray-600 text-gray-400 cursor-not-allowed'
-          }`}
-        >
-          {canAfford ? 'Pay Fine & Get Out' : 'Insufficient Funds'}
-        </button>
-
-        {!canAfford && (
-          <p className="text-sm text-gray-500 mt-4">
-            Wait for tick income or receive a bank transfer from another company.
-          </p>
-        )}
-
-        {/* What you can do */}
-        <div className="mt-8 text-left">
-          <p className="text-sm text-gray-500 mb-2">While in prison you can:</p>
-          <ul className="text-sm text-gray-400 list-disc list-inside">
-            <li>View the map (but not interact)</li>
-            <li>Receive bank transfers from your other companies</li>
-            <li>Wait for tick income (if eligible)</li>
-          </ul>
-        </div>
+      <div className="max-w-xl w-full">
+        <PrisonStatus
+          isInPrison={activeCompany.is_in_prison}
+          prisonFine={activeCompany.prison_fine}
+          companyCash={activeCompany.cash}
+          activeCompanyId={activeCompany.id}
+          onPaidFine={() => {
+            refreshCompany();
+            navigate('/game');
+          }}
+        />
       </div>
     </div>
   );
 }
 ```
 
-### Prison Banner Component
+### Prison Banner Component (Optional)
+
+If you want a persistent banner across all pages instead of just on GameMap:
 
 ```tsx
 // components/game/PrisonBanner.tsx
+import { useActiveCompany } from '../../contexts/CompanyContext';
+import { AlertCircle } from 'lucide-react';
+
 export function PrisonBanner() {
-  const { activeCompany } = useCompany();
-  const navigate = useNavigate();
+  const { activeCompany } = useActiveCompany();
 
   if (!activeCompany?.is_in_prison) return null;
 
   return (
-    <div className="fixed top-0 left-0 right-0 bg-red-900 border-b-2 border-red-600 z-50">
-      <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <span className="text-2xl">🔒</span>
-          <div>
-            <p className="font-bold text-white">You are in prison!</p>
-            <p className="text-sm text-red-200">
-              Fine: ${activeCompany.prison_fine.toLocaleString()}
-            </p>
-          </div>
-        </div>
-        <button
-          onClick={() => navigate('/prison')}
-          className="px-4 py-2 bg-white text-red-900 font-bold rounded hover:bg-gray-100"
-        >
-          Pay Fine
-        </button>
+    <div className="bg-red-900 border-b-2 border-red-600">
+      <div className="max-w-7xl mx-auto px-4 py-2 flex items-center justify-center gap-3">
+        <AlertCircle className="w-5 h-5 text-red-400" />
+        <span className="text-white font-medium">
+          You are in prison! Fine: ${activeCompany.prison_fine.toLocaleString()}
+        </span>
       </div>
     </div>
   );
 }
 ```
 
-### Blocked Action UI Feedback
+### Frontend Prison Handling
+
+The existing `PrisonStatus` component already handles UI feedback. For modal/action buttons, check `activeCompany.is_in_prison` before allowing actions:
 
 ```tsx
-// hooks/useGameAction.ts
-export function useGameAction() {
-  const { activeCompany } = useCompany();
+// Pattern for modals - check prison status and show warning
+const { activeCompany } = useActiveCompany();
+const isInPrison = activeCompany?.is_in_prison;
 
-  const performAction = async (action: () => Promise<any>) => {
-    if (activeCompany?.is_in_prison) {
-      toast.error('You are in prison. Pay your fine to continue.');
-      return null;
-    }
-
-    try {
-      return await action();
-    } catch (error) {
-      if (error.message.includes('prison')) {
-        toast.error('You are in prison. Pay your fine to continue.');
-      } else {
-        toast.error(error.message);
-      }
-      throw error;
-    }
-  };
-
-  return { performAction, isInPrison: activeCompany?.is_in_prison };
-}
+// In your button:
+<button
+  onClick={handleAction}
+  disabled={isInPrison || !canAfford}
+  className="..."
+>
+  {isInPrison ? '🔒 In Prison' : 'Buy Land'}
+</button>
 ```
 
-### Disabled State for All Action Buttons
-
-```tsx
-// Example: BuyLandModal with prison check
-export function BuyLandModal({ tile, map, onBuy, onClose }) {
-  const { isInPrison } = useGameAction();
-  const cost = calculateLandCost(tile, map);
-  const { activeCompany } = useCompany();
-  const canAfford = activeCompany.cash >= cost;
-
-  return (
-    <Modal onClose={onClose}>
-      {/* ... */}
-
-      {isInPrison && (
-        <div className="mb-4 p-3 bg-red-900/50 rounded border border-red-600">
-          <p className="text-red-400">🔒 You cannot buy land while in prison.</p>
-        </div>
-      )}
-
-      <button
-        onClick={() => onBuy(tile)}
-        disabled={!canAfford || isInPrison}
-        className="flex-1 py-2 bg-green-600 text-white rounded disabled:opacity-50"
-      >
-        {isInPrison ? 'In Prison' : 'Buy Land'}
-      </button>
-    </Modal>
-  );
-}
-```
+**Note:** Server-side validation is the source of truth. Frontend checks are for UX only.
 
 ### Bank Transfer While in Prison
 
@@ -365,23 +273,43 @@ None - uses existing `is_in_prison` and `prison_fine` columns.
 
 ## Acceptance Checklist
 
-- [ ] Prison check added to all action endpoints
-- [ ] Cannot buy land while in prison
-- [ ] Cannot build while in prison
-- [ ] Cannot attack while in prison
+### Backend (Required)
+- [ ] Prison check added to `handleBuyLand` in worker/index.js
+- [ ] Prison check added to `handleBuildBuilding` in worker/index.js
+- [ ] Prison check added to `sellToState` in market.js
+- [ ] Prison check added to `listForSale` in market.js
+- [ ] Prison check added to `cancelListing` in market.js
+- [ ] Prison check added to `buyProperty` in market.js
+- [ ] Prison check added to `demolishBuilding` in market.js
+- [ ] Prison check added to `purchaseSecurity` in security.js
+- [ ] `payFine` updated to reset `ticks_since_action` in attacks.js
+
+### Frontend (Required)
+- [ ] `PrisonStatus` component integrated into GameMap page
+- [ ] Company refreshes after paying fine
+
+### Verification
+- [ ] Cannot buy land while in prison (API returns 403)
+- [ ] Cannot build while in prison (API returns error)
+- [ ] Cannot attack while in prison (already works)
 - [ ] Cannot buy/sell property while in prison
 - [ ] Cannot purchase security while in prison
-- [ ] Can pay fine to get out
-- [ ] Can view map while in prison
-- [ ] Can receive bank transfers while in prison
-- [ ] Still receives tick income while in prison
-- [ ] Prison banner shows on all pages
-- [ ] Prison page displays correctly
+- [ ] Can pay fine to get released
 - [ ] Fine payment resets tick counter
+- [ ] Can view map while in prison
+- [ ] Still receives tick income while in prison
 
 ## Deployment
 
+**Worker deployment:**
 ```bash
+cd authentication-dashboard-system/worker
+CLOUDFLARE_API_TOKEN="..." CLOUDFLARE_ACCOUNT_ID="..." npx wrangler deploy
+```
+
+**Frontend deployment:**
+```bash
+cd authentication-dashboard-system
 npm run build
 CLOUDFLARE_API_TOKEN="..." CLOUDFLARE_ACCOUNT_ID="..." npx wrangler pages deploy ./dist --project-name=notropolis-dashboard
 ```

@@ -2,48 +2,60 @@
 
 ## Objective
 
-Implement building security purchases (cameras, dogs, guards, sprinklers) and complete fire spread mechanics.
+Implement building security purchases (cameras, dogs, guards, sprinklers). Fire spread and tick integration already exist from previous stages.
 
 ## Dependencies
 
 `[Requires: Stage 05 complete]` - Needs buildings to secure.
-`[Requires: Stage 06 complete]` - Needs tick system for costs and fire.
-`[Requires: Stage 08 complete]` - Needs attack system that security defends against.
+`[Requires: Stage 06 complete]` - Needs tick system for costs and fire (already implements sprinkler logic in fireSpread.js).
+`[Requires: Stage 08 complete]` - Needs attack system that security defends against (already reads building_security table).
 `[Reference: REFERENCE-d1-optimization.md]` - Critical D1 batch patterns for performance.
 
 ## Complexity
 
-**Medium** - Security purchase system, fire spread refinement.
+**Low-Medium** - Security purchase system only. Fire spread and catch bonus already implemented.
+
+## Already Implemented (No Changes Needed)
+
+| File | What's Already Done |
+|------|---------------------|
+| `worker/src/tick/fireSpread.js` | Full sprinkler logic (60% extinguish, 5% damage, blocks spread) |
+| `worker/src/routes/game/attacks.js` | Reads building_security, applies catch bonuses |
+| `worker/src/tick/profitCalculator.js` | Deducts monthly security costs |
+| `src/components/game/TileInfo.tsx` | Displays security status (cameras, dogs, guards, sprinklers) |
 
 ## Files to Modify
 
 | File | Changes |
 |------|---------|
-| `authentication-dashboard-system/src/components/game/TileInfo.tsx` | Add security button |
-| `authentication-dashboard-system/src/worker/tick/fireSpread.ts` | Enhance fire logic |
-| `authentication-dashboard-system/src/worker/routes/game/attacks.ts` | Use security in catch calculation |
+| `authentication-dashboard-system/src/components/game/TileInfo.tsx` | Add "Security" button for owned buildings |
+| `authentication-dashboard-system/worker/index.js` | Wire security routes |
 
 ## Files to Create
 
 | File | Purpose |
 |------|---------|
 | `authentication-dashboard-system/src/components/game/SecurityModal.tsx` | Security purchase UI |
-| `authentication-dashboard-system/src/components/game/SecurityStatus.tsx` | Display current security |
-| `authentication-dashboard-system/src/worker/routes/game/security.ts` | Security API |
+| `authentication-dashboard-system/worker/src/routes/game/security.js` | Security purchase/remove API |
+| `authentication-dashboard-system/worker/src/routes/game/securityConstants.js` | Shared security definitions and cost calculations |
 
 ## Implementation Details
 
 ### Security Definitions
 
-```typescript
-// utils/security.ts
+**Security costs are proportional to building value** - more valuable buildings require more expensive security.
+
+```javascript
+// Shared constants (in security.js)
+// Costs are calculated as: buildingCost * costMultiplier (with minimum)
+// Monthly cost is 10% of purchase cost
 export const SECURITY_OPTIONS = {
   cameras: {
     id: 'cameras',
     name: 'Security Cameras',
     icon: '📷',
-    purchaseCost: 5000,
-    monthlyCost: 500,
+    costMultiplier: 0.10,  // 10% of building cost
+    minCost: 500,
     catchBonus: 0.10,
     description: 'Record evidence of attackers. +10% catch rate.',
   },
@@ -51,8 +63,8 @@ export const SECURITY_OPTIONS = {
     id: 'guard_dogs',
     name: 'Guard Dogs',
     icon: '🐕',
-    purchaseCost: 8000,
-    monthlyCost: 800,
+    costMultiplier: 0.15,  // 15% of building cost
+    minCost: 750,
     catchBonus: 0.15,
     description: 'Dogs patrol the perimeter. +15% catch rate.',
   },
@@ -60,8 +72,8 @@ export const SECURITY_OPTIONS = {
     id: 'security_guards',
     name: 'Security Guards',
     icon: '👮',
-    purchaseCost: 15000,
-    monthlyCost: 1500,
+    costMultiplier: 0.25,  // 25% of building cost
+    minCost: 1500,
     catchBonus: 0.25,
     description: '24/7 human security. +25% catch rate.',
   },
@@ -69,25 +81,25 @@ export const SECURITY_OPTIONS = {
     id: 'sprinklers',
     name: 'Fire Sprinklers',
     icon: '💦',
-    purchaseCost: 10000,
-    monthlyCost: 200,
+    costMultiplier: 0.20,  // 20% of building cost
+    minCost: 1000,
     catchBonus: 0, // Doesn't help catch
     description: 'Automatic fire suppression. Prevents fire spread.',
   },
-} as const;
+};
 
-export type SecurityType = keyof typeof SECURITY_OPTIONS;
-
-export function calculateTotalMonthlyCost(security: BuildingSecurity): number {
-  let total = 0;
-  if (security.has_cameras) total += SECURITY_OPTIONS.cameras.monthlyCost;
-  if (security.has_guard_dogs) total += SECURITY_OPTIONS.guard_dogs.monthlyCost;
-  if (security.has_security_guards) total += SECURITY_OPTIONS.security_guards.monthlyCost;
-  if (security.has_sprinklers) total += SECURITY_OPTIONS.sprinklers.monthlyCost;
-  return total;
+// Calculate purchase cost based on building value
+export function calculateSecurityCost(option, buildingCost) {
+  const cost = Math.max(option.minCost, Math.round(buildingCost * option.costMultiplier));
+  return cost;
 }
 
-export function calculateSecurityCatchBonus(security: BuildingSecurity | null): number {
+// Monthly cost is 10% of purchase cost
+export function calculateMonthlyCost(purchaseCost) {
+  return Math.round(purchaseCost * 0.10);
+}
+
+export function calculateSecurityCatchBonus(security) {
   if (!security) return 0;
   let bonus = 0;
   if (security.has_cameras) bonus += SECURITY_OPTIONS.cameras.catchBonus;
@@ -97,26 +109,45 @@ export function calculateSecurityCatchBonus(security: BuildingSecurity | null): 
 }
 ```
 
+**Example Costs by Building:**
+
+| Building | Cost | Cameras | Dogs | Guards | Sprinklers |
+|----------|------|---------|------|--------|------------|
+| Market Stall | $1k | $500 | $750 | $1,500 | $1,000 |
+| Shop | $4k | $500 | $750 | $1,500 | $1,000 |
+| Motel | $12k | $1,200 | $1,800 | $3,000 | $2,400 |
+| Restaurant | $40k | $4,000 | $6,000 | $10,000 | $8,000 |
+| Casino | $80k | $8,000 | $12,000 | $20,000 | $16,000 |
+
 ### Security API
 
-```typescript
-// worker/routes/game/security.ts
-export async function purchaseSecurity(request: Request, env: Env, company: GameCompany) {
+```javascript
+// worker/src/routes/game/security.js
+import { SECURITY_OPTIONS, calculateSecurityCost, calculateMonthlyCost } from './securityConstants.js';
+
+export async function purchaseSecurity(request, env, company) {
   const { building_id, security_type } = await request.json();
 
   const option = SECURITY_OPTIONS[security_type];
   if (!option) throw new Error('Invalid security type');
 
-  // Get building
+  // Get building with its type info for cost calculation
   const building = await env.DB.prepare(`
-    SELECT * FROM building_instances WHERE id = ? AND company_id = ?
+    SELECT bi.*, bt.cost as building_cost
+    FROM building_instances bi
+    JOIN building_types bt ON bi.building_type_id = bt.id
+    WHERE bi.id = ? AND bi.company_id = ?
   `).bind(building_id, company.id).first();
 
   if (!building) throw new Error('Building not found or not owned');
   if (building.is_collapsed) throw new Error('Cannot add security to collapsed building');
 
+  // Calculate costs based on building value
+  const purchaseCost = calculateSecurityCost(option, building.building_cost);
+  const monthlyCost = calculateMonthlyCost(purchaseCost);
+
   // Check funds
-  if (company.cash < option.purchaseCost) {
+  if (company.cash < purchaseCost) {
     throw new Error('Insufficient funds');
   }
 
@@ -142,7 +173,7 @@ export async function purchaseSecurity(request: Request, env: Env, company: Game
 
     // Calculate new monthly cost
     const currentCost = security.monthly_cost || 0;
-    const newCost = currentCost + option.monthlyCost;
+    const newTotalMonthlyCost = currentCost + monthlyCost;
 
     await env.DB.batch([
       // Update security
@@ -150,12 +181,12 @@ export async function purchaseSecurity(request: Request, env: Env, company: Game
         UPDATE building_security
         SET ${column} = 1, monthly_cost = ?
         WHERE building_id = ?
-      `).bind(newCost, building_id),
+      `).bind(newTotalMonthlyCost, building_id),
 
       // Deduct cost and reset tick counter
       env.DB.prepare(
         'UPDATE game_companies SET cash = cash - ?, total_actions = total_actions + 1, last_action_at = ?, ticks_since_action = 0 WHERE id = ?'
-      ).bind(option.purchaseCost, new Date().toISOString(), company.id),
+      ).bind(purchaseCost, new Date().toISOString(), company.id),
 
       // Log transaction
       env.DB.prepare(`
@@ -165,8 +196,8 @@ export async function purchaseSecurity(request: Request, env: Env, company: Game
         crypto.randomUUID(),
         company.id,
         building_id,
-        option.purchaseCost,
-        JSON.stringify({ type: security_type })
+        purchaseCost,
+        JSON.stringify({ type: security_type, monthly_cost: monthlyCost })
       ),
     ]);
   } else {
@@ -175,11 +206,11 @@ export async function purchaseSecurity(request: Request, env: Env, company: Game
       env.DB.prepare(`
         INSERT INTO building_security (id, building_id, ${column}, monthly_cost)
         VALUES (?, ?, 1, ?)
-      `).bind(crypto.randomUUID(), building_id, option.monthlyCost),
+      `).bind(crypto.randomUUID(), building_id, monthlyCost),
 
       env.DB.prepare(
         'UPDATE game_companies SET cash = cash - ?, total_actions = total_actions + 1, last_action_at = ?, ticks_since_action = 0 WHERE id = ?'
-      ).bind(option.purchaseCost, new Date().toISOString(), company.id),
+      ).bind(purchaseCost, new Date().toISOString(), company.id),
 
       env.DB.prepare(`
         INSERT INTO game_transactions (id, company_id, action_type, target_building_id, amount, details)
@@ -188,30 +219,33 @@ export async function purchaseSecurity(request: Request, env: Env, company: Game
         crypto.randomUUID(),
         company.id,
         building_id,
-        option.purchaseCost,
-        JSON.stringify({ type: security_type })
+        purchaseCost,
+        JSON.stringify({ type: security_type, monthly_cost: monthlyCost })
       ),
     ]);
   }
 
-  await resetTickCounter(env, company.id);
-
   return {
     success: true,
     security_type,
-    purchase_cost: option.purchaseCost,
-    monthly_cost: option.monthlyCost,
+    purchase_cost: purchaseCost,
+    monthly_cost: monthlyCost,
+    building_cost: building.building_cost,
   };
 }
 
-export async function removeSecurity(request: Request, env: Env, company: GameCompany) {
+export async function removeSecurity(request, env, company) {
   const { building_id, security_type } = await request.json();
 
   const option = SECURITY_OPTIONS[security_type];
   if (!option) throw new Error('Invalid security type');
 
+  // Get building with cost info to calculate monthly cost reduction
   const building = await env.DB.prepare(`
-    SELECT * FROM building_instances WHERE id = ? AND company_id = ?
+    SELECT bi.*, bt.cost as building_cost
+    FROM building_instances bi
+    JOIN building_types bt ON bi.building_type_id = bt.id
+    WHERE bi.id = ? AND bi.company_id = ?
   `).bind(building_id, company.id).first();
 
   if (!building) throw new Error('Building not found or not owned');
@@ -233,139 +267,18 @@ export async function removeSecurity(request: Request, env: Env, company: GameCo
     throw new Error(`Building doesn't have ${option.name.toLowerCase()}`);
   }
 
-  const newCost = (security.monthly_cost || 0) - option.monthlyCost;
+  // Calculate the monthly cost that was added for this security type
+  const purchaseCost = calculateSecurityCost(option, building.building_cost);
+  const monthlyCostToRemove = calculateMonthlyCost(purchaseCost);
+  const newCost = Math.max(0, (security.monthly_cost || 0) - monthlyCostToRemove);
 
   await env.DB.prepare(`
     UPDATE building_security
     SET ${column} = 0, monthly_cost = ?
     WHERE building_id = ?
-  `).bind(Math.max(0, newCost), building_id).run();
+  `).bind(newCost, building_id).run();
 
-  return { success: true };
-}
-```
-
-### Enhanced Fire Spread
-
-```typescript
-// worker/tick/fireSpread.ts - Enhanced version
-export async function processFireSpread(env: Env) {
-  // Get all buildings on fire
-  const burningBuildings = await env.DB.prepare(`
-    SELECT bi.*, t.x, t.y, t.map_id,
-           bs.has_sprinklers
-    FROM building_instances bi
-    JOIN tiles t ON bi.tile_id = t.id
-    LEFT JOIN building_security bs ON bi.id = bs.building_id
-    WHERE bi.is_on_fire = 1 AND bi.is_collapsed = 0
-  `).all();
-
-  if (burningBuildings.results.length === 0) return;
-
-  for (const burning of burningBuildings.results) {
-    // Sprinkler check - chance to extinguish
-    if (burning.has_sprinklers) {
-      // 60% chance to extinguish fire each tick
-      if (Math.random() < 0.60) {
-        await env.DB.prepare(`
-          UPDATE building_instances SET is_on_fire = 0 WHERE id = ?
-        `).bind(burning.id).run();
-
-        console.log(`Sprinklers extinguished fire on building ${burning.id}`);
-        continue;
-      }
-    }
-
-    // Fire damage increases
-    const damageIncrease = burning.has_sprinklers ? 5 : 10; // Sprinklers reduce damage rate
-    const newDamage = Math.min(100, burning.damage_percent + damageIncrease);
-
-    if (newDamage >= 100) {
-      // Building collapses
-      await env.DB.prepare(`
-        UPDATE building_instances
-        SET damage_percent = 100, is_collapsed = 1, is_on_fire = 0
-        WHERE id = ?
-      `).bind(burning.id).run();
-
-      console.log(`Building ${burning.id} collapsed from fire`);
-      continue;
-    }
-
-    await env.DB.prepare(`
-      UPDATE building_instances SET damage_percent = ? WHERE id = ?
-    `).bind(newDamage, burning.id).run();
-
-    // Fire spread to adjacent buildings
-    const adjacentBuildings = await env.DB.prepare(`
-      SELECT bi.id, bs.has_sprinklers, t.terrain_type
-      FROM building_instances bi
-      JOIN tiles t ON bi.tile_id = t.id
-      LEFT JOIN building_security bs ON bi.id = bs.building_id
-      WHERE t.map_id = ?
-        AND bi.is_on_fire = 0
-        AND bi.is_collapsed = 0
-        AND ABS(t.x - ?) <= 1
-        AND ABS(t.y - ?) <= 1
-        AND NOT (t.x = ? AND t.y = ?)
-    `).bind(
-      burning.map_id,
-      burning.x, burning.y,
-      burning.x, burning.y
-    ).all();
-
-    for (const adjacent of adjacentBuildings.results) {
-      // Sprinklers prevent fire spread
-      if (adjacent.has_sprinklers) {
-        console.log(`Sprinklers prevented fire spread to building ${adjacent.id}`);
-        continue;
-      }
-
-      // Water terrain acts as firebreak
-      // Check if there's water between the buildings
-      // (simplified: just check the adjacent tile terrain)
-
-      // Base 20% spread chance
-      let spreadChance = 0.20;
-
-      // Trees increase spread chance
-      if (adjacent.terrain_type === 'trees') {
-        spreadChance = 0.35;
-      }
-
-      if (Math.random() < spreadChance) {
-        await env.DB.prepare(`
-          UPDATE building_instances SET is_on_fire = 1 WHERE id = ?
-        `).bind(adjacent.id).run();
-
-        console.log(`Fire spread to building ${adjacent.id}`);
-      }
-    }
-  }
-}
-```
-
-### Water Firebreak Logic
-
-```typescript
-// Check if water exists between two tiles (simplified)
-async function hasWaterBetween(
-  env: Env,
-  mapId: string,
-  x1: number, y1: number,
-  x2: number, y2: number
-): Promise<boolean> {
-  // Check tiles in a line between the two points
-  const dx = Math.sign(x2 - x1);
-  const dy = Math.sign(y2 - y1);
-
-  // Simple case: just check if adjacent tile is water
-  const betweenTile = await env.DB.prepare(`
-    SELECT terrain_type FROM tiles
-    WHERE map_id = ? AND x = ? AND y = ?
-  `).bind(mapId, x1 + dx, y1 + dy).first();
-
-  return betweenTile?.terrain_type === 'water';
+  return { success: true, monthly_cost_removed: monthlyCostToRemove };
 }
 ```
 
@@ -373,22 +286,57 @@ async function hasWaterBetween(
 
 ```tsx
 // SecurityModal.tsx
+// Security cost calculations (mirror backend logic)
+const SECURITY_OPTIONS = {
+  cameras: { id: 'cameras', name: 'Security Cameras', icon: '📷', costMultiplier: 0.10, minCost: 500, catchBonus: 0.10, description: 'Record evidence of attackers. +10% catch rate.' },
+  guard_dogs: { id: 'guard_dogs', name: 'Guard Dogs', icon: '🐕', costMultiplier: 0.15, minCost: 750, catchBonus: 0.15, description: 'Dogs patrol the perimeter. +15% catch rate.' },
+  security_guards: { id: 'security_guards', name: 'Security Guards', icon: '👮', costMultiplier: 0.25, minCost: 1500, catchBonus: 0.25, description: '24/7 human security. +25% catch rate.' },
+  sprinklers: { id: 'sprinklers', name: 'Fire Sprinklers', icon: '💦', costMultiplier: 0.20, minCost: 1000, catchBonus: 0, description: 'Automatic fire suppression. Prevents fire spread.' },
+};
+
+const calculateSecurityCost = (option, buildingCost) => Math.max(option.minCost, Math.round(buildingCost * option.costMultiplier));
+const calculateMonthlyCost = (purchaseCost) => Math.round(purchaseCost * 0.10);
+
 export function SecurityModal({ building, onClose }) {
-  const { activeCompany, refreshCompany } = useCompany();
-  const { data: security, refetch } = useBuildingSecurity(building.id);
+  const { activeCompany, refreshCompany } = useActiveCompany();
+  const [security, setSecurity] = useState(null);
+  const [loading, setLoading] = useState(false);
 
-  const handlePurchase = async (type: SecurityType) => {
-    await api.security.purchase(building.id, type);
-    await refetch();
-    await refreshCompany();
+  // Fetch security on mount
+  useEffect(() => {
+    // Security data comes from tile detail API
+  }, [building.id]);
+
+  const handlePurchase = async (type) => {
+    setLoading(true);
+    try {
+      await api.post('/api/game/security/purchase', {
+        company_id: activeCompany.id,
+        building_id: building.id,
+        security_type: type,
+      });
+      await refreshCompany();
+      // Refetch security state
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleRemove = async (type: SecurityType) => {
-    await api.security.remove(building.id, type);
-    await refetch();
+  const handleRemove = async (type) => {
+    setLoading(true);
+    try {
+      await api.post('/api/game/security/remove', {
+        company_id: activeCompany.id,
+        building_id: building.id,
+        security_type: type,
+      });
+      // Refetch security state
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const hasType = (type: SecurityType) => {
+  const hasType = (type) => {
     if (!security) return false;
     const map = {
       cameras: security.has_cameras,
@@ -399,14 +347,22 @@ export function SecurityModal({ building, onClose }) {
     return map[type];
   };
 
+  // Get building cost from building prop (need to pass this from TileInfo)
+  const buildingCost = building.cost || 10000; // fallback
+
   return (
     <Modal onClose={onClose}>
       <h2 className="text-xl font-bold text-white mb-4">Building Security</h2>
+      <p className="text-sm text-gray-400 mb-4">
+        {building.name} (${buildingCost.toLocaleString()} value)
+      </p>
 
       <div className="space-y-3">
         {Object.values(SECURITY_OPTIONS).map(option => {
+          const purchaseCost = calculateSecurityCost(option, buildingCost);
+          const monthlyCost = calculateMonthlyCost(purchaseCost);
           const owned = hasType(option.id);
-          const canAfford = activeCompany.cash >= option.purchaseCost;
+          const canAfford = activeCompany.cash >= purchaseCost;
 
           return (
             <div
@@ -421,24 +377,25 @@ export function SecurityModal({ building, onClose }) {
                   </p>
                   <p className="text-sm text-gray-400">{option.description}</p>
                   <p className="text-xs text-gray-500 mt-1">
-                    Monthly cost: ${option.monthlyCost.toLocaleString()}
+                    Monthly: ${monthlyCost.toLocaleString()} (~${Math.round(monthlyCost / 144)}/tick)
                   </p>
                 </div>
                 <div className="text-right">
                   {owned ? (
                     <button
                       onClick={() => handleRemove(option.id)}
-                      className="text-sm text-red-400 hover:text-red-300"
+                      disabled={loading}
+                      className="text-sm text-red-400 hover:text-red-300 disabled:opacity-50"
                     >
                       Remove
                     </button>
                   ) : (
                     <button
                       onClick={() => handlePurchase(option.id)}
-                      disabled={!canAfford}
+                      disabled={!canAfford || loading}
                       className="px-4 py-2 bg-blue-600 text-white rounded disabled:opacity-50"
                     >
-                      ${option.purchaseCost.toLocaleString()}
+                      ${purchaseCost.toLocaleString()}
                     </button>
                   )}
                 </div>
@@ -448,14 +405,14 @@ export function SecurityModal({ building, onClose }) {
         })}
       </div>
 
-      {security && (
+      {security && security.monthly_cost > 0 && (
         <div className="mt-4 p-3 bg-gray-800 rounded">
           <p className="text-gray-400">Total Monthly Cost</p>
           <p className="text-xl text-yellow-400">
-            ${calculateTotalMonthlyCost(security).toLocaleString()}/month
+            ${security.monthly_cost.toLocaleString()}/month
           </p>
           <p className="text-sm text-gray-500">
-            (~${Math.round(calculateTotalMonthlyCost(security) / 144)}/tick)
+            (~${Math.round(security.monthly_cost / 144)}/tick)
           </p>
         </div>
       )}
@@ -471,48 +428,7 @@ export function SecurityModal({ building, onClose }) {
 }
 ```
 
-```tsx
-// SecurityStatus.tsx (for TileInfo panel)
-export function SecurityStatus({ security }: { security: BuildingSecurity | null }) {
-  if (!security) return null;
-
-  const hasAny = security.has_cameras || security.has_guard_dogs ||
-                 security.has_security_guards || security.has_sprinklers;
-
-  if (!hasAny) return null;
-
-  return (
-    <div className="mb-4">
-      <p className="text-sm text-gray-500 mb-2">Security</p>
-      <div className="flex gap-2 flex-wrap">
-        {security.has_cameras && (
-          <span className="px-2 py-1 bg-blue-900/50 rounded text-xs text-blue-300">
-            📷 Cameras
-          </span>
-        )}
-        {security.has_guard_dogs && (
-          <span className="px-2 py-1 bg-amber-900/50 rounded text-xs text-amber-300">
-            🐕 Dogs
-          </span>
-        )}
-        {security.has_security_guards && (
-          <span className="px-2 py-1 bg-purple-900/50 rounded text-xs text-purple-300">
-            👮 Guards
-          </span>
-        )}
-        {security.has_sprinklers && (
-          <span className="px-2 py-1 bg-cyan-900/50 rounded text-xs text-cyan-300">
-            💦 Sprinklers
-          </span>
-        )}
-      </div>
-      <p className="text-xs text-gray-500 mt-1">
-        Catch bonus: +{Math.round(calculateSecurityCatchBonus(security) * 100)}%
-      </p>
-    </div>
-  );
-}
-```
+**Note:** SecurityStatus display is already implemented in TileInfo.tsx (lines 148-178).
 
 ## Database Changes
 
@@ -535,18 +451,23 @@ Uses existing `building_security` table from Stage 01.
 
 ## Acceptance Checklist
 
-- [ ] Can purchase all 4 security types
+### New Implementation (This Stage)
+- [ ] Can purchase all 4 security types via API
 - [ ] Cannot purchase duplicate security
-- [ ] Can remove security
+- [ ] Can remove security via API
 - [ ] Purchase cost deducted correctly
-- [ ] Monthly cost calculated and stored
-- [ ] Security bonus affects attack catch rate
-- [ ] Sprinklers can extinguish fire (60%)
-- [ ] Sprinklers reduce fire damage rate
-- [ ] Sprinklers block fire spread
-- [ ] Trees increase fire spread chance
-- [ ] Security status displayed on buildings
-- [ ] Monthly costs deducted during tick
+- [ ] Monthly cost calculated and stored in building_security
+- [ ] Security button appears for owned buildings in TileInfo
+- [ ] SecurityModal opens and shows all options
+
+### Already Working (Verify Only)
+- [x] Security bonus affects attack catch rate (attacks.js)
+- [x] Sprinklers can extinguish fire 60% (fireSpread.js)
+- [x] Sprinklers reduce fire damage rate (fireSpread.js)
+- [x] Sprinklers block fire spread (fireSpread.js)
+- [x] Trees increase fire spread chance (fireSpread.js)
+- [x] Security status displayed on buildings (TileInfo.tsx)
+- [x] Monthly costs deducted during tick (profitCalculator.js)
 
 ## Deployment
 
@@ -557,14 +478,18 @@ CLOUDFLARE_API_TOKEN="..." CLOUDFLARE_ACCOUNT_ID="..." npx wrangler pages deploy
 
 ## Handoff Notes
 
+### This Stage Implements:
+- Security purchase/remove API endpoints
+- SecurityModal UI component
+- Security button in TileInfo for owned buildings
+
+### Already Implemented (No Changes):
 - Security is per-building, not per-company
-- Monthly costs are deducted during tick processing [See: Stage 06]
-- Catch bonus stacks: cameras(10%) + dogs(15%) + guards(25%) = 50%
+- Monthly costs deducted during tick processing (profitCalculator.js line 56)
+- Catch bonus stacks: cameras(10%) + dogs(15%) + guards(25%) = 50% (attacks.js)
 - Sprinklers only affect fire, not catch rate
-- Fire damage: 10%/tick without sprinklers, 5%/tick with
-- Sprinklers have 60% chance to extinguish per tick
-- **Damage Economics:** ANY damage change marks adjacent buildings dirty (graduated neighbor penalty)
-- **Neighbor Penalty:** Scales 0-10% based on damage level (see Stage 06)
-- Trees terrain = higher fire spread risk
-- Water terrain = natural firebreak (blocks spread)
+- Fire damage: 10%/tick without sprinklers, 5%/tick with (fireSpread.js)
+- Sprinklers have 60% chance to extinguish per tick (fireSpread.js)
+- **Damage Economics:** ANY damage change marks adjacent buildings dirty
+- Trees terrain = higher fire spread risk (fireSpread.js)
 - No refund when removing security

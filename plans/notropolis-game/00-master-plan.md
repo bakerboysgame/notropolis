@@ -62,12 +62,13 @@ Notropolis is a competitive multiplayer property tycoon game where players run a
 | 05 | ✅ [Land & Building Core](05-land-building-core.md) | Buy land, build properties, adjacency calculations |
 | 06 | ✅ [Tick System](06-tick-system.md) | Worker cron for profit calculation every 10 min |
 | 07 | ✅ [Property Market](07-property-market.md) | Sell to state, list for sale, buy from others |
-| 08 | [Dirty Tricks](08-dirty-tricks.md) | Attack system with police catch mechanics |
-| 09 | [Security & Fire](09-security-fire.md) | Defense systems and fire spread |
+| 08 | ✅ [Dirty Tricks](08-dirty-tricks.md) | Attack system with police catch mechanics |
+| 09 | ✅ [Security & Fire](09-security-fire.md) | Defense systems and fire spread |
 | 10 | [Prison System](10-prison-system.md) | Arrest, fines, action blocking |
 | 11 | [Level Progression](11-level-progression.md) | Level thresholds and content unlocks |
 | 12 | [Hero System](12-hero-system.md) | Cash out to offshore, location progression |
 | 13 | [Bank Transfers](13-bank-transfers.md) | Transfer cash between your companies |
+| 14a | [Chat Moderation](14a-chat-moderation.md) | AI moderation for message boards (DeepSeek) |
 | 14 | [Social Features](14-social-features.md) | Message boards, temple, casino |
 | 15 | [Avatar System](15-avatar-system.md) | Character customization |
 | 16 | [Visual Polish](16-visual-polish.md) | Zoomed view, sprites, event scenes |
