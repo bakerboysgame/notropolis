@@ -1,140 +1,124 @@
-# Expo Migration - Master Plan
+# Frontend Strategy - Master Plan
 
-## Feature Overview
+## Current Direction: React Web
 
-Migrate the Notropolis frontend from React (Vite) to React Native (Expo) to enable a single codebase for Web, iOS, and Android.
+**Stack:** React 18 + Vite + TypeScript + Tailwind CSS
 
-**Why:**
-- Mobile apps are a "must have later"
-- Building once in React Native avoids future rewrites
-- Expo provides web support via React Native Web
-
-**Current state:**
-- Working auth system (login, magic link, 2FA, password reset)
-- Backend API on Cloudflare Workers (unchanged)
-- React + Tailwind + React Router frontend
-
-**Target state:**
-- Expo project with React Native
-- Same auth flows working on iOS, Android, and Web
-- NativeWind for Tailwind-like styling
+**Deployed to:** Cloudflare Pages
 
 ---
 
-## Success Criteria
+## Decision: React Web Over Expo (Dec 2024)
 
-1. Login with email/password works on iOS simulator
-2. Login with email/password works on Android emulator
-3. Login with email/password works on web browser
-4. Magic link flow works (request → email → code entry)
-5. 2FA flow works (code entry after password)
-6. Forgot password flow works
-7. Auth state persists across app restarts
-8. Protected routes redirect to login when unauthenticated
-9. Logout clears state and redirects to login
+We attempted an Expo (React Native) migration to support web, iOS, and Android from a single codebase. After implementation, we reverted to React web.
 
----
+**Why Expo didn't work for us now:**
+- Desktop and mobile experience wasn't good enough
+- Added complexity without immediate benefit
+- Mobile apps are not a priority yet
 
-## Dependencies & Prerequisites
-
-| Dependency | Status | Notes |
-|------------|--------|-------|
-| Node.js 18+ | Required | For Expo CLI |
-| Expo CLI | Install | `npx create-expo-app` |
-| Xcode | Optional | For iOS simulator |
-| Android Studio | Optional | For Android emulator |
-| Backend API | Complete | No changes needed |
+**When to revisit mobile:**
+- When there's clear user demand for native mobile apps
+- When the web product is stable and feature-complete
+- Consider: Expo, Capacitor, or separate native apps
 
 ---
 
-## Risk Assessment
+## Current State
 
-| Risk | Likelihood | Impact | Mitigation |
-|------|------------|--------|------------|
-| AsyncStorage vs localStorage | Low | Medium | Abstract storage behind interface |
-| Navigation differences | Medium | Low | Use Expo Router (file-based, familiar) |
-| Styling migration | Medium | Medium | Use NativeWind (Tailwind for RN) |
-| Web-specific features | Low | Low | Platform checks where needed |
-
----
-
-## Stage Index
-
-| Stage | Name | Description | Status |
-|-------|------|-------------|--------|
-| 01 | Project Setup | Create Expo project, configure NativeWind | ✅ COMPLETE |
-| 02 | API & Storage | Port API client, abstract storage | ✅ COMPLETE |
-| 03 | Auth Context | Port AuthContext with RN-compatible storage | ✅ COMPLETE |
-| 04 | Login Screen | Build login form with email/password | ✅ COMPLETE |
-| 05 | Magic Link Flow | Magic link request and code verification | ✅ COMPLETE |
-| 06 | 2FA Flow | Two-factor authentication screen | ✅ COMPLETE |
-| 07 | Navigation & Home | Protected routes, auth flow navigation, home screen | ✅ COMPLETE |
-
----
-
-## Out of Scope
-
-- Game features (map, buildings, etc.) - separate plan
-- Admin features
+### Completed Features
+- Authentication (email/password, magic link, 2FA/TOTP)
+- Password reset flow
+- User management (CRUD, roles, permissions)
+- Company management
+- Dashboard with analytics/charts
 - Settings page
-- Full UI polish (focus on functionality first)
-- App store deployment
+- Audit logs
+- Protected routes with role-based access
+- Responsive layout with collapsible sidebar
 
----
+### Tech Stack
+| Layer | Technology |
+|-------|------------|
+| Framework | React 18 |
+| Build | Vite |
+| Language | TypeScript |
+| Styling | Tailwind CSS |
+| Routing | React Router v6 |
+| HTTP | Axios |
+| Charts | Recharts |
+| Icons | Lucide React |
+| Testing | Vitest + Testing Library |
+| Hosting | Cloudflare Pages |
 
-## Technical Decisions
-
-**Expo Router** over React Navigation:
-- File-based routing (similar to Next.js)
-- Built-in web support
-- Less boilerplate
-
-**NativeWind** for styling:
-- Tailwind syntax you already know
-- Works on all platforms
-- className prop like web
-
-**Axios** stays:
-- Works in React Native
-- Keep existing interceptors
-
-**AsyncStorage** for tokens:
-- Standard for React Native
-- Works on all platforms
-
----
-
-## File Structure (Target)
-
+### File Structure
 ```
-notropolis-expo/
-├── app/                    # Expo Router pages
-│   ├── _layout.tsx         # Root layout with providers
-│   ├── index.tsx           # Redirect to /login or /home
-│   ├── login.tsx           # Login page
-│   ├── magic-link.tsx      # Magic link verification
-│   ├── two-factor.tsx      # 2FA verification
-│   └── (authenticated)/    # Protected route group
-│       ├── _layout.tsx     # Auth check wrapper
-│       └── home.tsx        # Home screen
-├── components/
-│   ├── ui/                 # Button, Input, etc.
-│   └── auth/               # LoginForm, etc.
-├── contexts/
-│   └── AuthContext.tsx     # Auth state
-├── services/
-│   ├── api.ts              # API client
-│   └── storage.ts          # AsyncStorage wrapper
-├── app.json                # Expo config
-├── tailwind.config.js      # NativeWind config
+authentication-dashboard-system/
+├── src/
+│   ├── App.tsx              # Routes + providers
+│   ├── main.tsx             # Entry point
+│   ├── brand.ts             # Branding config
+│   ├── components/
+│   │   ├── auth/            # Login, MagicLink, 2FA, TOTP
+│   │   ├── ui/              # Button, Input, Modal, Toast
+│   │   ├── charts/          # Dashboard charts
+│   │   ├── modals/          # User/Company modals
+│   │   ├── Layout.tsx       # Main layout wrapper
+│   │   ├── Sidebar.tsx      # Navigation sidebar
+│   │   └── Header.tsx       # Top header
+│   ├── contexts/
+│   │   ├── AuthContext.tsx  # Auth state + methods
+│   │   ├── PermissionsContext.tsx
+│   │   └── ThemeContext.tsx
+│   ├── hooks/
+│   │   └── useFeatureFlags.ts
+│   ├── pages/
+│   │   ├── LoginPage.tsx
+│   │   ├── Home.tsx
+│   │   ├── Dashboard.tsx
+│   │   ├── Analytics.tsx
+│   │   ├── Reports.tsx
+│   │   ├── Settings.tsx
+│   │   ├── UserManagement.tsx
+│   │   ├── CompanyUserManagement.tsx
+│   │   └── AuditLogsPage.tsx
+│   ├── services/
+│   │   └── api.ts           # API client
+│   └── config/
+│       └── environment.ts
+├── worker/                  # Cloudflare Worker backend
+├── migrations/              # D1 database migrations
 └── package.json
 ```
 
 ---
 
-## References
+## Future Considerations
 
-- [Ref: src/contexts/AuthContext.tsx] - Current auth logic to port
-- [Ref: src/services/api.ts] - Current API client to port
-- [Ref: src/pages/LoginPage.tsx] - Current login UI to rebuild
-- [Ref: src/components/auth/LoginForm.tsx] - Current form to rebuild
+### Mobile (When Ready)
+Options to evaluate:
+1. **Expo/React Native** - Full native, but more complexity
+2. **Capacitor** - Wrap existing React app in native shell
+3. **PWA** - Progressive Web App (no app store)
+4. **Separate native apps** - iOS (Swift), Android (Kotlin)
+
+### Frontend Improvements (Backlog)
+- Dark mode toggle
+- Improved mobile responsiveness
+- Offline support (service worker)
+- Performance optimization
+- E2E testing with Playwright
+
+---
+
+## Archived Plans
+
+The original Expo migration plans (stages 01-07) are preserved below for reference if we revisit mobile in the future.
+
+- [01-project-setup.md](./01-project-setup.md) - Expo + NativeWind setup
+- [02-api-storage.md](./02-api-storage.md) - API client + secure storage
+- [03-auth-context.md](./03-auth-context.md) - Auth context for RN
+- [04-login-screen.md](./04-login-screen.md) - Login UI
+- [05-magic-link.md](./05-magic-link.md) - Magic link flow
+- [06-two-factor.md](./06-two-factor.md) - 2FA flow
+- [07-navigation.md](./07-navigation.md) - Navigation + protected routes

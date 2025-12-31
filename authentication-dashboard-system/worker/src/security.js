@@ -352,6 +352,7 @@ export class SecurityService {
     // CORS headers if origin provided
     if (corsOrigin) {
       const allowedOrigins = [
+        'https://boss.notropolis.net',
         'https://bossmode.notropolis.net',
         'https://notropolis.net',
         'http://localhost:5173', // Vite dev server
@@ -361,7 +362,7 @@ export class SecurityService {
       if (allowedOrigins.includes(corsOrigin)) {
         headers.set('Access-Control-Allow-Origin', corsOrigin);
       } else {
-        headers.set('Access-Control-Allow-Origin', 'https://bossmode.notropolis.net');
+        headers.set('Access-Control-Allow-Origin', 'https://boss.notropolis.net');
       }
       
       headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
