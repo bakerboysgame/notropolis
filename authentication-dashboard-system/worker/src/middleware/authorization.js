@@ -54,6 +54,12 @@ const ENDPOINT_AUTHORIZATION = [
   // ==================== PAGE-PROTECTED ENDPOINTS ====================
   { pattern: '/api/dashboard/*', roles: [], companyIsolation: true, pageKey: 'dashboard' },
   { pattern: '/api/reports/*', roles: [], companyIsolation: true, pageKey: 'reports' },
+
+  // ==================== GAME COMPANY ENDPOINTS (all authenticated users) ====================
+  { pattern: '/api/game/companies', roles: [], companyIsolation: false },
+  { pattern: '/api/game/companies/*', roles: [], companyIsolation: false },
+  { pattern: '/api/game/maps', roles: [], companyIsolation: false },
+  { pattern: '/api/game/maps/*', roles: [], companyIsolation: false },
 ];
 
 // Match a URL path against a pattern
@@ -105,7 +111,7 @@ function findAuthConfig(path, method) {
 
 // Built-in pages that are always available to specific roles (cannot be restricted)
 const ROLE_BUILTIN_PAGES = {
-  master_admin: ['dashboard', 'analytics', 'reports', 'settings', 'user_management', 'audit_logs', 'company_users'],
+  master_admin: ['dashboard', 'analytics', 'reports', 'settings', 'user_management', 'audit_logs', 'company_users', 'admin_maps'],
   admin: ['company_users', 'audit_logs']
 };
 

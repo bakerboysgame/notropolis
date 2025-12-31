@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useSearchParams, useL
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { PermissionsProvider } from './contexts/PermissionsContext';
 import { ThemeProvider } from './contexts/ThemeContext';
+import { CompanyProvider } from './contexts/CompanyContext';
 import { ToastProvider } from './components/ui/Toast';
 import { LoginPage } from './pages/LoginPage';
 import { MagicLinkVerification } from './components/auth/MagicLinkVerification';
@@ -13,6 +14,11 @@ import Settings from './pages/Settings';
 import UserManagement from './pages/UserManagement';
 import CompanyUserManagement from './pages/CompanyUserManagement';
 import AuditLogsPage from './pages/AuditLogsPage';
+import { MapBuilder } from './pages/admin/MapBuilder';
+import { Companies } from './pages/Companies';
+import { CompanyCreate } from './pages/CompanyCreate';
+import { CompanyDashboard } from './pages/CompanyDashboard';
+import { GameMap } from './pages/GameMap';
 import { ProtectedPageRoute } from './components/ProtectedPageRoute';
 import { api, apiHelpers } from './services/api';
 
@@ -95,6 +101,7 @@ function App() {
     <ThemeProvider>
       <AuthProvider>
         <PermissionsProvider>
+          <CompanyProvider>
           <ToastProvider>
             <Router>
             <Routes>
@@ -207,11 +214,62 @@ function App() {
                 </ProtectedRoute>
               } />
 
+              {/* Game Company Routes - All Authenticated Users */}
+              <Route path="/companies" element={
+                <ProtectedRoute>
+                  <Layout>
+                    <Companies />
+                  </Layout>
+                </ProtectedRoute>
+              } />
+              <Route path="/companies/new" element={
+                <ProtectedRoute>
+                  <Layout>
+                    <CompanyCreate />
+                  </Layout>
+                </ProtectedRoute>
+              } />
+              <Route path="/companies/:id" element={
+                <ProtectedRoute>
+                  <Layout>
+                    <CompanyDashboard />
+                  </Layout>
+                </ProtectedRoute>
+              } />
+
+              {/* Game Map Route */}
+              <Route path="/map/:mapId" element={
+                <ProtectedRoute>
+                  <GameMap />
+                </ProtectedRoute>
+              } />
+
+              {/* Admin Routes - Master Admin Only */}
+              <Route path="/admin/maps" element={
+                <ProtectedRoute>
+                  <ProtectedPageRoute pageKey="admin_maps">
+                    <Layout>
+                      <MapBuilder />
+                    </Layout>
+                  </ProtectedPageRoute>
+                </ProtectedRoute>
+              } />
+              <Route path="/admin/maps/:mapId" element={
+                <ProtectedRoute>
+                  <ProtectedPageRoute pageKey="admin_maps">
+                    <Layout>
+                      <MapBuilder />
+                    </Layout>
+                  </ProtectedPageRoute>
+                </ProtectedRoute>
+              } />
+
               {/* Fallback */}
               <Route path="*" element={<Navigate to="/login" replace />} />
             </Routes>
             </Router>
           </ToastProvider>
+          </CompanyProvider>
         </PermissionsProvider>
       </AuthProvider>
     </ThemeProvider>

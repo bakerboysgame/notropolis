@@ -290,7 +290,39 @@ export default {
         // Session cleanup endpoint
         case path === '/api/cleanup/sessions':
           return handleSessionCleanup(request, authService);
-        
+
+        // ==================== ADMIN MAP BUILDER ENDPOINTS ====================
+        case path === '/api/admin/maps' && method === 'GET':
+          return handleGetMaps(request, authService, env, corsHeaders);
+
+        case path === '/api/admin/maps' && method === 'POST':
+          return handleCreateMap(request, authService, env, corsHeaders);
+
+        case path.match(/^\/api\/admin\/maps\/[^/]+$/) && method === 'GET':
+          return handleGetMap(request, authService, env, corsHeaders);
+
+        case path.match(/^\/api\/admin\/maps\/[^/]+$/) && method === 'PUT':
+          return handleUpdateMap(request, authService, env, corsHeaders);
+
+        case path.match(/^\/api\/admin\/maps\/[^/]+$/) && method === 'DELETE':
+          return handleDeleteMap(request, authService, env, corsHeaders);
+
+        case path.match(/^\/api\/admin\/maps\/[^/]+\/tiles$/) && method === 'PUT':
+          return handleUpdateTiles(request, authService, env, corsHeaders);
+
+        // ==================== GAME COMPANY ENDPOINTS ====================
+        case path.startsWith('/api/game/companies'):
+          return handleGameCompanyRoutes(request, authService, env, corsHeaders);
+
+        case path === '/api/game/maps' && method === 'GET':
+          return handleGetGameMaps(request, authService, env, corsHeaders);
+
+        case path.match(/^\/api\/game\/maps\/[^/]+\/tile\/\d+\/\d+$/) && method === 'GET':
+          return handleGetTileDetail(request, authService, env, corsHeaders);
+
+        case path.match(/^\/api\/game\/maps\/[^/]+$/) && method === 'GET':
+          return handleGetGameMapById(request, authService, env, corsHeaders);
+
         default:
           return new Response(JSON.stringify({ 
             error: 'Not Found',
@@ -5254,3 +5286,1291 @@ async function handleRevokeUserPermission(request, authService, env, corsHeaders
     });
   }
 }
+
+// ==================== ADMIN MAP BUILDER HANDLERS ====================
+
+/**
+ * GET /api/admin/maps
+ * Returns all maps for the admin
+ */
+async function handleGetMaps(request, authService, env, corsHeaders) {
+  const authHeader = request.headers.get('Authorization');
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return new Response(JSON.stringify({
+      success: false,
+      error: 'Unauthorized'
+    }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+
+  const token = authHeader.split(' ')[1];
+
+  try {
+    const { user } = await authService.getUserFromToken(token);
+
+    // Only master_admin can access
+    if (user.role !== 'master_admin') {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Admin access required'
+      }), {
+        status: 403,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    const result = await env.DB.prepare(`
+      SELECT id, name, country, location_type, width, height,
+             hero_net_worth, hero_cash, hero_land_percentage,
+             police_strike_day, is_active, created_at
+      FROM maps
+      ORDER BY created_at DESC
+    `).all();
+
+    return new Response(JSON.stringify({
+      success: true,
+      data: result.results || []
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  } catch (error) {
+    return new Response(JSON.stringify({
+      success: false,
+      error: error.message
+    }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+}
+
+/**
+ * POST /api/admin/maps
+ * Creates a new map with auto-generated tiles
+ */
+async function handleCreateMap(request, authService, env, corsHeaders) {
+  const authHeader = request.headers.get('Authorization');
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return new Response(JSON.stringify({
+      success: false,
+      error: 'Unauthorized'
+    }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+
+  const token = authHeader.split(' ')[1];
+
+  try {
+    const { user } = await authService.getUserFromToken(token);
+
+    if (user.role !== 'master_admin') {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Admin access required'
+      }), {
+        status: 403,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    const body = await request.json();
+    const {
+      name,
+      country,
+      location_type,
+      width,
+      height,
+      hero_net_worth,
+      hero_cash,
+      hero_land_percentage,
+      police_strike_day
+    } = body;
+
+    // Validate required fields
+    if (!name || !country || !location_type || !width || !height) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Missing required fields: name, country, location_type, width, height'
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Validate dimensions
+    if (width < 1 || width > 100 || height < 1 || height > 100) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Width and height must be between 1 and 100'
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Validate location_type
+    if (!['town', 'city', 'capital'].includes(location_type)) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'location_type must be one of: town, city, capital'
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Generate map ID
+    const mapId = crypto.randomUUID();
+
+    // Create the map
+    await env.DB.prepare(`
+      INSERT INTO maps (id, name, country, location_type, width, height,
+                        hero_net_worth, hero_cash, hero_land_percentage,
+                        police_strike_day, is_active, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, datetime('now'))
+    `).bind(
+      mapId,
+      name,
+      country,
+      location_type,
+      width,
+      height,
+      hero_net_worth || 5500000,
+      hero_cash || 4000000,
+      hero_land_percentage || 6.0,
+      police_strike_day ?? 3
+    ).run();
+
+    // Generate all tiles with free_land as default terrain
+    const tileInserts = [];
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        tileInserts.push({
+          id: crypto.randomUUID(),
+          map_id: mapId,
+          x,
+          y,
+          terrain_type: 'free_land'
+        });
+      }
+    }
+
+    // OPTIMAL: Use batch() with chunked multi-value INSERT
+    // D1 limit: 100 bind parameters per query → max 20 rows per INSERT (20 × 5 = 100)
+    // batch() sends all statements in a single network call
+    // Benchmark: 10,000 tiles in ~100-200ms vs 3000ms with sequential calls
+    const CHUNK_SIZE = 20; // 20 rows × 5 params = 100 (at D1's limit)
+    const statements = [];
+    for (let i = 0; i < tileInserts.length; i += CHUNK_SIZE) {
+      const chunk = tileInserts.slice(i, i + CHUNK_SIZE);
+      const placeholders = chunk.map(() => '(?, ?, ?, ?, ?)').join(', ');
+      const values = chunk.flatMap(t => [t.id, t.map_id, t.x, t.y, t.terrain_type]);
+      statements.push(
+        env.DB.prepare(`INSERT INTO tiles (id, map_id, x, y, terrain_type) VALUES ${placeholders}`).bind(...values)
+      );
+    }
+    // Single batch() call - all statements execute in one network round trip
+    await env.DB.batch(statements);
+
+    // Fetch the created map
+    const createdMap = await env.DB.prepare(`
+      SELECT * FROM maps WHERE id = ?
+    `).bind(mapId).first();
+
+    return new Response(JSON.stringify({
+      success: true,
+      data: {
+        map: createdMap,
+        tiles_created: width * height
+      }
+    }), {
+      status: 201,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  } catch (error) {
+    return new Response(JSON.stringify({
+      success: false,
+      error: error.message
+    }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+}
+
+/**
+ * GET /api/admin/maps/:id
+ * Returns a specific map with all its tiles
+ */
+async function handleGetMap(request, authService, env, corsHeaders) {
+  const url = new URL(request.url);
+  const path = url.pathname;
+  const mapId = path.split('/')[4]; // /api/admin/maps/:id
+
+  const authHeader = request.headers.get('Authorization');
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return new Response(JSON.stringify({
+      success: false,
+      error: 'Unauthorized'
+    }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+
+  const token = authHeader.split(' ')[1];
+
+  try {
+    const { user } = await authService.getUserFromToken(token);
+
+    if (user.role !== 'master_admin') {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Admin access required'
+      }), {
+        status: 403,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Get map
+    const map = await env.DB.prepare(`
+      SELECT * FROM maps WHERE id = ?
+    `).bind(mapId).first();
+
+    if (!map) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Map not found'
+      }), {
+        status: 404,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Get tiles
+    const tilesResult = await env.DB.prepare(`
+      SELECT id, x, y, terrain_type, special_building, owner_company_id, purchased_at
+      FROM tiles
+      WHERE map_id = ?
+      ORDER BY y, x
+    `).bind(mapId).all();
+
+    return new Response(JSON.stringify({
+      success: true,
+      data: {
+        map,
+        tiles: tilesResult.results || []
+      }
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  } catch (error) {
+    return new Response(JSON.stringify({
+      success: false,
+      error: error.message
+    }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+}
+
+/**
+ * PUT /api/admin/maps/:id
+ * Updates map metadata
+ */
+async function handleUpdateMap(request, authService, env, corsHeaders) {
+  const url = new URL(request.url);
+  const path = url.pathname;
+  const mapId = path.split('/')[4];
+
+  const authHeader = request.headers.get('Authorization');
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return new Response(JSON.stringify({
+      success: false,
+      error: 'Unauthorized'
+    }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+
+  const token = authHeader.split(' ')[1];
+
+  try {
+    const { user } = await authService.getUserFromToken(token);
+
+    if (user.role !== 'master_admin') {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Admin access required'
+      }), {
+        status: 403,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Check map exists
+    const existingMap = await env.DB.prepare(`
+      SELECT * FROM maps WHERE id = ?
+    `).bind(mapId).first();
+
+    if (!existingMap) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Map not found'
+      }), {
+        status: 404,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    const body = await request.json();
+    const {
+      name,
+      country,
+      location_type,
+      hero_net_worth,
+      hero_cash,
+      hero_land_percentage,
+      police_strike_day,
+      is_active
+    } = body;
+
+    // Validate location_type if provided
+    if (location_type && !['town', 'city', 'capital'].includes(location_type)) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'location_type must be one of: town, city, capital'
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Build update query dynamically
+    const updates = [];
+    const values = [];
+
+    if (name !== undefined) { updates.push('name = ?'); values.push(name); }
+    if (country !== undefined) { updates.push('country = ?'); values.push(country); }
+    if (location_type !== undefined) { updates.push('location_type = ?'); values.push(location_type); }
+    if (hero_net_worth !== undefined) { updates.push('hero_net_worth = ?'); values.push(hero_net_worth); }
+    if (hero_cash !== undefined) { updates.push('hero_cash = ?'); values.push(hero_cash); }
+    if (hero_land_percentage !== undefined) { updates.push('hero_land_percentage = ?'); values.push(hero_land_percentage); }
+    if (police_strike_day !== undefined) { updates.push('police_strike_day = ?'); values.push(police_strike_day); }
+    if (is_active !== undefined) { updates.push('is_active = ?'); values.push(is_active ? 1 : 0); }
+
+    if (updates.length === 0) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'No fields to update'
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    values.push(mapId);
+
+    await env.DB.prepare(`
+      UPDATE maps SET ${updates.join(', ')} WHERE id = ?
+    `).bind(...values).run();
+
+    // Fetch updated map
+    const updatedMap = await env.DB.prepare(`
+      SELECT * FROM maps WHERE id = ?
+    `).bind(mapId).first();
+
+    return new Response(JSON.stringify({
+      success: true,
+      data: updatedMap
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  } catch (error) {
+    return new Response(JSON.stringify({
+      success: false,
+      error: error.message
+    }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+}
+
+/**
+ * DELETE /api/admin/maps/:id
+ * Deletes a map (only if no players)
+ */
+async function handleDeleteMap(request, authService, env, corsHeaders) {
+  const url = new URL(request.url);
+  const path = url.pathname;
+  const mapId = path.split('/')[4];
+
+  const authHeader = request.headers.get('Authorization');
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return new Response(JSON.stringify({
+      success: false,
+      error: 'Unauthorized'
+    }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+
+  const token = authHeader.split(' ')[1];
+
+  try {
+    const { user } = await authService.getUserFromToken(token);
+
+    if (user.role !== 'master_admin') {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Admin access required'
+      }), {
+        status: 403,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Check map exists
+    const existingMap = await env.DB.prepare(`
+      SELECT * FROM maps WHERE id = ?
+    `).bind(mapId).first();
+
+    if (!existingMap) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Map not found'
+      }), {
+        status: 404,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Check if any companies are on this map
+    const companiesOnMap = await env.DB.prepare(`
+      SELECT COUNT(*) as count FROM game_companies WHERE current_map_id = ?
+    `).bind(mapId).first();
+
+    if (companiesOnMap && companiesOnMap.count > 0) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Cannot delete map with active players. Remove all players first.'
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Delete tiles first (foreign key)
+    await env.DB.prepare(`
+      DELETE FROM tiles WHERE map_id = ?
+    `).bind(mapId).run();
+
+    // Delete the map
+    await env.DB.prepare(`
+      DELETE FROM maps WHERE id = ?
+    `).bind(mapId).run();
+
+    return new Response(JSON.stringify({
+      success: true,
+      message: 'Map deleted successfully'
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  } catch (error) {
+    return new Response(JSON.stringify({
+      success: false,
+      error: error.message
+    }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+}
+
+/**
+ * PUT /api/admin/maps/:id/tiles
+ * Bulk update tiles (for painting terrain and placing buildings)
+ */
+async function handleUpdateTiles(request, authService, env, corsHeaders) {
+  const url = new URL(request.url);
+  const path = url.pathname;
+  const mapId = path.split('/')[4]; // /api/admin/maps/:id/tiles
+
+  const authHeader = request.headers.get('Authorization');
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return new Response(JSON.stringify({
+      success: false,
+      error: 'Unauthorized'
+    }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+
+  const token = authHeader.split(' ')[1];
+
+  try {
+    const { user } = await authService.getUserFromToken(token);
+
+    if (user.role !== 'master_admin') {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Admin access required'
+      }), {
+        status: 403,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Check map exists
+    const existingMap = await env.DB.prepare(`
+      SELECT * FROM maps WHERE id = ?
+    `).bind(mapId).first();
+
+    if (!existingMap) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Map not found'
+      }), {
+        status: 404,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    const body = await request.json();
+    const { tiles } = body;
+
+    if (!Array.isArray(tiles) || tiles.length === 0) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'tiles must be a non-empty array'
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    const validTerrainTypes = ['free_land', 'water', 'road', 'dirt_track', 'trees'];
+    const validSpecialBuildings = ['temple', 'bank', 'police_station', null];
+
+    // Check for special building constraints (max 1 of each type per map)
+    const specialBuildingsToAdd = tiles
+      .filter(t => t.special_building && validSpecialBuildings.includes(t.special_building))
+      .map(t => t.special_building);
+
+    if (specialBuildingsToAdd.length > 0) {
+      // Get current special buildings on map
+      const existingSpecial = await env.DB.prepare(`
+        SELECT x, y, special_building FROM tiles
+        WHERE map_id = ? AND special_building IS NOT NULL
+      `).bind(mapId).all();
+
+      // Check each special building type
+      for (const building of specialBuildingsToAdd) {
+        const existingOfType = (existingSpecial.results || []).find(t => t.special_building === building);
+        const addingTile = tiles.find(t => t.special_building === building);
+
+        if (existingOfType) {
+          // Check if we're moving the building (updating same position is ok)
+          const isUpdatingSame = addingTile &&
+            existingOfType.x === addingTile.x &&
+            existingOfType.y === addingTile.y;
+
+          if (!isUpdatingSame) {
+            // Remove old building when placing new one of same type
+            await env.DB.prepare(`
+              UPDATE tiles SET special_building = NULL
+              WHERE map_id = ? AND special_building = ?
+            `).bind(mapId, building).run();
+          }
+        }
+      }
+    }
+
+    // Update each tile
+    let updatedCount = 0;
+    for (const tile of tiles) {
+      const { x, y, terrain_type, special_building } = tile;
+
+      // Validate coordinates
+      if (x < 0 || x >= existingMap.width || y < 0 || y >= existingMap.height) {
+        continue; // Skip invalid coordinates
+      }
+
+      // Validate terrain_type
+      if (terrain_type && !validTerrainTypes.includes(terrain_type)) {
+        continue; // Skip invalid terrain types
+      }
+
+      // Validate special_building
+      if (special_building !== undefined && !validSpecialBuildings.includes(special_building)) {
+        continue; // Skip invalid special buildings
+      }
+
+      // Build update
+      const updates = [];
+      const values = [];
+
+      if (terrain_type) {
+        updates.push('terrain_type = ?');
+        values.push(terrain_type);
+      }
+
+      if (special_building !== undefined) {
+        updates.push('special_building = ?');
+        values.push(special_building);
+      }
+
+      if (updates.length > 0) {
+        values.push(mapId, x, y);
+        await env.DB.prepare(`
+          UPDATE tiles SET ${updates.join(', ')} WHERE map_id = ? AND x = ? AND y = ?
+        `).bind(...values).run();
+        updatedCount++;
+      }
+    }
+
+    return new Response(JSON.stringify({
+      success: true,
+      data: {
+        updated_count: updatedCount
+      }
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  } catch (error) {
+    return new Response(JSON.stringify({
+      success: false,
+      error: error.message
+    }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+}
+
+// ==================== GAME COMPANY HANDLERS ====================
+
+/**
+ * GET /api/game/maps
+ * Returns all active maps for players to join (public endpoint for authenticated users)
+ */
+async function handleGetGameMaps(request, authService, env, corsHeaders) {
+  const authHeader = request.headers.get('Authorization');
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return new Response(JSON.stringify({
+      success: false,
+      error: 'Unauthorized'
+    }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+
+  const token = authHeader.split(' ')[1];
+
+  try {
+    await authService.getUserFromToken(token);
+
+    // Get all active maps for players
+    const result = await env.DB.prepare(`
+      SELECT id, name, country, location_type, width, height,
+             hero_net_worth, hero_cash, hero_land_percentage,
+             police_strike_day, created_at
+      FROM maps
+      WHERE is_active = 1
+      ORDER BY country, location_type, name
+    `).all();
+
+    return new Response(JSON.stringify({
+      success: true,
+      data: result.results || []
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  } catch (error) {
+    return new Response(JSON.stringify({
+      success: false,
+      error: error.message
+    }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+}
+
+/**
+ * GET /api/game/maps/:id
+ * Get map with all tiles, buildings, and ownership stats
+ */
+async function handleGetGameMapById(request, authService, env, corsHeaders) {
+  const authHeader = request.headers.get('Authorization');
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return new Response(JSON.stringify({
+      success: false,
+      error: 'Unauthorized'
+    }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+
+  const token = authHeader.split(' ')[1];
+
+  try {
+    const { user } = await authService.getUserFromToken(token);
+
+    // Get first company for the user (active company is tracked client-side)
+    const activeCompanyResult = await env.DB.prepare(`
+      SELECT id FROM game_companies
+      WHERE user_id = ?
+      LIMIT 1
+    `).bind(user.id).first();
+
+    if (!activeCompanyResult) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'No active company'
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    const activeCompanyId = activeCompanyResult.id;
+
+    // Extract map ID from path
+    const url = new URL(request.url);
+    const pathParts = url.pathname.split('/');
+    const mapId = pathParts[4];
+
+    // 1. Get map
+    const map = await env.DB.prepare(`
+      SELECT * FROM maps WHERE id = ? AND is_active = 1
+    `).bind(mapId).first();
+
+    if (!map) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Map not found'
+      }), {
+        status: 404,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // 2. Get all tiles for this map
+    const tilesResult = await env.DB.prepare(`
+      SELECT * FROM tiles WHERE map_id = ? ORDER BY y, x
+    `).bind(mapId).all();
+
+    const tiles = tilesResult.results || [];
+
+    // 3. Get all buildings on this map (join with tiles to filter by map)
+    const buildingsResult = await env.DB.prepare(`
+      SELECT b.*, bt.name, bt.base_profit, bt.cost
+      FROM building_instances b
+      JOIN tiles t ON b.tile_id = t.id
+      LEFT JOIN building_types bt ON b.building_type_id = bt.id
+      WHERE t.map_id = ?
+    `).bind(mapId).all();
+
+    const buildings = buildingsResult.results || [];
+
+    // 4. Get ownership stats for active company
+    const playerTileCount = tiles.filter(
+      t => t.owner_company_id === activeCompanyId
+    ).length;
+
+    const totalFreeLand = tiles.filter(
+      t => !t.owner_company_id && t.terrain_type === 'free_land'
+    ).length;
+
+    return new Response(JSON.stringify({
+      success: true,
+      data: {
+        map,
+        tiles,
+        buildings,
+        playerTileCount,
+        totalFreeLand
+      }
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  } catch (error) {
+    return new Response(JSON.stringify({
+      success: false,
+      error: error.message
+    }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+}
+
+/**
+ * GET /api/game/maps/:id/tile/:x/:y
+ * Get single tile details with building, owner, and security info
+ */
+async function handleGetTileDetail(request, authService, env, corsHeaders) {
+  const authHeader = request.headers.get('Authorization');
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return new Response(JSON.stringify({
+      success: false,
+      error: 'Unauthorized'
+    }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+
+  const token = authHeader.split(' ')[1];
+
+  try {
+    await authService.getUserFromToken(token);
+
+    // Extract map ID, x, and y from path
+    const url = new URL(request.url);
+    const pathParts = url.pathname.split('/');
+    const mapId = pathParts[4];
+    const x = parseInt(pathParts[6]);
+    const y = parseInt(pathParts[7]);
+
+    // 1. Get tile
+    const tile = await env.DB.prepare(`
+      SELECT * FROM tiles WHERE map_id = ? AND x = ? AND y = ?
+    `).bind(mapId, x, y).first();
+
+    if (!tile) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Tile not found'
+      }), {
+        status: 404,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // 2. Get building on this tile (if any)
+    let building = null;
+    const buildingResult = await env.DB.prepare(`
+      SELECT b.*, bt.name, bt.base_profit, bt.cost, bt.level_required
+      FROM building_instances b
+      JOIN building_types bt ON b.building_type_id = bt.id
+      WHERE b.tile_id = ?
+    `).bind(tile.id).first();
+
+    if (buildingResult) {
+      building = buildingResult;
+    }
+
+    // 3. Get owner company name (anonymous)
+    let owner = null;
+    if (tile.owner_company_id) {
+      const company = await env.DB.prepare(`
+        SELECT name FROM game_companies WHERE id = ?
+      `).bind(tile.owner_company_id).first();
+
+      if (company) {
+        owner = { name: company.name }; // NEVER expose user_id
+      }
+    }
+
+    // 4. Get security (if building exists)
+    let security = null;
+    if (building) {
+      security = await env.DB.prepare(`
+        SELECT * FROM building_security WHERE building_id = ?
+      `).bind(building.id).first();
+    }
+
+    return new Response(JSON.stringify({
+      success: true,
+      data: { tile, building, owner, security }
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  } catch (error) {
+    return new Response(JSON.stringify({
+      success: false,
+      error: error.message
+    }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+}
+
+/**
+ * Game Company Routes Handler
+ * Handles all /api/game/companies/* endpoints
+ */
+async function handleGameCompanyRoutes(request, authService, env, corsHeaders) {
+  const url = new URL(request.url);
+  const path = url.pathname;
+  const method = request.method;
+
+  const authHeader = request.headers.get('Authorization');
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return new Response(JSON.stringify({
+      success: false,
+      error: 'Unauthorized'
+    }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+
+  const token = authHeader.split(' ')[1];
+
+  try {
+    const { user } = await authService.getUserFromToken(token);
+
+    switch (true) {
+      // GET /api/game/companies - List user's companies
+      case path === '/api/game/companies' && method === 'GET': {
+        const result = await env.DB.prepare(`
+          SELECT * FROM game_companies WHERE user_id = ? ORDER BY created_at DESC
+        `).bind(user.id).all();
+
+        return new Response(JSON.stringify({
+          success: true,
+          data: {
+            companies: result.results || [],
+            max_companies: 3
+          }
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      // POST /api/game/companies - Create new company
+      case path === '/api/game/companies' && method === 'POST': {
+        const body = await request.json();
+        const { name } = body;
+
+        // Validate name
+        if (!name || typeof name !== 'string') {
+          return new Response(JSON.stringify({
+            success: false,
+            error: 'Company name is required'
+          }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        if (name.trim().length === 0 || name.length > 30) {
+          return new Response(JSON.stringify({
+            success: false,
+            error: 'Company name must be between 1 and 30 characters'
+          }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        // Check company limit (max 3 per user)
+        const countResult = await env.DB.prepare(`
+          SELECT COUNT(*) as count FROM game_companies WHERE user_id = ?
+        `).bind(user.id).first();
+
+        if (countResult && countResult.count >= 3) {
+          return new Response(JSON.stringify({
+            success: false,
+            error: 'Maximum 3 companies allowed'
+          }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        // Create the company
+        const companyId = crypto.randomUUID();
+        await env.DB.prepare(`
+          INSERT INTO game_companies (
+            id, user_id, name, cash, offshore, level, total_actions,
+            is_in_prison, prison_fine, ticks_since_action, land_ownership_streak, land_percentage
+          ) VALUES (?, ?, ?, 50000, 0, 1, 0, 0, 0, 0, 0, 0)
+        `).bind(companyId, user.id, name.trim()).run();
+
+        // Fetch the created company
+        const company = await env.DB.prepare(`
+          SELECT * FROM game_companies WHERE id = ?
+        `).bind(companyId).first();
+
+        return new Response(JSON.stringify({
+          success: true,
+          data: { company }
+        }), {
+          status: 201,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      // GET /api/game/companies/:id - Get single company
+      case path.match(/^\/api\/game\/companies\/[^/]+$/) && method === 'GET': {
+        const companyId = path.split('/')[4];
+
+        const company = await env.DB.prepare(`
+          SELECT * FROM game_companies WHERE id = ? AND user_id = ?
+        `).bind(companyId, user.id).first();
+
+        if (!company) {
+          return new Response(JSON.stringify({
+            success: false,
+            error: 'Company not found'
+          }), {
+            status: 404,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        return new Response(JSON.stringify({
+          success: true,
+          data: { company }
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      // PUT /api/game/companies/:id - Update company (name only)
+      case path.match(/^\/api\/game\/companies\/[^/]+$/) && method === 'PUT': {
+        const companyId = path.split('/')[4];
+
+        // Verify ownership
+        const existingCompany = await env.DB.prepare(`
+          SELECT * FROM game_companies WHERE id = ? AND user_id = ?
+        `).bind(companyId, user.id).first();
+
+        if (!existingCompany) {
+          return new Response(JSON.stringify({
+            success: false,
+            error: 'Company not found'
+          }), {
+            status: 404,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        const body = await request.json();
+        const { name } = body;
+
+        if (!name || typeof name !== 'string' || name.trim().length === 0 || name.length > 30) {
+          return new Response(JSON.stringify({
+            success: false,
+            error: 'Company name must be between 1 and 30 characters'
+          }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        await env.DB.prepare(`
+          UPDATE game_companies SET name = ? WHERE id = ?
+        `).bind(name.trim(), companyId).run();
+
+        const updatedCompany = await env.DB.prepare(`
+          SELECT * FROM game_companies WHERE id = ?
+        `).bind(companyId).first();
+
+        return new Response(JSON.stringify({
+          success: true,
+          data: { company: updatedCompany }
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      // DELETE /api/game/companies/:id - Delete company
+      case path.match(/^\/api\/game\/companies\/[^/]+$/) && method === 'DELETE': {
+        const companyId = path.split('/')[4];
+
+        // Verify ownership
+        const existingCompany = await env.DB.prepare(`
+          SELECT * FROM game_companies WHERE id = ? AND user_id = ?
+        `).bind(companyId, user.id).first();
+
+        if (!existingCompany) {
+          return new Response(JSON.stringify({
+            success: false,
+            error: 'Company not found'
+          }), {
+            status: 404,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        // Delete the company
+        await env.DB.prepare(`
+          DELETE FROM game_companies WHERE id = ?
+        `).bind(companyId).run();
+
+        return new Response(JSON.stringify({
+          success: true,
+          message: 'Company deleted successfully'
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      // POST /api/game/companies/:id/join-location - Join a map
+      case path.match(/^\/api\/game\/companies\/[^/]+\/join-location$/) && method === 'POST': {
+        const companyId = path.split('/')[4];
+
+        // Verify ownership
+        const existingCompany = await env.DB.prepare(`
+          SELECT * FROM game_companies WHERE id = ? AND user_id = ?
+        `).bind(companyId, user.id).first();
+
+        if (!existingCompany) {
+          return new Response(JSON.stringify({
+            success: false,
+            error: 'Company not found'
+          }), {
+            status: 404,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        const body = await request.json();
+        const { map_id } = body;
+
+        if (!map_id) {
+          return new Response(JSON.stringify({
+            success: false,
+            error: 'map_id is required'
+          }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        // Verify map exists and is active
+        const map = await env.DB.prepare(`
+          SELECT * FROM maps WHERE id = ? AND is_active = 1
+        `).bind(map_id).first();
+
+        if (!map) {
+          return new Response(JSON.stringify({
+            success: false,
+            error: 'Map not found or not active'
+          }), {
+            status: 404,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        // Determine starting cash based on location type
+        const startingCash = {
+          town: 50000,
+          city: 1000000,
+          capital: 5000000
+        };
+        const cash = startingCash[map.location_type] || 50000;
+
+        // Update company with map info and starting cash
+        await env.DB.prepare(`
+          UPDATE game_companies
+          SET current_map_id = ?, location_type = ?, cash = ?
+          WHERE id = ?
+        `).bind(map_id, map.location_type, cash, companyId).run();
+
+        const updatedCompany = await env.DB.prepare(`
+          SELECT * FROM game_companies WHERE id = ?
+        `).bind(companyId).first();
+
+        return new Response(JSON.stringify({
+          success: true,
+          data: {
+            company: updatedCompany,
+            map: {
+              id: map.id,
+              name: map.name,
+              country: map.country,
+              location_type: map.location_type
+            }
+          }
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      // POST /api/game/companies/:id/leave-location - Leave map
+      case path.match(/^\/api\/game\/companies\/[^/]+\/leave-location$/) && method === 'POST': {
+        const companyId = path.split('/')[4];
+
+        // Verify ownership
+        const existingCompany = await env.DB.prepare(`
+          SELECT * FROM game_companies WHERE id = ? AND user_id = ?
+        `).bind(companyId, user.id).first();
+
+        if (!existingCompany) {
+          return new Response(JSON.stringify({
+            success: false,
+            error: 'Company not found'
+          }), {
+            status: 404,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        if (!existingCompany.current_map_id) {
+          return new Response(JSON.stringify({
+            success: false,
+            error: 'Company is not currently in any location'
+          }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        // Remove map assignment (future: sell buildings, return cash, etc.)
+        await env.DB.prepare(`
+          UPDATE game_companies
+          SET current_map_id = NULL, location_type = NULL, cash = 50000
+          WHERE id = ?
+        `).bind(companyId).run();
+
+        const updatedCompany = await env.DB.prepare(`
+          SELECT * FROM game_companies WHERE id = ?
+        `).bind(companyId).first();
+
+        return new Response(JSON.stringify({
+          success: true,
+          data: { company: updatedCompany }
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      default:
+        return new Response(JSON.stringify({
+          success: false,
+          error: 'Not Found'
+        }), {
+          status: 404,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+    }
+  } catch (error) {
+    return new Response(JSON.stringify({
+      success: false,
+      error: error.message
+    }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+}
+

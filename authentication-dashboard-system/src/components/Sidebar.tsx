@@ -13,6 +13,8 @@ import {
   ScrollText,
   Sun,
   Moon,
+  Map,
+  Briefcase,
   LucideIcon
 } from 'lucide-react'
 import { clsx } from 'clsx'
@@ -48,6 +50,7 @@ interface NavigationItem {
 
 const navigation: NavigationItem[] = [
   { name: 'Home', href: '/', icon: Home, pageKey: 'dashboard' },
+  { name: 'Companies', href: '/companies', icon: Briefcase, pageKey: 'companies' },
   { name: 'Headquarters', href: '/headquarters', icon: Building2, pageKey: 'headquarters' },
   { name: 'Statistics', href: '/statistics', icon: BarChart3, pageKey: 'statistics' },
   { name: 'Events', href: '/events', icon: Calendar, pageKey: 'events' },
@@ -172,6 +175,8 @@ export default function Sidebar() {
       if (auditLoggingEnabled) {
         items.push({ name: 'Audit Logs', href: '/audit-logs', icon: ScrollText, pageKey: 'audit_logs', requiresMasterAdmin: true })
       }
+      // Master admin gets map builder
+      items.push({ name: 'Map Builder', href: '/admin/maps', icon: Map, pageKey: 'admin_maps', requiresMasterAdmin: true })
     } else if (user?.role === 'admin') {
       // Admin gets company users if company management is enabled (built-in page)
       if (companyManagementEnabled) {
@@ -184,7 +189,9 @@ export default function Sidebar() {
     }
 
     // Filter items based on page access permissions
-    return items.filter(item => hasPageAccess(item.pageKey))
+    // Note: 'companies' is always accessible to all authenticated users (game feature)
+    const alwaysAccessible = ['companies']
+    return items.filter(item => alwaysAccessible.includes(item.pageKey) || hasPageAccess(item.pageKey))
   }, [user?.role, companyManagementEnabled, auditLoggingEnabled, hasPageAccess])
 
   // Glass effect inline styles - using brand neutral colors
