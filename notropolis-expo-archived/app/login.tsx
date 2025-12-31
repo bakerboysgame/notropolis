@@ -7,6 +7,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   TouchableOpacity,
+  useWindowDimensions,
 } from 'react-native';
 import { router, Href } from 'expo-router';
 import { useAuth } from '../contexts/AuthContext';
@@ -15,6 +16,8 @@ import { Input } from '../components/ui/Input';
 
 export default function LoginScreen() {
   const { login, requestMagicLink, loading, error, clearError } = useAuth();
+  const { width } = useWindowDimensions();
+  const isDesktop = width >= 768;
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -127,10 +130,13 @@ export default function LoginScreen() {
       className="flex-1 bg-neutral-950"
     >
       <ScrollView
-        contentContainerStyle={{ flexGrow: 1 }}
+        contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', alignItems: 'center' }}
         keyboardShouldPersistTaps="handled"
       >
-        <View className="flex-1 justify-center px-6 py-12">
+        <View
+          className={`flex-1 justify-center px-6 py-12 ${isDesktop ? 'bg-neutral-900 rounded-lg border border-neutral-800' : ''}`}
+          style={isDesktop ? { maxWidth: 448, width: '100%', margin: 24 } : { width: '100%' }}
+        >
           {/* Logo */}
           <View className="items-center mb-8">
             <Image
