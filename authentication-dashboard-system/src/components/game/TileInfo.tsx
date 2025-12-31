@@ -4,6 +4,8 @@ import { useActiveCompany } from '../../contexts/CompanyContext';
 import { BuyLandModal } from './BuyLandModal';
 import { BuildModal } from './BuildModal';
 import { SellModal } from './SellModal';
+import { AttackModal } from './AttackModal';
+import { AttackResult } from './AttackResult';
 import { api, apiHelpers } from '../../services/api';
 
 interface TileInfoProps {
@@ -25,6 +27,8 @@ export function TileInfo({ mapId, x, y, map, onClose, onRefresh }: TileInfoProps
   const [showBuyLandModal, setShowBuyLandModal] = useState(false);
   const [showBuildModal, setShowBuildModal] = useState(false);
   const [showSellModal, setShowSellModal] = useState(false);
+  const [showAttackModal, setShowAttackModal] = useState(false);
+  const [attackResult, setAttackResult] = useState<any>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
@@ -34,6 +38,11 @@ export function TileInfo({ mapId, x, y, map, onClose, onRefresh }: TileInfoProps
     if (onRefresh) {
       onRefresh(); // Refresh parent component (map)
     }
+  };
+
+  const handleAttackSuccess = async (result: any) => {
+    setAttackResult(result);
+    await handleActionSuccess();
   };
 
   if (isLoading) {
@@ -258,6 +267,16 @@ export function TileInfo({ mapId, x, y, map, onClose, onRefresh }: TileInfoProps
           </button>
         )}
 
+        {/* Attack button - for enemy buildings (not owned by player, not collapsed) */}
+        {building && building.company_id !== activeCompany?.id && !building.is_collapsed && activeCompany && (
+          <button
+            onClick={() => setShowAttackModal(true)}
+            className="w-full py-2 bg-red-600 text-white rounded hover:bg-red-500 transition-colors font-bold"
+          >
+            💥 Attack Building
+          </button>
+        )}
+
         {/* Demolish button - for collapsed buildings owned by active company */}
         {building && building.is_collapsed && building.company_id === activeCompany?.id && activeCompany && (
           <button
@@ -320,6 +339,27 @@ export function TileInfo({ mapId, x, y, map, onClose, onRefresh }: TileInfoProps
               map={map}
               activeCompanyId={activeCompany.id}
             />
+          )}
+
+          {building && (
+            <>
+              <AttackModal
+                isOpen={showAttackModal}
+                onClose={() => setShowAttackModal(false)}
+                onSuccess={handleAttackSuccess}
+                building={{ ...building, owner_name: owner?.name }}
+                buildingType={{ name: building.name }}
+                map={map}
+                activeCompanyId={activeCompany.id}
+                companyLevel={activeCompany.level}
+                companyCash={activeCompany.cash}
+              />
+              <AttackResult
+                isOpen={attackResult !== null}
+                onClose={() => setAttackResult(null)}
+                result={attackResult}
+              />
+            </>
           )}
         </>
       )}

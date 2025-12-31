@@ -5,17 +5,8 @@ import { Database } from './src/database.js';
 import { AuthService } from './src/auth.js';
 import { EmailService } from './src/email-postmark.js';
 import { SecurityService } from './src/security.js';
-import { BrevoAnalytics } from './src/analytics.js';
-import { generateJWT, verifyJWT } from './src/jwt.js';
-import { handleBrevoWebhook } from './webhook_handler.js';
-import {
-  handleEmailDashboard,
-  handleCompanyEmailAnalytics,
-  handleEmailEvents,
-  handleBrevoActivityLogs,
-  handleSyncBrevoLogs
-} from './analytics_handlers.js';
-import { checkAuthorization, checkPageAccess, ROLE_BUILTIN_PAGES } from './src/middleware/authorization.js';
+import { generateJWT } from './src/jwt.js';
+import { checkAuthorization, ROLE_BUILTIN_PAGES } from './src/middleware/authorization.js';
 import { calculateProfit, markAffectedBuildingsDirty, calculateLandCost } from './src/adjacencyCalculator.js';
 import { processTick } from './src/tick/processor.js';
 import {
@@ -26,6 +17,11 @@ import {
   demolishBuilding,
   getMarketListings
 } from './src/routes/game/market.js';
+import {
+  performAttack,
+  payFine,
+  getAttackHistory
+} from './src/routes/game/attacks.js';
 
 export default {
   async fetch(request, env, ctx) {
@@ -56,7 +52,6 @@ export default {
     const authService = new AuthService(db, env);
     const emailService = new EmailService(env, db);
     const securityService = new SecurityService(env);
-    const analyticsService = new BrevoAnalytics(env, env.DB, db); // Pass both D1 binding and Database instance
 
     // Get client IP for rate limiting
     const clientIP = request.headers.get('CF-Connecting-IP') || request.headers.get('X-Forwarded-For') || 'unknown';
@@ -234,31 +229,9 @@ export default {
         case path.startsWith('/api/audit'):
           return handleAuditRoutes(request, authService, db);
 
-    // Health check endpoint
+    // Health check endpoint (master_admin only)
         case path === '/api/health':
-          return handleHealthCheck(request, db);
-        
-        // Test email endpoint
-        case path === '/api/test/email':
-          return handleTestEmail(request, emailService);
-        
-        // Template validation endpoint
-        case path === '/api/test/templates':
-          return handleTemplateValidation(request, emailService);
-        
-        // Analytics endpoints (require authentication)
-        case path === '/api/analytics/email/dashboard':
-          return handleEmailDashboard(request, analyticsService, authService);
-        case path === '/api/analytics/email/company':
-          return handleCompanyEmailAnalytics(request, analyticsService, authService);
-        case path === '/api/analytics/email/events':
-          return handleEmailEvents(request, analyticsService, authService);
-        case path === '/api/analytics/email/logs':
-          return handleBrevoActivityLogs(request, analyticsService, authService);
-        case path === '/api/analytics/email/sync':
-          return handleSyncBrevoLogs(request, analyticsService, authService);
-        case path === '/api/webhooks/email':
-          return handleBrevoWebhook(request, analyticsService, authService);
+          return handleHealthCheck(request, authService, db, corsHeaders);
 
         // ==================== USER PERMISSIONS ENDPOINTS ====================
         case path === '/api/user/permissions' && method === 'GET':
@@ -297,9 +270,6 @@ export default {
         case path.match(/^\/api\/users\/[^/]+\/permissions\/[^/]+$/) && method === 'DELETE':
           return handleRevokeUserPermission(request, authService, env, corsHeaders);
 
-        // Session cleanup endpoint
-        case path === '/api/cleanup/sessions':
-          return handleSessionCleanup(request, authService);
 
         // ==================== ADMIN MAP BUILDER ENDPOINTS ====================
         case path === '/api/admin/maps' && method === 'GET':
@@ -365,6 +335,16 @@ export default {
         case path === '/api/game/market/listings' && method === 'GET':
           return handleMarketListings(request, env, corsHeaders);
 
+        // ==================== GAME ATTACK ENDPOINTS ====================
+        case path === '/api/game/attacks' && method === 'POST':
+          return handleMarketAction(request, authService, env, corsHeaders, performAttack);
+
+        case path === '/api/game/attacks/pay-fine' && method === 'POST':
+          return handleMarketAction(request, authService, env, corsHeaders, payFine);
+
+        case path === '/api/game/attacks/history' && method === 'GET':
+          return handleMarketAction(request, authService, env, corsHeaders, getAttackHistory);
+
         default:
           return new Response(JSON.stringify({ 
             error: 'Not Found',
@@ -402,40 +382,6 @@ export default {
     }
   }
 };
-
-// ==================== SESSION CLEANUP HANDLER ====================
-
-async function handleSessionCleanup(request, authService) {
-  // CORS headers
-  const corsHeaders = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, POST, PATCH, PUT, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-    'Access-Control-Allow-Credentials': 'true',
-    'X-Content-Type-Options': 'nosniff',
-    'X-Frame-Options': 'DENY',
-    'Strict-Transport-Security': 'max-age=31536000; includeSubDomains'
-  };
-
-  try {
-    await authService.cleanupExpiredSessions();
-    
-    return new Response(JSON.stringify({
-      success: true,
-      message: 'Expired sessions cleaned up successfully'
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
-  } catch (error) {
-    return new Response(JSON.stringify({
-      success: false,
-      error: error.message
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
-  }
-}
 
 // ==================== AUTHENTICATION HANDLERS ====================
 
@@ -3780,83 +3726,35 @@ async function handleAuditRoutes(request, authService, db) {
   }
 }
 
-// ==================== TEST EMAIL ====================
+// ==================== HEALTH CHECK (MASTER ADMIN ONLY) ====================
 
-async function handleTestEmail(request, emailService) {
-  try {
-    // Test Brevo connection
-    await emailService.testEmailConnection();
-    
-    // Get email statistics
-    const stats = await emailService.getEmailStatistics();
-    
-    return new Response(JSON.stringify({
-      success: true,
-      data: {
-        message: 'Email service connection successful',
-        brevo: {
-          connected: true,
-          statistics: stats
-        },
-        timestamp: new Date().toISOString()
-      }
-    }), {
-      headers: { 'Content-Type': 'application/json' }
-    });
-  } catch (error) {
+async function handleHealthCheck(request, authService, db, corsHeaders) {
+  const authHeader = request.headers.get('Authorization');
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return new Response(JSON.stringify({
       success: false,
-      error: error.message,
-      data: {
-        brevo: {
-          connected: false,
-          error: error.message
-        },
-        timestamp: new Date().toISOString()
-      }
+      error: 'Unauthorized'
     }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' }
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+
+  const token = authHeader.split(' ')[1];
+
+  try {
+    const { user } = await authService.getUserFromToken(token);
+
+    if (user.role !== 'master_admin') {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Master admin access required'
+      }), {
+        status: 403,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
-  }
-  
-async function handleTemplateValidation(request, emailService) {
-  try {
-    const validation = await emailService.validateAllTemplates();
-    
-    return new Response(JSON.stringify({
-      success: true,
-      data: {
-        message: 'Template validation completed',
-        validation,
-        timestamp: new Date().toISOString()
-      }
-    }), {
-      headers: { 'Content-Type': 'application/json' }
-    });
-  } catch (error) {
-    return new Response(JSON.stringify({
-      success: false,
-      error: error.message,
-      data: {
-        validation: {
-          completed: false,
-          error: error.message
-        },
-        timestamp: new Date().toISOString()
-      }
-    }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' }
-    });
-  }
-}
 
-// ==================== HEALTH CHECK ====================
-
-async function handleHealthCheck(request, db) {
-  try {
     const isConnected = await db.testConnection();
     const stats = await db.getDatabaseStats();
 

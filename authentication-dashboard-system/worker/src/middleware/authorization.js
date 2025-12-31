@@ -3,21 +3,13 @@
 
 const ENDPOINT_AUTHORIZATION = [
   // ==================== PUBLIC ENDPOINTS ====================
-  { pattern: '/api/health', roles: null, companyIsolation: false },
+  // (None - all endpoints require authentication)
 
   // ==================== AUTH ENDPOINTS ====================
   { pattern: '/api/auth/*', roles: null, companyIsolation: false },
 
-  // ==================== WEBHOOKS (no auth) ====================
-  { pattern: '/api/webhooks/*', roles: null, companyIsolation: false },
-
-  // ==================== TEST ENDPOINTS ====================
-  { pattern: '/api/test/*', roles: null, companyIsolation: false },
-
-  // ==================== CLEANUP ENDPOINTS ====================
-  { pattern: '/api/cleanup/*', roles: null, companyIsolation: false },
-
   // ==================== MASTER ADMIN ONLY ====================
+  { pattern: '/api/health', roles: ['master_admin'], companyIsolation: false },
   { pattern: '/api/admin/*', roles: ['master_admin'], companyIsolation: false },
   { pattern: '/api/companies/create-with-admin', roles: ['master_admin'], companyIsolation: false },
   { pattern: '/api/companies/stats', roles: ['master_admin'], companyIsolation: false },
