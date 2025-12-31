@@ -22,6 +22,10 @@ import {
   payFine,
   getAttackHistory
 } from './src/routes/game/attacks.js';
+import {
+  purchaseSecurity,
+  removeSecurity
+} from './src/routes/game/security.js';
 
 export default {
   async fetch(request, env, ctx) {
@@ -343,7 +347,14 @@ export default {
           return handleMarketAction(request, authService, env, corsHeaders, payFine);
 
         case path === '/api/game/attacks/history' && method === 'GET':
-          return handleMarketAction(request, authService, env, corsHeaders, getAttackHistory);
+          return handleAttackHistory(request, authService, env, corsHeaders);
+
+        // ==================== GAME SECURITY ENDPOINTS ====================
+        case path === '/api/game/security/purchase' && method === 'POST':
+          return handleMarketAction(request, authService, env, corsHeaders, purchaseSecurity);
+
+        case path === '/api/game/security/remove' && method === 'POST':
+          return handleMarketAction(request, authService, env, corsHeaders, removeSecurity);
 
         default:
           return new Response(JSON.stringify({ 
@@ -6568,6 +6579,17 @@ async function handleBuyLand(request, authService, env, corsHeaders) {
       });
     }
 
+    // Check prison status
+    if (company.is_in_prison) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: `You are in prison! Pay your fine of $${company.prison_fine?.toLocaleString()} to continue.`
+      }), {
+        status: 403,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
     if (!company.current_map_id) {
       return new Response(JSON.stringify({
         success: false,
@@ -6744,6 +6766,17 @@ async function handleBuildBuilding(request, authService, env, corsHeaders) {
         error: 'Company not found'
       }), {
         status: 404,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Check prison status
+    if (company.is_in_prison) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: `You are in prison! Pay your fine of $${company.prison_fine?.toLocaleString()} to continue.`
+      }), {
+        status: 403,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
@@ -7148,6 +7181,58 @@ async function handleMarketAction(request, authService, env, corsHeaders, action
 async function handleMarketListings(request, env, corsHeaders) {
   try {
     const result = await getMarketListings(request, env);
+
+    return new Response(JSON.stringify(result), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+
+  } catch (error) {
+    return new Response(JSON.stringify({
+      success: false,
+      error: error.message
+    }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+}
+
+/**
+ * Handler for getting attack history (requires authentication)
+ */
+async function handleAttackHistory(request, authService, env, corsHeaders) {
+  const authHeader = request.headers.get('Authorization');
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return new Response(JSON.stringify({
+      success: false,
+      error: 'Unauthorized'
+    }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+
+  const token = authHeader.split(' ')[1];
+
+  try {
+    const { user } = await authService.getUserFromToken(token);
+
+    // Get active company for this user
+    const company = await env.DB.prepare(`
+      SELECT * FROM game_companies WHERE user_id = ? LIMIT 1
+    `).bind(user.id).first();
+
+    if (!company) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'No game company found for this user'
+      }), {
+        status: 404,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    const result = await getAttackHistory(request, env, company);
 
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }

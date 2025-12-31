@@ -7,6 +7,7 @@ import { TileInfo } from '../components/game/TileInfo';
 import { MapLegend } from '../components/game/MapLegend';
 import { MapControls } from '../components/game/MapControls';
 import { MapOverview } from '../components/game/MapOverview';
+import { PrisonStatus } from '../components/game/PrisonStatus';
 
 /**
  * Main game map page with Canvas-based rendering
@@ -14,7 +15,7 @@ import { MapOverview } from '../components/game/MapOverview';
  */
 export function GameMap(): JSX.Element {
   const { mapId } = useParams<{ mapId: string }>();
-  const { activeCompany } = useActiveCompany();
+  const { activeCompany, refreshCompany } = useActiveCompany();
   const { mapData, isLoading, error, refetch } = useGameMap(mapId);
 
   const [selectedTile, setSelectedTile] = useState<{ x: number; y: number } | null>(null);
@@ -80,6 +81,19 @@ export function GameMap(): JSX.Element {
 
   return (
     <div className="flex h-screen bg-gray-900">
+      {/* Prison status banner */}
+      {activeCompany.is_in_prison && (
+        <div className="absolute top-0 left-0 right-0 z-50 p-4">
+          <PrisonStatus
+            isInPrison={activeCompany.is_in_prison}
+            prisonFine={activeCompany.prison_fine || 0}
+            companyCash={activeCompany.cash}
+            activeCompanyId={activeCompany.id}
+            onPaidFine={refreshCompany}
+          />
+        </div>
+      )}
+
       {/* Main map area */}
       <div className="flex-1 relative overflow-hidden">
         <MapCanvas

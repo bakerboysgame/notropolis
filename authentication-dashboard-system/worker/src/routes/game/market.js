@@ -11,6 +11,11 @@ import { markAffectedBuildingsDirty } from '../../adjacencyCalculator.js';
  * Sell building to state for instant cash (50% value + land)
  */
 export async function sellToState(request, env, company) {
+  // Check prison status
+  if (company.is_in_prison) {
+    throw new Error(`You are in prison! Pay your fine of $${company.prison_fine?.toLocaleString()} to continue.`);
+  }
+
   const { building_id } = await request.json();
 
   // Get building with type and tile info
@@ -77,6 +82,11 @@ export async function sellToState(request, env, company) {
  * List building for sale to other players
  */
 export async function listForSale(request, env, company) {
+  // Check prison status
+  if (company.is_in_prison) {
+    throw new Error(`You are in prison! Pay your fine of $${company.prison_fine?.toLocaleString()} to continue.`);
+  }
+
   const { building_id, price } = await request.json();
 
   const building = await env.DB.prepare(`
@@ -122,6 +132,11 @@ export async function listForSale(request, env, company) {
  * Remove building from market
  */
 export async function cancelListing(request, env, company) {
+  // Check prison status
+  if (company.is_in_prison) {
+    throw new Error(`You are in prison! Pay your fine of $${company.prison_fine?.toLocaleString()} to continue.`);
+  }
+
   const { building_id } = await request.json();
 
   await env.DB.batch([
@@ -146,6 +161,11 @@ export async function cancelListing(request, env, company) {
  * Buy a listed property from another player
  */
 export async function buyProperty(request, env, company) {
+  // Check prison status
+  if (company.is_in_prison) {
+    throw new Error(`You are in prison! Pay your fine of $${company.prison_fine?.toLocaleString()} to continue.`);
+  }
+
   const { building_id } = await request.json();
 
   const building = await env.DB.prepare(`
@@ -218,6 +238,11 @@ export async function buyProperty(request, env, company) {
  * Demolish a collapsed building (costs 10% of original building cost)
  */
 export async function demolishBuilding(request, env, company) {
+  // Check prison status
+  if (company.is_in_prison) {
+    throw new Error(`You are in prison! Pay your fine of $${company.prison_fine?.toLocaleString()} to continue.`);
+  }
+
   const { building_id } = await request.json();
 
   const building = await env.DB.prepare(`

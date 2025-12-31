@@ -187,13 +187,12 @@ export async function performAttack(request, env, company) {
   statements.push(
     env.DB.prepare(`
       INSERT INTO attacks (
-        id, attacker_company_id, target_building_id, trick_type,
+        attacker_company_id, target_building_id, trick_type,
         damage_dealt, was_caught, caught_by, fine_amount,
         security_active, police_active
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).bind(
-      crypto.randomUUID(),
       company.id,
       building_id,
       trick_type,
@@ -262,14 +261,17 @@ export async function payFine(request, env, company) {
   }
 
   await env.DB.batch([
-    // Deduct fine and release from prison (DO NOT reset ticks_since_action - penalty)
+    // Deduct fine and release from prison, reset tick counter
     env.DB.prepare(`
       UPDATE game_companies
       SET cash = cash - ?,
           is_in_prison = 0,
-          prison_fine = 0
+          prison_fine = 0,
+          ticks_since_action = 0,
+          total_actions = total_actions + 1,
+          last_action_at = ?
       WHERE id = ?
-    `).bind(fine, company.id),
+    `).bind(fine, new Date().toISOString(), company.id),
 
     // Log transaction
     env.DB.prepare(`
