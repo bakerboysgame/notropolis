@@ -274,7 +274,7 @@ export default function Home() {
             </button>
             <span className={`${textPrimary} text-sm w-12 text-center`}>{Math.round(zoom * 100)}%</span>
             <button
-              onClick={() => setZoom(z => Math.min(2, z + 0.25))}
+              onClick={() => setZoom(z => Math.min(3, z + 0.25))}
               className={`w-8 h-8 flex items-center justify-center ${textPrimary} ${hoverBg} rounded transition-colors`}
             >
               +
