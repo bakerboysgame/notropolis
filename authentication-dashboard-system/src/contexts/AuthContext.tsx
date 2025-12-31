@@ -92,36 +92,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     initializeAuth();
   }, [token, isAuthenticating]);
 
-  // Periodic session validation (every 1 minute as backup)
-  // Note: Primary validation happens on every route change in ProtectedRoute
-  useEffect(() => {
-    if (!token || isAuthenticating) {
-      return;
-    }
-
-    const validateSession = async () => {
-      try {
-        const response = await api.get('/api/auth/me');
-        const data = apiHelpers.handleResponse<{ user: User; company: Company }>(response);
-        setUser(data.user);
-        setCompany(data.company);
-      } catch (error) {
-        console.error('Periodic session validation failed:', error);
-        // Clear auth on failure - session no longer valid
-        setUser(null);
-        setCompany(null);
-        setToken(null);
-        apiHelpers.clearToken();
-      }
-    };
-
-    // Validate every 1 minute as a backup (in case user stays on same page)
-    const interval = setInterval(validateSession, 60 * 1000);
-
-    // Cleanup interval on unmount
-    return () => clearInterval(interval);
-  }, [token, isAuthenticating]);
-
   // Login function
   const login = async (email: string, password: string): Promise<LoginResponse> => {
     try {
