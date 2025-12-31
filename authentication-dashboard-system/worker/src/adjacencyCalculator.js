@@ -84,13 +84,17 @@ export function calculateProfit(tile, buildingType, allTiles, allBuildings, map)
     }
   }
 
-  // Damaged building penalty
+  // Damaged building penalty - scales with damage level
+  // 0% damage = 0% penalty, 50% damage = -5%, 100% damage = -10%
   adjacentTiles.forEach(t => {
     const adjBuilding = buildingByTile.get(`${t.x},${t.y}`);
-    if (adjBuilding && adjBuilding.damage_percent > 50) {
-      const penalty = -0.05;
+    if (adjBuilding && adjBuilding.damage_percent > 0) {
+      const penalty = -0.10 * (adjBuilding.damage_percent / 100);
       totalModifier += penalty;
-      breakdown.push({ source: 'Nearby damaged building', modifier: penalty });
+      breakdown.push({
+        source: `Damaged building (${adjBuilding.damage_percent}%)`,
+        modifier: penalty
+      });
     }
   });
 
@@ -215,10 +219,14 @@ function calculateProfitFromMaps(building, tileByCoord, buildingByCoord) {
         breakdown.push({ source: 'adjacent_building', modifier: bonuses['commercial'] * 0.5 });
       }
 
-      // Damaged neighbor penalty
-      if (adjBuilding && adjBuilding.damage_percent > 50) {
-        totalModifier -= 0.05;
-        breakdown.push({ source: 'damaged_neighbor', modifier: -0.05 });
+      // Damaged neighbor penalty - scales with damage (0-100% damage = 0-10% penalty)
+      if (adjBuilding && adjBuilding.damage_percent > 0) {
+        const penalty = -0.10 * (adjBuilding.damage_percent / 100);
+        totalModifier += penalty;
+        breakdown.push({
+          source: `damaged_neighbor_${adjBuilding.damage_percent}%`,
+          modifier: penalty
+        });
       }
     }
   }

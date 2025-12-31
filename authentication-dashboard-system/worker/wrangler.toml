@@ -111,3 +111,8 @@ database_id = "9bbea853-8bb6-4e13-8713-e8086fef0528"
 [[env.preview.kv_namespaces]]
 binding = "RATE_LIMIT_KV"
 id = "e05954baf2de423bb0d94a404832e0f5"
+
+# ==================== CRON TRIGGERS ====================
+# Game tick system - runs every 10 minutes
+[triggers]
+crons = ["*/10 * * * *"]

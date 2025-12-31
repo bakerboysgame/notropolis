@@ -28,7 +28,8 @@ Implement property sales including sell to state, list for sale, and buy from ot
 | `authentication-dashboard-system/src/components/game/BuyPropertyModal.tsx` | Buy from other player |
 | `authentication-dashboard-system/src/components/game/MarketListings.tsx` | List of properties for sale |
 | `authentication-dashboard-system/src/pages/Market.tsx` | Market overview page |
-| `authentication-dashboard-system/src/worker/routes/game/market.ts` | Market API routes |
+| `authentication-dashboard-system/worker/src/routes/game/market.js` | Market API routes |
+| `authentication-dashboard-system/worker/src/utils/marketPricing.js` | Pricing calculation utilities |
 
 ## Implementation Details
 
@@ -70,21 +71,18 @@ interface DemolishRequest {
 
 ### Pricing Logic
 
-```typescript
-// utils/marketPricing.ts
+```javascript
+// worker/src/utils/marketPricing.js
+// Import calculateLandCost from adjacencyCalculator
+import { calculateLandCost } from '../adjacencyCalculator.js';
 
-export function calculateSellToStateValue(
-  building: BuildingInstance,
-  buildingType: BuildingType,
-  tile: Tile,
-  map: GameMap
-): number {
+export function calculateSellToStateValue(building, buildingType, tile, map) {
   // Base: 50% of building cost
   const buildingValue = Math.round(buildingType.cost * 0.5);
 
-  // Damage reduces value
-  const damageMultiplier = (100 - building.damage_percent) / 100;
-  const adjustedBuildingValue = Math.round(buildingValue * damageMultiplier);
+  // Damage reduces value (using same formula as profit: 85% damage = 15% health = worthless)
+  const healthMultiplier = Math.max(0, (100 - building.damage_percent * 1.176) / 100);
+  const adjustedBuildingValue = Math.round(buildingValue * healthMultiplier);
 
   // Land value (original purchase price, stored or calculated)
   const landValue = calculateLandCost(tile, map);
@@ -92,20 +90,12 @@ export function calculateSellToStateValue(
   return adjustedBuildingValue + landValue;
 }
 
-export function calculateMinListingPrice(
-  building: BuildingInstance,
-  buildingType: BuildingType
-): number {
+export function calculateMinListingPrice(building, buildingType) {
   // Minimum listing: 80% of building cost
   return Math.round(buildingType.cost * 0.8);
 }
 
-export function calculateBuyFromPlayerPrice(
-  building: BuildingInstance,
-  buildingType: BuildingType,
-  tile: Tile,
-  map: GameMap
-): number {
+export function calculateBuyFromPlayerPrice(building, buildingType, tile, map) {
   // If not for sale, calculate inflated price
   // 200% of building cost + land value + profit premium
   const buildingValue = buildingType.cost * 2;
@@ -118,9 +108,13 @@ export function calculateBuyFromPlayerPrice(
 
 ### Sell to State API
 
-```typescript
-// worker/routes/game/market.ts
-export async function sellToState(request: Request, env: Env, company: GameCompany) {
+```javascript
+// worker/src/routes/game/market.js
+// Import pricing utilities
+import { calculateSellToStateValue } from '../utils/marketPricing.js';
+import { markAffectedBuildingsDirty } from '../adjacencyCalculator.js';
+
+export async function sellToState(request, env, company) {
   const { building_id } = await request.json();
 
   // Get building with type and tile info
@@ -143,8 +137,8 @@ export async function sellToState(request: Request, env: Env, company: GameCompa
   // Calculate sale value
   const saleValue = calculateSellToStateValue(
     building,
-    { cost: building.type_cost } as BuildingType,
-    building as Tile,
+    { cost: building.type_cost },
+    building, // Has x, y from tile join
     map
   );
 
@@ -172,8 +166,8 @@ export async function sellToState(request: Request, env: Env, company: GameCompa
     `).bind(crypto.randomUUID(), company.id, building.map_id, building_id, saleValue),
   ]);
 
-  // Reset tick counter
-  await resetTickCounter(env, company.id);
+  // Mark adjacent buildings dirty for profit recalc (tile is now empty)
+  await markAffectedBuildingsDirty(env, building.x, building.y, building.map_id);
 
   return { success: true, sale_value: saleValue };
 }
@@ -181,8 +175,10 @@ export async function sellToState(request: Request, env: Env, company: GameCompa
 
 ### List for Sale API
 
-```typescript
-export async function listForSale(request: Request, env: Env, company: GameCompany) {
+```javascript
+import { calculateMinListingPrice } from '../utils/marketPricing.js';
+
+export async function listForSale(request, env, company) {
   const { building_id, price } = await request.json();
 
   const building = await env.DB.prepare(`
@@ -217,7 +213,7 @@ export async function listForSale(request: Request, env: Env, company: GameCompa
   return { success: true, listing_price: price };
 }
 
-export async function cancelListing(request: Request, env: Env, company: GameCompany) {
+export async function cancelListing(request, env, company) {
   const { building_id } = await request.json();
 
   await env.DB.batch([
@@ -240,8 +236,8 @@ export async function cancelListing(request: Request, env: Env, company: GameCom
 
 ### Buy Property API
 
-```typescript
-export async function buyProperty(request: Request, env: Env, company: GameCompany) {
+```javascript
+export async function buyProperty(request, env, company) {
   const { building_id } = await request.json();
 
   const building = await env.DB.prepare(`
@@ -298,21 +294,20 @@ export async function buyProperty(request: Request, env: Env, company: GameCompa
     `).bind(crypto.randomUUID(), sellerId, building.map_id, building_id, company.id, price),
   ]);
 
-  // Reset tick counter for buyer
-  await resetTickCounter(env, company.id);
-
   return { success: true, purchase_price: price };
 }
 ```
 
 ### Demolish Collapsed Building
 
-```typescript
-export async function demolishBuilding(request: Request, env: Env, company: GameCompany) {
+```javascript
+import { markAffectedBuildingsDirty } from '../adjacencyCalculator.js';
+
+export async function demolishBuilding(request, env, company) {
   const { building_id } = await request.json();
 
   const building = await env.DB.prepare(`
-    SELECT bi.*, t.id as tile_id
+    SELECT bi.*, t.id as tile_id, t.x, t.y, t.map_id
     FROM building_instances bi
     JOIN tiles t ON bi.tile_id = t.id
     WHERE bi.id = ? AND bi.company_id = ?
@@ -344,12 +339,13 @@ export async function demolishBuilding(request: Request, env: Env, company: Game
 
     // Log transaction
     env.DB.prepare(`
-      INSERT INTO game_transactions (id, company_id, action_type, target_building_id, amount)
-      VALUES (?, ?, 'demolish', ?, ?)
-    `).bind(crypto.randomUUID(), company.id, building_id, demolitionCost),
+      INSERT INTO game_transactions (id, company_id, map_id, action_type, target_building_id, amount)
+      VALUES (?, ?, ?, 'demolish', ?, ?)
+    `).bind(crypto.randomUUID(), company.id, building.map_id, building_id, -demolitionCost),
   ]);
 
-  await resetTickCounter(env, company.id);
+  // Mark adjacent buildings dirty for profit recalc (tile is now empty)
+  await markAffectedBuildingsDirty(env, building.x, building.y, building.map_id);
 
   return { success: true, demolition_cost: demolitionCost };
 }
@@ -546,6 +542,12 @@ No new tables. Uses existing `is_for_sale` and `sale_price` columns on `building
 ## Deployment
 
 ```bash
+# 1. Deploy worker with new market routes
+cd authentication-dashboard-system/worker
+CLOUDFLARE_API_TOKEN="..." npx wrangler deploy
+
+# 2. Build and deploy frontend
+cd ..
 npm run build
 CLOUDFLARE_API_TOKEN="..." CLOUDFLARE_ACCOUNT_ID="..." npx wrangler pages deploy ./dist --project-name=notropolis-dashboard
 ```

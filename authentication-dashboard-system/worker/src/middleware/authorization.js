@@ -60,6 +60,13 @@ const ENDPOINT_AUTHORIZATION = [
   { pattern: '/api/game/companies/*', roles: [], companyIsolation: false },
   { pattern: '/api/game/maps', roles: [], companyIsolation: false },
   { pattern: '/api/game/maps/*', roles: [], companyIsolation: false },
+
+  // ==================== GAME LAND & BUILDING ENDPOINTS ====================
+  { pattern: '/api/game/land/*', roles: [], companyIsolation: false },
+  { pattern: '/api/game/buildings/*', roles: [], companyIsolation: false },
+
+  // ==================== GAME MARKET ENDPOINTS ====================
+  { pattern: '/api/game/market/*', roles: [], companyIsolation: false }, // All market endpoints require auth
 ];
 
 // Match a URL path against a pattern

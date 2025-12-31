@@ -3,6 +3,8 @@ import { useTileDetail } from '../../hooks/useTileDetail';
 import { useActiveCompany } from '../../contexts/CompanyContext';
 import { BuyLandModal } from './BuyLandModal';
 import { BuildModal } from './BuildModal';
+import { SellModal } from './SellModal';
+import { api, apiHelpers } from '../../services/api';
 
 interface TileInfoProps {
   mapId: string;
@@ -22,6 +24,9 @@ export function TileInfo({ mapId, x, y, map, onClose, onRefresh }: TileInfoProps
   const { activeCompany, refreshCompany } = useActiveCompany();
   const [showBuyLandModal, setShowBuyLandModal] = useState(false);
   const [showBuildModal, setShowBuildModal] = useState(false);
+  const [showSellModal, setShowSellModal] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const handleActionSuccess = async () => {
     await refreshCompany(); // Refresh company cash/data
@@ -165,6 +170,12 @@ export function TileInfo({ mapId, x, y, map, onClose, onRefresh }: TileInfoProps
 
       {/* Actions */}
       <div className="mt-6 space-y-2">
+        {actionError && (
+          <div className="p-2 bg-red-900/30 rounded border border-red-700">
+            <p className="text-red-400 text-sm">{actionError}</p>
+          </div>
+        )}
+
         {!tile.owner_company_id && tile.terrain_type !== 'water' && tile.terrain_type !== 'road' && !tile.special_building && activeCompany && (
           <button
             onClick={() => setShowBuyLandModal(true)}
@@ -180,6 +191,97 @@ export function TileInfo({ mapId, x, y, map, onClose, onRefresh }: TileInfoProps
             className="w-full py-2 bg-blue-600 text-white rounded hover:bg-blue-500 transition-colors"
           >
             Build
+          </button>
+        )}
+
+        {/* Sell button - for buildings owned by active company */}
+        {building && building.company_id === activeCompany?.id && !building.is_collapsed && !building.is_for_sale && (
+          <button
+            onClick={() => setShowSellModal(true)}
+            className="w-full py-2 bg-yellow-600 text-white rounded hover:bg-yellow-500 transition-colors"
+          >
+            Sell Property
+          </button>
+        )}
+
+        {/* Cancel listing button - for buildings owned by active company that are listed */}
+        {building && building.company_id === activeCompany?.id && building.is_for_sale && (
+          <button
+            onClick={async () => {
+              setActionLoading(true);
+              setActionError(null);
+              try {
+                await api.post('/api/game/market/cancel-listing', {
+                  company_id: activeCompany.id,
+                  building_id: building.id,
+                });
+                await handleActionSuccess();
+              } catch (err) {
+                setActionError(apiHelpers.handleError(err));
+              } finally {
+                setActionLoading(false);
+              }
+            }}
+            disabled={actionLoading}
+            className="w-full py-2 bg-gray-600 text-white rounded hover:bg-gray-500 transition-colors disabled:opacity-50"
+          >
+            {actionLoading ? 'Canceling...' : 'Cancel Listing'}
+          </button>
+        )}
+
+        {/* Buy button - for buildings listed for sale by others */}
+        {building && building.is_for_sale && building.sale_price && building.company_id !== activeCompany?.id && activeCompany && (
+          <button
+            onClick={async () => {
+              if (!activeCompany || !building.sale_price || activeCompany.cash < building.sale_price) {
+                setActionError('Insufficient funds');
+                return;
+              }
+              setActionLoading(true);
+              setActionError(null);
+              try {
+                await api.post('/api/game/market/buy-property', {
+                  company_id: activeCompany.id,
+                  building_id: building.id,
+                });
+                await handleActionSuccess();
+              } catch (err) {
+                setActionError(apiHelpers.handleError(err));
+              } finally {
+                setActionLoading(false);
+              }
+            }}
+            disabled={actionLoading || (activeCompany && building.sale_price ? activeCompany.cash < building.sale_price : true)}
+            className="w-full py-2 bg-green-600 text-white rounded hover:bg-green-500 transition-colors disabled:opacity-50"
+          >
+            {actionLoading ? 'Purchasing...' : `Buy for $${building.sale_price.toLocaleString()}`}
+          </button>
+        )}
+
+        {/* Demolish button - for collapsed buildings owned by active company */}
+        {building && building.is_collapsed && building.company_id === activeCompany?.id && activeCompany && (
+          <button
+            onClick={async () => {
+              setActionLoading(true);
+              setActionError(null);
+              try {
+                const response = await api.post<{ success: boolean; demolition_cost: number }>('/api/game/market/demolish', {
+                  company_id: activeCompany.id,
+                  building_id: building.id,
+                });
+                if (response.data.success) {
+                  await handleActionSuccess();
+                }
+              } catch (err) {
+                setActionError(apiHelpers.handleError(err));
+              } finally {
+                setActionLoading(false);
+              }
+            }}
+            disabled={actionLoading}
+            className="w-full py-2 bg-red-600 text-white rounded hover:bg-red-500 transition-colors disabled:opacity-50"
+          >
+            {actionLoading ? 'Demolishing...' : 'Demolish (10% cost)'}
           </button>
         )}
       </div>
@@ -206,6 +308,19 @@ export function TileInfo({ mapId, x, y, map, onClose, onRefresh }: TileInfoProps
             activeCompanyCash={activeCompany.cash}
             activeCompanyLevel={activeCompany.level}
           />
+
+          {building && (
+            <SellModal
+              isOpen={showSellModal}
+              onClose={() => setShowSellModal(false)}
+              onSuccess={handleActionSuccess}
+              building={building}
+              buildingType={{ cost: building.cost || 0, name: building.name }}
+              tile={tile}
+              map={map}
+              activeCompanyId={activeCompany.id}
+            />
+          )}
         </>
       )}
     </div>

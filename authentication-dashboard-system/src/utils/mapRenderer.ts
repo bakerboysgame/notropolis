@@ -29,6 +29,8 @@ interface Building {
   id: string;
   tile_id: string;
   is_on_fire: boolean;
+  is_for_sale?: boolean;
+  is_collapsed?: boolean;
 }
 
 interface GameMap {
@@ -117,6 +119,14 @@ export function renderMap(
       // Draw building indicator (small dot)
       const building = buildings.get(tile.id);
       if (building && tileSize >= 8) {
+        // Draw for-sale highlight (yellow border)
+        if (building.is_for_sale && !building.is_collapsed) {
+          ctx.strokeStyle = '#fbbf24'; // Yellow/gold color
+          ctx.lineWidth = Math.max(1, tileSize / 6);
+          ctx.strokeRect(px + 1, py + 1, tileSize - 3, tileSize - 3);
+        }
+
+        // Draw building icon
         ctx.fillStyle = building.is_on_fire ? '#ef4444' : '#ffffff';
         ctx.beginPath();
         ctx.arc(px + tileSize / 2, py + tileSize / 2, tileSize / 4, 0, Math.PI * 2);

@@ -47,9 +47,8 @@ Based on [D1 Optimization Reference](REFERENCE-d1-optimization.md):
 | File | Purpose |
 |------|---------|
 | `authentication-dashboard-system/src/worker/tick/processor.ts` | Main tick processing logic |
-| `authentication-dashboard-system/src/worker/tick/profitCalculator.ts` | Per-company profit calculation |
+| `authentication-dashboard-system/src/worker/tick/profitCalculator.ts` | Dirty building profit recalculation (from Stage 05) |
 | `authentication-dashboard-system/src/worker/tick/fireSpread.ts` | Fire spread logic |
-| `authentication-dashboard-system/src/worker/tick/damageDecay.ts` | Building damage over time |
 | `authentication-dashboard-system/migrations/0015_add_tick_tracking.sql` | Tick history table |
 
 ## Implementation Details
@@ -153,6 +152,9 @@ export async function processTick(env: Env) {
     results.companiesUpdated = companyUpdates.count;
     results.totalProfit = companyUpdates.totalProfit;
 
+    // 4. Update idle companies (companies with no buildings)
+    await updateIdleCompanies(env);
+
     const duration = Date.now() - startTime;
     console.log(`Tick ${tickId} complete in ${duration}ms:`, results);
 
@@ -174,7 +176,7 @@ async function distributeAllProfits(env: Env): Promise<{ count: number; totalPro
       bi.company_id,
       gc.ticks_since_action,
       gc.location_type,
-      SUM(bi.calculated_profit * (100 - bi.damage_percent) / 100) as gross_profit,
+      SUM(bi.calculated_profit * (100 - bi.damage_percent * 1.176) / 100) as gross_profit,
       SUM(COALESCE(bs.monthly_cost, 0)) / 144 as security_cost
     FROM building_instances bi
     JOIN game_companies gc ON bi.company_id = gc.id
@@ -255,6 +257,145 @@ async function updateIdleCompanies(env: Env) {
 }
 ```
 
+### Profit Calculator (From Stage 05)
+
+```typescript
+// worker/tick/profitCalculator.ts
+// These functions are worker-compatible versions from Stage 05's adjacencyCalculator
+
+const ADJACENCY_RANGE = 2; // Check 2 tiles in each direction
+
+// Mark buildings as needing profit recalculation (dirty tracking)
+// Called when: building placed, demolished, damaged, or terrain changes
+export async function markAffectedBuildingsDirty(
+  env: Env,
+  tileX: number,
+  tileY: number,
+  mapId: string
+): Promise<number> {
+  // Mark all buildings within ADJACENCY_RANGE as needing recalculation
+  const result = await env.DB.prepare(`
+    UPDATE building_instances
+    SET needs_profit_recalc = 1
+    WHERE id IN (
+      SELECT bi.id FROM building_instances bi
+      JOIN tiles t ON bi.tile_id = t.id
+      WHERE t.map_id = ?
+        AND ABS(t.x - ?) <= ?
+        AND ABS(t.y - ?) <= ?
+        AND bi.is_collapsed = 0
+    )
+  `).bind(mapId, tileX, ADJACENCY_RANGE, tileY, ADJACENCY_RANGE).run();
+
+  return result.meta.changes || 0;
+}
+
+// Recalculate profits for dirty buildings and clear the flag
+// Called during tick processing or can be called on-demand
+export async function recalculateDirtyBuildings(
+  env: Env,
+  mapId: string
+): Promise<number> {
+  // Get all dirty buildings with their data
+  const dirtyBuildings = await env.DB.prepare(`
+    SELECT bi.*, t.x, t.y, bt.base_profit, bt.adjacency_bonuses, bt.adjacency_penalties
+    FROM building_instances bi
+    JOIN tiles t ON bi.tile_id = t.id
+    JOIN building_types bt ON bi.building_type_id = bt.id
+    WHERE t.map_id = ? AND bi.needs_profit_recalc = 1 AND bi.is_collapsed = 0
+  `).bind(mapId).all();
+
+  if (dirtyBuildings.results.length === 0) return 0;
+
+  // Get all tiles and buildings for adjacency lookup
+  const [allTiles, allBuildings] = await Promise.all([
+    env.DB.prepare('SELECT * FROM tiles WHERE map_id = ?').bind(mapId).all(),
+    env.DB.prepare(`
+      SELECT bi.*, t.x, t.y FROM building_instances bi
+      JOIN tiles t ON bi.tile_id = t.id
+      WHERE t.map_id = ? AND bi.is_collapsed = 0
+    `).bind(mapId).all()
+  ]);
+
+  // Build lookup maps
+  const tileByCoord = new Map();
+  allTiles.results.forEach(t => tileByCoord.set(`${t.x},${t.y}`, t));
+  const buildingByCoord = new Map();
+  allBuildings.results.forEach(b => buildingByCoord.set(`${b.x},${b.y}`, b));
+
+  // Calculate new profits and build update statements
+  const statements = [];
+  for (const building of dirtyBuildings.results) {
+    const { finalProfit, breakdown } = calculateProfitFromMaps(
+      building,
+      tileByCoord,
+      buildingByCoord
+    );
+
+    statements.push(
+      env.DB.prepare(`
+        UPDATE building_instances
+        SET calculated_profit = ?, profit_modifiers = ?, needs_profit_recalc = 0
+        WHERE id = ?
+      `).bind(finalProfit, JSON.stringify(breakdown), building.id)
+    );
+  }
+
+  // Batch update all dirty buildings
+  await env.DB.batch(statements);
+  return statements.length;
+}
+
+// Helper for profit calculation using pre-built lookup maps
+function calculateProfitFromMaps(
+  building: any,
+  tileByCoord: Map<string, any>,
+  buildingByCoord: Map<string, any>
+): { finalProfit: number; breakdown: Array<{ source: string; modifier: number }> } {
+  const bonuses = JSON.parse(building.adjacency_bonuses || '{}');
+  const penalties = JSON.parse(building.adjacency_penalties || '{}');
+  let totalModifier = 0;
+  const breakdown = [];
+
+  // Check adjacent tiles within ADJACENCY_RANGE
+  for (let dx = -ADJACENCY_RANGE; dx <= ADJACENCY_RANGE; dx++) {
+    for (let dy = -ADJACENCY_RANGE; dy <= ADJACENCY_RANGE; dy++) {
+      if (dx === 0 && dy === 0) continue;
+
+      const neighbor = tileByCoord.get(`${building.x + dx},${building.y + dy}`);
+      if (!neighbor) continue;
+
+      // Terrain bonuses/penalties
+      if (bonuses[neighbor.terrain_type]) {
+        totalModifier += bonuses[neighbor.terrain_type];
+        breakdown.push({ source: `${neighbor.terrain_type}`, modifier: bonuses[neighbor.terrain_type] });
+      }
+      if (penalties[neighbor.terrain_type]) {
+        totalModifier += penalties[neighbor.terrain_type];
+        breakdown.push({ source: `${neighbor.terrain_type}`, modifier: penalties[neighbor.terrain_type] });
+      }
+
+      // Adjacent building synergy
+      const adjBuilding = buildingByCoord.get(`${building.x + dx},${building.y + dy}`);
+      if (adjBuilding && bonuses['commercial']) {
+        totalModifier += bonuses['commercial'] * 0.5;
+        breakdown.push({ source: 'adjacent_building', modifier: bonuses['commercial'] * 0.5 });
+      }
+
+      // Damaged neighbor penalty - scales with damage (0-100% damage = 0-10% penalty)
+      if (adjBuilding && adjBuilding.damage_percent > 0) {
+        const penalty = -0.10 * (adjBuilding.damage_percent / 100);
+        totalModifier += penalty;
+        breakdown.push({ source: `damaged_neighbor_${adjBuilding.damage_percent}%`, modifier: penalty });
+      }
+    }
+  }
+
+  const finalProfit = Math.max(0, Math.round(building.base_profit * (1 + totalModifier)));
+  return { finalProfit, breakdown };
+}
+```
+
 ### Fire Spread Logic (Optimized)
 
 ```typescript
@@ -308,16 +449,13 @@ export async function processFireSpread(
       tilesToMarkDirty.push({ x: burning.x, y: burning.y });
       buildingsAffected++;
     } else if (newDamage !== burning.damage_percent) {
-      // Damage increased - mark neighbors dirty (damage affects their profit)
+      // Damage increased - mark neighbors dirty (ANY damage affects profit)
       statements.push(
         env.DB.prepare('UPDATE building_instances SET damage_percent = ? WHERE id = ?')
           .bind(newDamage, burning.id)
       );
-      // Only mark dirty if damage crossed 50% threshold (profit penalty kicks in)
-      if ((burning.damage_percent <= 50 && newDamage > 50) ||
-          (burning.damage_percent > 50 && newDamage <= 50)) {
-        tilesToMarkDirty.push({ x: burning.x, y: burning.y });
-      }
+      // Mark dirty on ANY damage change (graduated neighbor penalty)
+      tilesToMarkDirty.push({ x: burning.x, y: burning.y });
       buildingsAffected++;
     }
 
@@ -495,9 +633,12 @@ export function TickStatus() {
 | No buildings tick | Company with no buildings | No profit, tick counter increments |
 | Tax calculation | Town with 1000 gross profit | 100 tax (10%) |
 | Security cost | Building with 1440/day security | 10 deducted per tick |
-| Fire damage | Building on fire | +10% damage per tick |
+| Fire damage (no sprinklers) | Building on fire | +10% damage per tick |
+| Fire damage (with sprinklers) | Building on fire with sprinklers | +5% damage per tick |
 | Fire spread | Adjacent to burning building | 20% chance to catch fire |
-| Sprinkler extinguish | Burning building with sprinklers | 50% chance to extinguish |
+| Fire spread (trees) | Adjacent to burning building on trees | 35% chance to catch fire |
+| Sprinkler extinguish | Burning building with sprinklers | 60% chance to extinguish per tick |
+| Sprinkler block spread | Target has sprinklers | Fire cannot spread to it |
 | Building collapse | 100% damage | Building marked collapsed |
 | Action reset | Any action performed | ticks_since_action = 0 |
 
@@ -509,8 +650,11 @@ export function TickStatus() {
 - [ ] Damage reduces profit proportionally
 - [ ] Ticks stop after 6 without action
 - [ ] Action resets tick counter
-- [ ] Fire spreads to adjacent buildings
-- [ ] Sprinklers reduce fire spread
+- [ ] Fire spreads to adjacent buildings (20% base, 35% on trees)
+- [ ] Sprinklers reduce fire damage rate (5% vs 10%)
+- [ ] Sprinklers can extinguish fire (60% chance per tick)
+- [ ] Sprinklers block fire from spreading to protected buildings
+- [ ] Fire damage persists even after fire is extinguished
 - [ ] Collapsed buildings don't earn profit
 - [ ] Tick history logged
 - [ ] UI shows tick countdown and status
@@ -533,8 +677,13 @@ CLOUDFLARE_API_TOKEN="..." npx wrangler deploy
 - Tick runs globally every 10 minutes (not per-company)
 - 6-tick limit = 1 hour of offline income
 - Tax rates: Town 10%, City 15%, Capital 20%
+- **Damage Economics:** 85% damage (15% health) = $0 profit, formula: `profit * (100 - damage * 1.176) / 100`
+- **Neighbor Damage Penalty:** Scales 0-10% based on damage level (10% damaged = -1%, 100% damaged = -10%)
+- **Dirty Tracking:** ANY damage change marks adjacent buildings dirty for recalculation
 - Fire spread is per-tick, not instant
-- Sprinklers are the only fire defense
+- Sprinklers can extinguish fire (60% chance/tick) but accumulated damage persists until owner renovates
+- Fire damage: 10%/tick without sprinklers, 5%/tick with sprinklers
+- Sprinklers block fire from spreading to protected buildings
 - Collapsed buildings need demolishing before land is usable [See: Stage 07]
 - Consider adding tick notification system in future
 

@@ -59,9 +59,9 @@ Notropolis is a competitive multiplayer property tycoon game where players run a
 | 02 | ✅ [Admin Map Builder](02-admin-map-builder.md) | Tool to create/edit maps up to 100x100 |
 | 03 | ✅ [Company Management](03-company-management.md) | Create and manage up to 3 anonymous companies |
 | 04 | ✅ [Map Viewer](04-map-viewer.md) | View maps with ownership and terrain |
-| 05 | [Land & Building Core](05-land-building-core.md) | Buy land, build properties, adjacency calculations |
-| 06 | [Tick System](06-tick-system.md) | Worker cron for profit calculation every 10 min |
-| 07 | [Property Market](07-property-market.md) | Sell to state, list for sale, buy from others |
+| 05 | ✅ [Land & Building Core](05-land-building-core.md) | Buy land, build properties, adjacency calculations |
+| 06 | ✅ [Tick System](06-tick-system.md) | Worker cron for profit calculation every 10 min |
+| 07 | ✅ [Property Market](07-property-market.md) | Sell to state, list for sale, buy from others |
 | 08 | [Dirty Tricks](08-dirty-tricks.md) | Attack system with police catch mechanics |
 | 09 | [Security & Fire](09-security-fire.md) | Defense systems and fire spread |
 | 10 | [Prison System](10-prison-system.md) | Arrest, fines, action blocking |
@@ -184,7 +184,41 @@ Transactions (audit log)
 | Trees | +5% to all | 1 tile |
 | Dirt Track | -5% to all | 1 tile |
 | Other commercial | +5% synergy | 1 tile |
-| Damaged building | -10% | 1 tile |
+| Damaged building | 0% to -10% (scales with damage) | 1 tile |
+
+## Damage Economics
+
+Building damage severely impacts profitability using a harsh health-based formula:
+
+**Profit Reduction Formula:**
+```
+Profit = Base Profit × (100 - Damage% × 1.176) / 100
+```
+
+**Key Thresholds:**
+- **0% damage (100% health):** Full profit
+- **15% health (85% damage):** $0 profit (breakeven)
+- **Below 15% health:** Buildings lose money (negative profit)
+
+**Example ($800/tick building):**
+| Health | Damage | Profit |
+|--------|--------|--------|
+| 100% | 0% | $800 |
+| 50% | 50% | $329 |
+| 15% | 85% | $0 |
+| 10% | 90% | -$47 (loss) |
+
+**Neighbor Impact:**
+- Damaged buildings hurt nearby properties with a graduated penalty
+- Penalty scales from 0% to -10% based on damage level
+- 10% damaged neighbor = -1% penalty
+- 50% damaged neighbor = -5% penalty
+- 100% damaged neighbor = -10% penalty
+
+**Dirty Tricks Stack:**
+- Health damage (fire bombs, cluster bombs) reduces profit via formula above
+- Debuff tricks (graffiti, smoke, stink) stack additional penalties on top
+- Combined effect can make buildings extremely unprofitable
 
 ## Level Progression
 

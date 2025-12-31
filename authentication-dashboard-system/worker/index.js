@@ -17,6 +17,15 @@ import {
 } from './analytics_handlers.js';
 import { checkAuthorization, checkPageAccess, ROLE_BUILTIN_PAGES } from './src/middleware/authorization.js';
 import { calculateProfit, markAffectedBuildingsDirty, calculateLandCost } from './src/adjacencyCalculator.js';
+import { processTick } from './src/tick/processor.js';
+import {
+  sellToState,
+  listForSale,
+  cancelListing,
+  buyProperty,
+  demolishBuilding,
+  getMarketListings
+} from './src/routes/game/market.js';
 
 export default {
   async fetch(request, env, ctx) {
@@ -337,6 +346,25 @@ export default {
         case path === '/api/game/buildings/preview-profit' && method === 'GET':
           return handlePreviewProfit(request, authService, env, corsHeaders);
 
+        // ==================== GAME MARKET ENDPOINTS ====================
+        case path === '/api/game/market/sell-to-state' && method === 'POST':
+          return handleMarketAction(request, authService, env, corsHeaders, sellToState);
+
+        case path === '/api/game/market/list-for-sale' && method === 'POST':
+          return handleMarketAction(request, authService, env, corsHeaders, listForSale);
+
+        case path === '/api/game/market/cancel-listing' && method === 'POST':
+          return handleMarketAction(request, authService, env, corsHeaders, cancelListing);
+
+        case path === '/api/game/market/buy-property' && method === 'POST':
+          return handleMarketAction(request, authService, env, corsHeaders, buyProperty);
+
+        case path === '/api/game/market/demolish' && method === 'POST':
+          return handleMarketAction(request, authService, env, corsHeaders, demolishBuilding);
+
+        case path === '/api/game/market/listings' && method === 'GET':
+          return handleMarketListings(request, env, corsHeaders);
+
         default:
           return new Response(JSON.stringify({ 
             error: 'Not Found',
@@ -348,13 +376,29 @@ export default {
       }
     } catch (error) {
       console.error('Worker error:', error);
-      return new Response(JSON.stringify({ 
+      return new Response(JSON.stringify({
         error: error.message,
-        success: false 
+        success: false
       }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
+    }
+  },
+
+  /**
+   * Scheduled handler for cron triggers
+   * Runs every 10 minutes to process game tick
+   */
+  async scheduled(event, env, ctx) {
+    console.log('Cron trigger fired:', event.cron);
+
+    try {
+      const result = await processTick(env);
+      console.log('Tick processing completed:', result);
+    } catch (err) {
+      console.error('Tick processing failed:', err);
+      // Don't throw - let the cron continue scheduling
     }
   }
 };
@@ -7137,6 +7181,86 @@ async function handlePreviewProfit(request, authService, env, corsHeaders) {
       error: error.message
     }), {
       status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+}
+
+// ==================== GAME MARKET HANDLERS ====================
+
+/**
+ * Generic handler for market actions requiring authentication and company ownership
+ */
+async function handleMarketAction(request, authService, env, corsHeaders, actionFn) {
+  const authHeader = request.headers.get('Authorization');
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return new Response(JSON.stringify({
+      success: false,
+      error: 'Unauthorized'
+    }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+
+  const token = authHeader.split(' ')[1];
+
+  try {
+    const { user } = await authService.getUserFromToken(token);
+    const clonedRequest = request.clone();
+    const body = await clonedRequest.json();
+    const { company_id } = body;
+
+    // Get company and verify ownership
+    const company = await env.DB.prepare(`
+      SELECT * FROM game_companies WHERE id = ? AND user_id = ?
+    `).bind(company_id || user.id, user.id).first();
+
+    if (!company) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Company not found'
+      }), {
+        status: 404,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Call the market action function
+    const result = await actionFn(request, env, company);
+
+    return new Response(JSON.stringify(result), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+
+  } catch (error) {
+    return new Response(JSON.stringify({
+      success: false,
+      error: error.message
+    }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+}
+
+/**
+ * Handler for getting market listings (no auth required for viewing)
+ */
+async function handleMarketListings(request, env, corsHeaders) {
+  try {
+    const result = await getMarketListings(request, env);
+
+    return new Response(JSON.stringify(result), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+
+  } catch (error) {
+    return new Response(JSON.stringify({
+      success: false,
+      error: error.message
+    }), {
+      status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
   }

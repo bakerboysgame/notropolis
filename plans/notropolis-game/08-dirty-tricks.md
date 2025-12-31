@@ -27,15 +27,15 @@ Implement the PvP attack system including graffiti, bombs, and police catch mech
 | `authentication-dashboard-system/src/components/game/AttackModal.tsx` | Attack selection UI |
 | `authentication-dashboard-system/src/components/game/AttackResult.tsx` | Result display |
 | `authentication-dashboard-system/src/pages/AttackLog.tsx` | Attack history |
-| `authentication-dashboard-system/src/worker/routes/game/attacks.ts` | Attack API |
-| `authentication-dashboard-system/migrations/0016_create_attacks_table.sql` | Attack log table |
+| `authentication-dashboard-system/worker/src/routes/game/attacks.js` | Attack API |
+| `authentication-dashboard-system/migrations/0017_create_attacks_table.sql` | Attack log table |
 
 ## Implementation Details
 
 ### Database Migration
 
 ```sql
--- 0016_create_attacks_table.sql
+-- 0017_create_attacks_table.sql
 CREATE TABLE attacks (
   id TEXT PRIMARY KEY,
   attacker_company_id TEXT NOT NULL,
@@ -316,12 +316,9 @@ export async function performAttack(request: Request, env: Env, company: GameCom
 
   await env.DB.batch(updates);
 
-  // Reset tick counter
-  await resetTickCounter(env, company.id);
-
   // Mark affected buildings for profit recalculation
-  // Damage affects neighbor profits (damaged_neighbor penalty)
-  if (newDamage > 50 || isNowCollapsed) {
+  // ANY damage change affects neighbor profits (graduated penalty: 0-10% based on damage)
+  if (newDamage !== building.damage_percent) {
     // Get tile coordinates for dirty tracking
     const tile = await env.DB.prepare(
       'SELECT x, y FROM tiles WHERE id = ?'
@@ -603,7 +600,7 @@ export function PrisonStatus() {
 
 ```bash
 # Run migration
-CLOUDFLARE_API_TOKEN="..." npx wrangler d1 execute notropolis-database --file=migrations/0016_create_attacks_table.sql --remote
+CLOUDFLARE_API_TOKEN="..." npx wrangler d1 execute notropolis-database --file=migrations/0017_create_attacks_table.sql --remote
 
 # Build and deploy
 npm run build
@@ -619,5 +616,7 @@ CLOUDFLARE_API_TOKEN="..." CLOUDFLARE_ACCOUNT_ID="..." npx wrangler pages deploy
 - Fine = 3x trick cost × location multiplier
 - Prison blocks ALL actions until fine paid
 - Consider adding attack notifications in future
-- **Dirty Tracking:** Call `markAffectedBuildingsDirty()` when damage crosses 50% threshold
+- **Dirty Tracking:** Call `markAffectedBuildingsDirty()` on ANY damage change (graduated neighbor penalty 0-10%)
+- **Damage Economics:** 85% damage (15% health) = $0 profit, then goes negative
+- **Neighbor Penalty:** Scales with damage level (10% damage = -1% penalty, 100% damage = -10% penalty)
 - See [REFERENCE-d1-optimization.md](REFERENCE-d1-optimization.md) for batch patterns

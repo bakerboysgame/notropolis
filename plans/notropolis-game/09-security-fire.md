@@ -563,6 +563,8 @@ CLOUDFLARE_API_TOKEN="..." CLOUDFLARE_ACCOUNT_ID="..." npx wrangler pages deploy
 - Sprinklers only affect fire, not catch rate
 - Fire damage: 10%/tick without sprinklers, 5%/tick with
 - Sprinklers have 60% chance to extinguish per tick
+- **Damage Economics:** ANY damage change marks adjacent buildings dirty (graduated neighbor penalty)
+- **Neighbor Penalty:** Scales 0-10% based on damage level (see Stage 06)
 - Trees terrain = higher fire spread risk
 - Water terrain = natural firebreak (blocks spread)
 - No refund when removing security
