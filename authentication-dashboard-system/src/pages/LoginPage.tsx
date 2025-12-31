@@ -5,6 +5,8 @@ import { LoginForm } from '../components/auth/LoginForm';
 import { MagicLinkSent } from '../components/auth/MagicLinkSent';
 import { MagicLinkRequest } from '../components/auth/MagicLinkRequest';
 import { TwoFactorVerification } from '../components/auth/TwoFactorVerification';
+import { brand } from '../brand';
+
 // Use logo from public folder
 const CompanyLogo = '/login.webp';
 
@@ -51,10 +53,10 @@ export function LoginPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-neutral-50 dark:bg-neutral-950">
+      <div className="dark min-h-screen flex items-center justify-center bg-neutral-950">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mx-auto"></div>
-          <p className="mt-4 text-neutral-500 dark:text-neutral-400">Loading...</p>
+          <p className="mt-4 text-neutral-400">Loading...</p>
         </div>
       </div>
     );
@@ -62,8 +64,8 @@ export function LoginPage() {
 
   if (showMagicLinkRequest && magicLinkEmail) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-neutral-50 dark:bg-neutral-950">
-        <div className="max-w-md w-full bg-white dark:bg-neutral-900 rounded-lg shadow-lg border border-neutral-200 dark:border-neutral-800 p-6">
+      <div className="dark min-h-screen flex items-center justify-center bg-neutral-950">
+        <div className="max-w-md w-full bg-neutral-900 rounded-lg shadow-lg border border-neutral-800 p-6">
           <MagicLinkRequest
             email={magicLinkEmail}
             onCancel={() => {
@@ -79,8 +81,8 @@ export function LoginPage() {
 
   if (show2FA && twoFAData) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-neutral-50 dark:bg-neutral-950">
-        <div className="max-w-md w-full bg-white dark:bg-neutral-900 rounded-lg shadow-lg border border-neutral-200 dark:border-neutral-800 p-6">
+      <div className="dark min-h-screen flex items-center justify-center bg-neutral-950">
+        <div className="max-w-md w-full bg-neutral-900 rounded-lg shadow-lg border border-neutral-800 p-6">
           <TwoFactorVerification
             userId={twoFAData.userId}
             email={twoFAData.email}
@@ -98,8 +100,8 @@ export function LoginPage() {
 
   if (showMagicLinkSent) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-neutral-50 dark:bg-neutral-950">
-        <div className="max-w-md w-full bg-white dark:bg-neutral-900 rounded-lg shadow-lg border border-neutral-200 dark:border-neutral-800 p-6">
+      <div className="dark min-h-screen flex items-center justify-center bg-neutral-950">
+        <div className="max-w-md w-full bg-neutral-900 rounded-lg shadow-lg border border-neutral-800 p-6">
           <MagicLinkSent
             email=""
             message={magicLinkMessage}
@@ -111,16 +113,16 @@ export function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-neutral-50 dark:bg-neutral-950">
-      <div className="max-w-md w-full bg-white dark:bg-neutral-900 rounded-lg shadow-lg border border-neutral-200 dark:border-neutral-800 p-6">
+    <div className="dark min-h-screen flex items-center justify-center bg-neutral-950">
+      <div className="max-w-md w-full bg-neutral-900 rounded-lg shadow-lg border border-neutral-800 p-6">
         <div className="text-center mb-6">
           <img
             className="w-full px-4 h-auto object-contain mb-4 rounded-lg"
             src={CompanyLogo}
-            alt="Notropolis"
+            alt={brand.name}
           />
-          <h1 className="text-2xl font-bold text-neutral-900 dark:text-neutral-0">Welcome back</h1>
-          <p className="text-neutral-500 dark:text-neutral-400">It's a dog eat dog world in there.....</p>
+          <h1 className="text-2xl font-bold text-white">Welcome to {brand.name}</h1>
+          <p className="text-neutral-400">{brand.tagline}</p>
         </div>
 
         <LoginForm

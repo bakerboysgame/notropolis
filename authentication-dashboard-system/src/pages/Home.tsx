@@ -161,6 +161,10 @@ export default function Home() {
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
 
+  // Drag-to-pan state
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStart = useRef({ x: 0, y: 0, scrollLeft: 0, scrollTop: 0 });
+
   // Measure container size
   useEffect(() => {
     const updateSize = () => {
@@ -210,6 +214,39 @@ export default function Home() {
   }, [containerSize, gridSize]);
 
   const cellSize = Math.max(4, Math.floor(baseCellSize * zoom));
+
+  // Drag-to-pan handlers
+  const handleDragStart = useCallback((e: React.MouseEvent | React.TouchEvent) => {
+    if (!containerRef.current) return;
+    setIsDragging(true);
+
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+
+    dragStart.current = {
+      x: clientX,
+      y: clientY,
+      scrollLeft: containerRef.current.scrollLeft,
+      scrollTop: containerRef.current.scrollTop,
+    };
+  }, []);
+
+  const handleDragMove = useCallback((e: React.MouseEvent | React.TouchEvent) => {
+    if (!isDragging || !containerRef.current) return;
+
+    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+
+    const deltaX = clientX - dragStart.current.x;
+    const deltaY = clientY - dragStart.current.y;
+
+    containerRef.current.scrollLeft = dragStart.current.scrollLeft - deltaX;
+    containerRef.current.scrollTop = dragStart.current.scrollTop - deltaY;
+  }, [isDragging]);
+
+  const handleDragEnd = useCallback(() => {
+    setIsDragging(false);
+  }, []);
 
   return (
     <div className="h-screen w-screen overflow-hidden bg-neutral-950 flex flex-col">
@@ -307,10 +344,17 @@ export default function Home() {
         </div>
       )}
 
-      {/* Map Container - Full screen */}
+      {/* Map Container - Full screen with drag-to-pan */}
       <div
         ref={containerRef}
-        className="flex-1 overflow-auto flex items-center justify-center p-4"
+        className={`flex-1 overflow-auto flex items-center justify-center p-4 ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+        onMouseDown={handleDragStart}
+        onMouseMove={handleDragMove}
+        onMouseUp={handleDragEnd}
+        onMouseLeave={handleDragEnd}
+        onTouchStart={handleDragStart}
+        onTouchMove={handleDragMove}
+        onTouchEnd={handleDragEnd}
       >
         <div
           className="rounded-lg overflow-hidden shadow-2xl"
@@ -331,13 +375,13 @@ export default function Home() {
             return (
               <div
                 key={index}
-                className="transition-all duration-75 cursor-pointer"
+                className="transition-all duration-75 select-none"
                 style={{
                   backgroundColor: cellColors[cell],
-                  opacity: isHovered ? 0.7 : 1,
+                  opacity: isHovered && !isDragging ? 0.7 : 1,
                   boxShadow: isOwned ? `inset 0 0 0 1px ${brand.colors.primary[300]}` : 'none',
                 }}
-                onMouseEnter={() => setHoveredCell({ x, y })}
+                onMouseEnter={() => !isDragging && setHoveredCell({ x, y })}
                 onMouseLeave={() => setHoveredCell(null)}
               />
             );

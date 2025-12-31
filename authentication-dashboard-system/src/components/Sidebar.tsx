@@ -196,27 +196,22 @@ export default function Sidebar() {
     WebkitBackdropFilter: blurAmount > 0 ? `blur(${blurAmount}px) saturate(180%)` : 'none',
   }
 
-  // Minimized state: just show a small tab with arrow
+  // Minimized state: just show a small floating tab with arrow
   if (isMinimized) {
     return (
-      <div className="h-screen relative">
-        <button
-          onClick={expandFromMinimized}
-          className={clsx(
-            'absolute left-0 bg-white/90 dark:bg-neutral-800/90 backdrop-blur-sm border border-neutral-200 dark:border-neutral-700 shadow-md transition-all duration-300 group z-50 rounded-r-lg',
-            // Mobile: smaller, positioned below header area
-            isMobile
-              ? 'top-20 p-2 active:bg-neutral-100 dark:active:bg-neutral-700'
-              : 'top-8 p-2 hover:bg-neutral-50 dark:hover:bg-neutral-700 hover:pl-4'
-          )}
-          aria-label="Open menu"
-        >
-          <ChevronRight className={clsx(
-            'text-neutral-600 dark:text-neutral-400 transition-colors',
-            isMobile ? 'w-5 h-5' : 'w-5 h-5 group-hover:text-primary-500'
-          )} />
-        </button>
-      </div>
+      <button
+        onClick={expandFromMinimized}
+        className={clsx(
+          'fixed left-0 bg-neutral-900/90 backdrop-blur-sm border border-neutral-700 border-l-0 shadow-md transition-all duration-200 z-50 rounded-r-md',
+          // Mobile: positioned below header area
+          isMobile
+            ? 'top-20 p-1.5 active:bg-neutral-700'
+            : 'top-8 p-1.5 hover:bg-neutral-700'
+        )}
+        aria-label="Open menu"
+      >
+        <ChevronRight className="w-4 h-4 text-neutral-400" />
+      </button>
     )
   }
 
