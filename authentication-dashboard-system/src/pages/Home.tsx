@@ -353,7 +353,7 @@ export default function Home() {
       {/* Map Container - Full screen with drag-to-pan */}
       <div
         ref={containerRef}
-        className={`flex-1 overflow-auto flex items-center justify-center p-4 ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+        className={`flex-1 overflow-auto p-4 ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
         onMouseDown={handleDragStart}
         onMouseMove={handleDragMove}
         onMouseUp={handleDragEnd}
@@ -362,16 +362,17 @@ export default function Home() {
         onTouchMove={handleDragMove}
         onTouchEnd={handleDragEnd}
       >
-        <div
-          className="rounded-lg overflow-hidden shadow-2xl"
-          style={{
-            display: 'grid',
-            gridTemplateColumns: `repeat(${gridSize.width}, ${cellSize}px)`,
-            gridTemplateRows: `repeat(${gridSize.height}, ${cellSize}px)`,
-            gap: '1px',
-            backgroundColor: gridGapColor,
-          }}
-        >
+        <div className="min-w-max min-h-max flex items-center justify-center" style={{ minHeight: '100%' }}>
+          <div
+            className="rounded-lg overflow-hidden shadow-2xl"
+            style={{
+              display: 'grid',
+              gridTemplateColumns: `repeat(${gridSize.width}, ${cellSize}px)`,
+              gridTemplateRows: `repeat(${gridSize.height}, ${cellSize}px)`,
+              gap: '1px',
+              backgroundColor: gridGapColor,
+            }}
+          >
           {map.flat().map((cell, index) => {
             const x = index % gridSize.width;
             const y = Math.floor(index / gridSize.width);
@@ -392,6 +393,7 @@ export default function Home() {
               />
             );
           })}
+          </div>
         </div>
       </div>
     </div>
