@@ -16,6 +16,7 @@ import {
   handleSyncBrevoLogs
 } from './analytics_handlers.js';
 import { checkAuthorization, checkPageAccess, ROLE_BUILTIN_PAGES } from './src/middleware/authorization.js';
+import { calculateProfit, markAffectedBuildingsDirty, calculateLandCost } from './src/adjacencyCalculator.js';
 
 export default {
   async fetch(request, env, ctx) {
@@ -322,6 +323,19 @@ export default {
 
         case path.match(/^\/api\/game\/maps\/[^/]+$/) && method === 'GET':
           return handleGetGameMapById(request, authService, env, corsHeaders);
+
+        // ==================== GAME LAND & BUILDING ENDPOINTS ====================
+        case path === '/api/game/land/buy' && method === 'POST':
+          return handleBuyLand(request, authService, env, corsHeaders);
+
+        case path === '/api/game/buildings/build' && method === 'POST':
+          return handleBuildBuilding(request, authService, env, corsHeaders);
+
+        case path === '/api/game/buildings/types' && method === 'GET':
+          return handleGetBuildingTypes(request, authService, env, corsHeaders);
+
+        case path === '/api/game/buildings/preview-profit' && method === 'GET':
+          return handlePreviewProfit(request, authService, env, corsHeaders);
 
         default:
           return new Response(JSON.stringify({ 
@@ -6563,6 +6577,560 @@ async function handleGameCompanyRoutes(request, authService, env, corsHeaders) {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
     }
+  } catch (error) {
+    return new Response(JSON.stringify({
+      success: false,
+      error: error.message
+    }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+}
+
+/**
+ * POST /api/game/land/buy
+ * Purchase unowned land tile
+ */
+async function handleBuyLand(request, authService, env, corsHeaders) {
+  const authHeader = request.headers.get('Authorization');
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return new Response(JSON.stringify({
+      success: false,
+      error: 'Unauthorized'
+    }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+
+  const token = authHeader.split(' ')[1];
+
+  try {
+    const { user } = await authService.getUserFromToken(token);
+    const body = await request.json();
+    const { company_id, tile_x, tile_y } = body;
+
+    // Get company and verify ownership
+    const company = await env.DB.prepare(`
+      SELECT * FROM game_companies WHERE id = ? AND user_id = ?
+    `).bind(company_id, user.id).first();
+
+    if (!company) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Company not found'
+      }), {
+        status: 404,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    if (!company.current_map_id) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Company must be on a map to purchase land'
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Get map
+    const map = await env.DB.prepare(`
+      SELECT * FROM maps WHERE id = ?
+    `).bind(company.current_map_id).first();
+
+    if (!map) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Map not found'
+      }), {
+        status: 404,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Get tile
+    const tile = await env.DB.prepare(`
+      SELECT * FROM tiles WHERE map_id = ? AND x = ? AND y = ?
+    `).bind(company.current_map_id, tile_x, tile_y).first();
+
+    if (!tile) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Tile not found'
+      }), {
+        status: 404,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Validations
+    if (tile.owner_company_id) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Tile already owned'
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    if (tile.terrain_type === 'water' || tile.terrain_type === 'road') {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Cannot purchase this terrain type'
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    if (tile.special_building) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Cannot purchase special buildings'
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Calculate cost
+    let cost;
+    try {
+      cost = calculateLandCost(tile, map);
+    } catch (err) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: err.message
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    if (company.cash < cost) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Insufficient funds'
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Transaction
+    await env.DB.batch([
+      // Deduct cash and reset tick counter
+      env.DB.prepare(`
+        UPDATE game_companies
+        SET cash = cash - ?, total_actions = total_actions + 1, last_action_at = ?, ticks_since_action = 0
+        WHERE id = ?
+      `).bind(cost, new Date().toISOString(), company.id),
+
+      // Transfer ownership
+      env.DB.prepare(`
+        UPDATE tiles SET owner_company_id = ?, purchased_at = ? WHERE id = ?
+      `).bind(company.id, new Date().toISOString(), tile.id),
+
+      // Log transaction
+      env.DB.prepare(`
+        INSERT INTO game_transactions (id, company_id, map_id, action_type, target_tile_id, amount)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `).bind(crypto.randomUUID(), company.id, map.id, 'buy_land', tile.id, cost),
+    ]);
+
+    return new Response(JSON.stringify({
+      success: true,
+      data: {
+        cost,
+        remaining_cash: company.cash - cost,
+        tile: {
+          ...tile,
+          owner_company_id: company.id,
+          purchased_at: new Date().toISOString()
+        }
+      }
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+
+  } catch (error) {
+    return new Response(JSON.stringify({
+      success: false,
+      error: error.message
+    }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+}
+
+/**
+ * POST /api/game/buildings/build
+ * Construct a building on owned tile
+ */
+async function handleBuildBuilding(request, authService, env, corsHeaders) {
+  const authHeader = request.headers.get('Authorization');
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return new Response(JSON.stringify({
+      success: false,
+      error: 'Unauthorized'
+    }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+
+  const token = authHeader.split(' ')[1];
+
+  try {
+    const { user } = await authService.getUserFromToken(token);
+    const body = await request.json();
+    const { company_id, tile_id, building_type_id } = body;
+
+    // Get company and verify ownership
+    const company = await env.DB.prepare(`
+      SELECT * FROM game_companies WHERE id = ? AND user_id = ?
+    `).bind(company_id, user.id).first();
+
+    if (!company) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Company not found'
+      }), {
+        status: 404,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Get tile and verify ownership
+    const tile = await env.DB.prepare(`
+      SELECT * FROM tiles WHERE id = ?
+    `).bind(tile_id).first();
+
+    if (!tile) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Tile not found'
+      }), {
+        status: 404,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    if (tile.owner_company_id !== company.id) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'You do not own this tile'
+      }), {
+        status: 403,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Check for existing building
+    const existingBuilding = await env.DB.prepare(`
+      SELECT * FROM building_instances WHERE tile_id = ? AND is_collapsed = 0
+    `).bind(tile_id).first();
+
+    if (existingBuilding) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Tile already has a building'
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Get building type
+    const buildingType = await env.DB.prepare(`
+      SELECT * FROM building_types WHERE id = ?
+    `).bind(building_type_id).first();
+
+    if (!buildingType) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Invalid building type'
+      }), {
+        status: 404,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Check level requirement
+    if (company.level < buildingType.level_required) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: `Requires level ${buildingType.level_required}`
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Check license limit
+    if (buildingType.requires_license && buildingType.max_per_map) {
+      const count = await env.DB.prepare(`
+        SELECT COUNT(*) as count FROM building_instances bi
+        JOIN tiles t ON bi.tile_id = t.id
+        WHERE t.map_id = ? AND bi.building_type_id = ? AND bi.is_collapsed = 0
+      `).bind(tile.map_id, building_type_id).first();
+
+      if (count.count >= buildingType.max_per_map) {
+        return new Response(JSON.stringify({
+          success: false,
+          error: `License limit reached for this building type (max ${buildingType.max_per_map})`
+        }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+    }
+
+    // Check funds
+    if (company.cash < buildingType.cost) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Insufficient funds'
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Get all tiles and buildings for profit calculation
+    const allTiles = await env.DB.prepare(`
+      SELECT * FROM tiles WHERE map_id = ?
+    `).bind(tile.map_id).all();
+
+    const allBuildings = await env.DB.prepare(`
+      SELECT bi.* FROM building_instances bi
+      JOIN tiles t ON bi.tile_id = t.id
+      WHERE t.map_id = ? AND bi.is_collapsed = 0
+    `).bind(tile.map_id).all();
+
+    const map = await env.DB.prepare(`
+      SELECT * FROM maps WHERE id = ?
+    `).bind(tile.map_id).first();
+
+    // Calculate profit
+    const profitResult = calculateProfit(
+      tile,
+      buildingType,
+      allTiles.results,
+      allBuildings.results,
+      map
+    );
+
+    // Create building
+    const buildingId = crypto.randomUUID();
+
+    await env.DB.batch([
+      // Deduct cash and reset tick counter
+      env.DB.prepare(`
+        UPDATE game_companies
+        SET cash = cash - ?, total_actions = total_actions + 1, last_action_at = ?, ticks_since_action = 0
+        WHERE id = ?
+      `).bind(buildingType.cost, new Date().toISOString(), company.id),
+
+      // Create building
+      env.DB.prepare(`
+        INSERT INTO building_instances
+        (id, tile_id, building_type_id, company_id, calculated_profit, profit_modifiers, damage_percent, is_collapsed, needs_profit_recalc)
+        VALUES (?, ?, ?, ?, ?, ?, 0, 0, 0)
+      `).bind(
+        buildingId,
+        tile_id,
+        building_type_id,
+        company.id,
+        profitResult.finalProfit,
+        JSON.stringify(profitResult.breakdown)
+      ),
+
+      // Log transaction
+      env.DB.prepare(`
+        INSERT INTO game_transactions (id, company_id, map_id, action_type, target_tile_id, target_building_id, amount)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `).bind(crypto.randomUUID(), company.id, tile.map_id, 'build', tile_id, buildingId, buildingType.cost),
+    ]);
+
+    // Mark adjacent buildings as needing profit recalculation
+    const affectedCount = await markAffectedBuildingsDirty(env, tile.x, tile.y, tile.map_id);
+
+    return new Response(JSON.stringify({
+      success: true,
+      data: {
+        building_id: buildingId,
+        profit: profitResult.finalProfit,
+        breakdown: profitResult.breakdown,
+        affected_buildings: affectedCount,
+        remaining_cash: company.cash - buildingType.cost
+      }
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+
+  } catch (error) {
+    return new Response(JSON.stringify({
+      success: false,
+      error: error.message
+    }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+}
+
+/**
+ * GET /api/game/buildings/types
+ * Get all available building types
+ */
+async function handleGetBuildingTypes(request, authService, env, corsHeaders) {
+  const authHeader = request.headers.get('Authorization');
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return new Response(JSON.stringify({
+      success: false,
+      error: 'Unauthorized'
+    }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+
+  const token = authHeader.split(' ')[1];
+
+  try {
+    await authService.getUserFromToken(token);
+
+    const result = await env.DB.prepare(`
+      SELECT * FROM building_types ORDER BY level_required ASC, cost ASC
+    `).all();
+
+    return new Response(JSON.stringify({
+      success: true,
+      data: {
+        building_types: result.results || []
+      }
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+
+  } catch (error) {
+    return new Response(JSON.stringify({
+      success: false,
+      error: error.message
+    }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+}
+
+/**
+ * GET /api/game/buildings/preview-profit
+ * Preview profit for a hypothetical building
+ */
+async function handlePreviewProfit(request, authService, env, corsHeaders) {
+  const authHeader = request.headers.get('Authorization');
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return new Response(JSON.stringify({
+      success: false,
+      error: 'Unauthorized'
+    }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+
+  const token = authHeader.split(' ')[1];
+
+  try {
+    await authService.getUserFromToken(token);
+
+    const url = new URL(request.url);
+    const tile_id = url.searchParams.get('tile_id');
+    const building_type_id = url.searchParams.get('building_type_id');
+
+    if (!tile_id || !building_type_id) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Missing required parameters: tile_id and building_type_id'
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Get tile
+    const tile = await env.DB.prepare(`
+      SELECT * FROM tiles WHERE id = ?
+    `).bind(tile_id).first();
+
+    if (!tile) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Tile not found'
+      }), {
+        status: 404,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Get building type
+    const buildingType = await env.DB.prepare(`
+      SELECT * FROM building_types WHERE id = ?
+    `).bind(building_type_id).first();
+
+    if (!buildingType) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Building type not found'
+      }), {
+        status: 404,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Get all tiles and buildings for profit calculation
+    const allTiles = await env.DB.prepare(`
+      SELECT * FROM tiles WHERE map_id = ?
+    `).bind(tile.map_id).all();
+
+    const allBuildings = await env.DB.prepare(`
+      SELECT bi.* FROM building_instances bi
+      JOIN tiles t ON bi.tile_id = t.id
+      WHERE t.map_id = ? AND bi.is_collapsed = 0
+    `).bind(tile.map_id).all();
+
+    const map = await env.DB.prepare(`
+      SELECT * FROM maps WHERE id = ?
+    `).bind(tile.map_id).first();
+
+    // Calculate profit
+    const profitResult = calculateProfit(
+      tile,
+      buildingType,
+      allTiles.results,
+      allBuildings.results,
+      map
+    );
+
+    return new Response(JSON.stringify({
+      success: true,
+      data: {
+        base_profit: buildingType.base_profit,
+        final_profit: profitResult.finalProfit,
+        total_modifier: profitResult.modifiers.total,
+        breakdown: profitResult.breakdown
+      }
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+
   } catch (error) {
     return new Response(JSON.stringify({
       success: false,

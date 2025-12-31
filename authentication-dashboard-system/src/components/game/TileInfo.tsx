@@ -1,18 +1,35 @@
+import { useState } from 'react';
 import { useTileDetail } from '../../hooks/useTileDetail';
+import { useActiveCompany } from '../../contexts/CompanyContext';
+import { BuyLandModal } from './BuyLandModal';
+import { BuildModal } from './BuildModal';
 
 interface TileInfoProps {
   mapId: string;
   x: number;
   y: number;
+  map: any;
   onClose: () => void;
+  onRefresh?: () => void;
 }
 
 /**
  * Side panel displaying detailed information about a selected tile
  * Shows terrain, ownership, building details, and security
  */
-export function TileInfo({ mapId, x, y, onClose }: TileInfoProps): JSX.Element {
-  const { data, isLoading, error } = useTileDetail(mapId, x, y);
+export function TileInfo({ mapId, x, y, map, onClose, onRefresh }: TileInfoProps): JSX.Element {
+  const { data, isLoading, error, refetch } = useTileDetail(mapId, x, y);
+  const { activeCompany, refreshCompany } = useActiveCompany();
+  const [showBuyLandModal, setShowBuyLandModal] = useState(false);
+  const [showBuildModal, setShowBuildModal] = useState(false);
+
+  const handleActionSuccess = async () => {
+    await refreshCompany(); // Refresh company cash/data
+    await refetch(); // Refresh tile data
+    if (onRefresh) {
+      onRefresh(); // Refresh parent component (map)
+    }
+  };
 
   if (isLoading) {
     return (
@@ -146,17 +163,51 @@ export function TileInfo({ mapId, x, y, onClose }: TileInfoProps): JSX.Element {
         </div>
       )}
 
-      {/* Actions - placeholder for Stage 05 */}
+      {/* Actions */}
       <div className="mt-6 space-y-2">
-        {!tile.owner_company_id && tile.terrain_type === 'free_land' && (
+        {!tile.owner_company_id && tile.terrain_type !== 'water' && tile.terrain_type !== 'road' && !tile.special_building && activeCompany && (
           <button
-            className="w-full py-2 bg-gray-600 text-gray-400 rounded cursor-not-allowed"
-            disabled
+            onClick={() => setShowBuyLandModal(true)}
+            className="w-full py-2 bg-green-600 text-white rounded hover:bg-green-500 transition-colors"
           >
-            Buy Land (Coming Soon)
+            Buy Land
+          </button>
+        )}
+
+        {tile.owner_company_id === activeCompany?.id && !building && (
+          <button
+            onClick={() => setShowBuildModal(true)}
+            className="w-full py-2 bg-blue-600 text-white rounded hover:bg-blue-500 transition-colors"
+          >
+            Build
           </button>
         )}
       </div>
+
+      {/* Modals */}
+      {activeCompany && (
+        <>
+          <BuyLandModal
+            isOpen={showBuyLandModal}
+            onClose={() => setShowBuyLandModal(false)}
+            onSuccess={handleActionSuccess}
+            tile={tile}
+            map={map}
+            activeCompanyId={activeCompany.id}
+            activeCompanyCash={activeCompany.cash}
+          />
+
+          <BuildModal
+            isOpen={showBuildModal}
+            onClose={() => setShowBuildModal(false)}
+            onSuccess={handleActionSuccess}
+            tile={tile}
+            activeCompanyId={activeCompany.id}
+            activeCompanyCash={activeCompany.cash}
+            activeCompanyLevel={activeCompany.level}
+          />
+        </>
+      )}
     </div>
   );
 }

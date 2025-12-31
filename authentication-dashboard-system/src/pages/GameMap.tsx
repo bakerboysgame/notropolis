@@ -15,7 +15,7 @@ import { MapOverview } from '../components/game/MapOverview';
 export function GameMap(): JSX.Element {
   const { mapId } = useParams<{ mapId: string }>();
   const { activeCompany } = useActiveCompany();
-  const { mapData, isLoading, error } = useGameMap(mapId);
+  const { mapData, isLoading, error, refetch } = useGameMap(mapId);
 
   const [selectedTile, setSelectedTile] = useState<{ x: number; y: number } | null>(null);
   const [zoom, setZoom] = useState(1);
@@ -111,7 +111,9 @@ export function GameMap(): JSX.Element {
             mapId={map.id}
             x={selectedTile.x}
             y={selectedTile.y}
+            map={map}
             onClose={() => setSelectedTile(null)}
+            onRefresh={refetch}
           />
         ) : (
           <MapOverview

@@ -90,6 +90,18 @@ export const endpoints = {
   
   // Health check
   health: '/api/health',
+
+  // Game - Land & Buildings
+  game: {
+    land: {
+      buy: '/api/game/land/buy',
+    },
+    buildings: {
+      types: '/api/game/buildings/types',
+      build: '/api/game/buildings/build',
+      previewProfit: '/api/game/buildings/preview-profit',
+    },
+  },
 } as const;
 
 // API response types
@@ -242,3 +254,54 @@ export const apiHelpers = {
     localStorage.removeItem('token');
   },
 };
+
+// Game types
+export interface BuildingType {
+  id: string;
+  name: string;
+  cost: number;
+  base_profit: number;
+  level_required: number;
+  requires_license: boolean;
+  adjacency_bonuses: string | Record<string, number>;
+  adjacency_penalties: string | Record<string, number>;
+  max_per_map: number | null;
+}
+
+export interface AdjacencyModifier {
+  source: string;
+  modifier: number;
+}
+
+export interface ProfitPreviewResponse {
+  base_profit: number;
+  final_profit: number;
+  total_modifier: number;
+  breakdown: AdjacencyModifier[];
+}
+
+export interface BuyLandRequest {
+  company_id: string;
+  tile_x: number;
+  tile_y: number;
+}
+
+export interface BuyLandResponse {
+  cost: number;
+  remaining_cash: number;
+  tile: any;
+}
+
+export interface BuildBuildingRequest {
+  company_id: string;
+  tile_id: string;
+  building_type_id: string;
+}
+
+export interface BuildBuildingResponse {
+  building_id: string;
+  profit: number;
+  breakdown: AdjacencyModifier[];
+  affected_buildings: number;
+  remaining_cash: number;
+}
