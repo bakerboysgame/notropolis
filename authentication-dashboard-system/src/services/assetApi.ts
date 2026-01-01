@@ -2,7 +2,7 @@
 import { config } from '../config/environment';
 
 // Asset status types
-export type AssetStatus = 'pending' | 'generating' | 'completed' | 'approved' | 'rejected' | 'failed';
+export type AssetStatus = 'pending' | 'generating' | 'completed' | 'review' | 'approved' | 'rejected' | 'failed';
 
 // Asset categories
 export type AssetCategory =
@@ -53,10 +53,29 @@ export const ASSET_KEYS: Record<string, string[]> = {
   character_ref: ['pedestrian_business', 'pedestrian_casual', 'avatar_base'],
   vehicle_ref: ['car_sedan', 'car_sports', 'car_van', 'car_taxi'],
   effect_ref: ['fire', 'cluster_bomb', 'vandalism', 'robbery', 'poisoning', 'blackout'],
+  // NPC sprites - directional walk cycles and car sprites
+  npc: [
+    // Pedestrian directional sprites (2-frame animation strips)
+    'ped_walk_n', 'ped_walk_s', 'ped_walk_e', 'ped_walk_w',
+    // Car directional sprites (single images)
+    'car_n', 'car_s', 'car_e', 'car_w',
+    // Legacy types
+    'pedestrian_walk', 'pedestrian_stand', 'pedestrian_suit', 'pedestrian_casual',
+    'car_sedan', 'car_sports', 'car_van', 'car_taxi'
+  ],
   terrain: [
-    'grass', 'trees', 'mountain', 'sand', 'water',
-    'road_horizontal', 'road_vertical', 'road_intersection', 'road_corner',
-    'dirt_path', 'dirt_road'
+    // Base tiles (approve to auto-generate variations)
+    'grass', 'trees', 'mountain', 'sand', 'water', 'road', 'dirt',
+    // Road variations (auto-generated)
+    'road_ns', 'road_ew', 'road_ne', 'road_nw', 'road_se', 'road_sw',
+    'road_nes', 'road_new', 'road_nsw', 'road_esw', 'road_nesw',
+    'road_n', 'road_e', 'road_s', 'road_w',
+    // Dirt variations (auto-generated)
+    'dirt_ns', 'dirt_ew', 'dirt_ne', 'dirt_nw', 'dirt_se', 'dirt_sw',
+    // Water edge variations (auto-generated)
+    'water_edge_n', 'water_edge_e', 'water_edge_s', 'water_edge_w',
+    'water_corner_ne', 'water_corner_nw', 'water_corner_se', 'water_corner_sw',
+    'water_inner_ne', 'water_inner_nw', 'water_inner_se', 'water_inner_sw'
   ],
   scene: [
     'arrest_bg', 'court_bg', 'prison_bg', 'hero_bg', 'bank_bg',
@@ -100,6 +119,7 @@ export interface Asset {
   parent_asset_id?: string;
   used_reference_image?: boolean;
   error_message?: string;
+  is_active?: boolean;
   created_at: string;
   updated_at: string;
   approved_at?: string;
@@ -187,6 +207,7 @@ class AssetAdminApi {
   async publish(assetId: string): Promise<{ success: boolean; public_url: string }> {
     return this.fetch(`/process/${assetId}`, {
       method: 'POST',
+      body: JSON.stringify({}),
     });
   }
 
@@ -209,6 +230,13 @@ class AssetAdminApi {
   async regenerate(assetId: string): Promise<GenerateResponse> {
     return this.fetch(`/regenerate/${assetId}`, {
       method: 'POST',
+    });
+  }
+
+  // Set asset as active (primary)
+  async setActive(assetId: string): Promise<{ success: boolean }> {
+    return this.fetch(`/set-active/${assetId}`, {
+      method: 'PUT',
     });
   }
 }

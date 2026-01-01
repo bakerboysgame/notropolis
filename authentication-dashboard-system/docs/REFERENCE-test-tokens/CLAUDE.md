@@ -29,14 +29,14 @@ Check expiry dates below. Only generate new tokens if these are expired.
 
 | Field | Value |
 |-------|-------|
-| **Last Updated** | 2026-01-01 20:24 UTC |
-| **Expires** | 2026-01-02 20:24 UTC |
+| **Last Updated** | 2026-01-01 21:03 UTC |
+| **Expires** | 2026-01-02 23:17 UTC |
 | **User** | rikibaker+notro@gmail.com |
 | **Role** | master_admin |
 | **Status** | VALID - Use this token for all testing |
 
 ```
-eyJhbGciOiJIUzI1NiJ9.eyJ1c2VySWQiOiJtYXN0ZXItYWRtaW4tMDAxIiwiY29tcGFueUlkIjoic3lzdGVtIiwicm9sZSI6Im1hc3Rlcl9hZG1pbiIsInBoaUFjY2Vzc0xldmVsIjoibm9uZSIsImlzTW9iaWxlIjpmYWxzZSwiaXNzdWVkQXQiOjE3NjcyODg2NzYsImRhdGFDbGFzc2lmaWNhdGlvbiI6InB1YmxpYyIsInNlc3Npb25JZCI6ImJjNDIzNjQ1LTQxMzEtNDkxMy05NmU5LTFkNDdmM2U0NTg3YyIsImNvbXBhbnlDb250ZXh0Ijp7ImlkIjoic3lzdGVtIiwicm9sZSI6Im1hc3Rlcl9hZG1pbiIsInBlcm1pc3Npb25zIjpbXX0sImlhdCI6MTc2NzI4ODY3NiwiZXhwIjoxNzY3Mzc1MDc2LCJpc3MiOiJodHRwczovL2FwaS5ub3Ryb3BvbGlzLm5ldCIsImF1ZCI6Imh0dHBzOi8vYm9zcy5ub3Ryb3BvbGlzLm5ldCIsImp0aSI6IjhjMGRlMjk1LTg3NzMtNDhlZC1iMjI5LTNlMjcwM2M3NWNjNCJ9.Y88-5KxmGq0haFnsjEqQboh6UvY9M9NU6ToYwr2Jy0Y
+eyJhbGciOiJIUzI1NiJ9.eyJ1c2VySWQiOiJtYXN0ZXItYWRtaW4tMDAxIiwiY29tcGFueUlkIjoic3lzdGVtIiwicm9sZSI6Im1hc3Rlcl9hZG1pbiIsInBoaUFjY2Vzc0xldmVsIjoibm9uZSIsImlzTW9iaWxlIjpmYWxzZSwiaXNzdWVkQXQiOjE3NjcyOTkwNzYsImRhdGFDbGFzc2lmaWNhdGlvbiI6InB1YmxpYyIsInNlc3Npb25JZCI6IjljYTkzYmFjLTg4NjYtNDhkMC04YmQ4LTY1MzlhYzBlYzNjNCIsImNvbXBhbnlDb250ZXh0Ijp7ImlkIjoic3lzdGVtIiwicm9sZSI6Im1hc3Rlcl9hZG1pbiIsInBlcm1pc3Npb25zIjpbXX0sImlhdCI6MTc2NzI5OTA3NiwiZXhwIjoxNzY3Mzg1NDc2LCJpc3MiOiJodHRwczovL2FwaS5ub3Ryb3BvbGlzLm5ldCIsImF1ZCI6Imh0dHBzOi8vYm9zcy5ub3Ryb3BvbGlzLm5ldCIsImp0aSI6IjFhYTQ0ZmIzLTMxZGItNDQ2Mi1iNWUyLTNkNjUxNzhjNjdiYSJ9.Y88-5KxmGq0haFnsjEqQboh6UvY9M9NU6ToYwr2Jy0Y
 ```
 
 > **REMINDER**: If you generate a new token, you MUST update this file with the new token, timestamps, and role. See "Rule 1: Token Management" at the top of this file.

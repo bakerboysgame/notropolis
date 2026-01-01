@@ -9,6 +9,10 @@ Generate layered avatar components (base body, skin tones, outfits, hair, access
 `[Requires: Stage 01 complete]` - Needs asset pipeline infrastructure.
 `[Requires: Character Template]` - Uses `character sheet template.jpg` as style reference.
 
+## Blocks
+
+`[Blocks: Stage 05 Scene Illustrations]` - **IMPORTANT:** Scene generation is blocked until avatar base assets are approved. This ensures scenes can be tested with actual avatar compositing. The API will return an error if scene generation is attempted before avatar/base_* assets are approved.
+
 ## Complexity
 
 **High** - Multiple interrelated assets that must align perfectly for compositing.

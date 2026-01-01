@@ -1,5 +1,5 @@
 // src/components/assets/QueueStatus.tsx
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Clock,
   Loader2,
@@ -25,13 +25,22 @@ export function QueueStatus({
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState(false);
 
+  // Track previous counts to only trigger onQueueChange when something actually changes
+  const prevCountsRef = useRef<{ pending: number; generating: number } | null>(null);
+
   const fetchQueue = useCallback(async () => {
     try {
       const data = await assetApi.getQueue();
       setPending(data.pending);
       setGenerating(data.generating);
       setItems(data.items || []);
-      onQueueChange?.(data.pending > 0 || data.generating > 0);
+
+      // Only call onQueueChange if the counts actually changed
+      const prevCounts = prevCountsRef.current;
+      if (!prevCounts || prevCounts.pending !== data.pending || prevCounts.generating !== data.generating) {
+        prevCountsRef.current = { pending: data.pending, generating: data.generating };
+        onQueueChange?.(data.pending > 0 || data.generating > 0);
+      }
     } catch (err) {
       console.error('Failed to fetch queue:', err);
     } finally {

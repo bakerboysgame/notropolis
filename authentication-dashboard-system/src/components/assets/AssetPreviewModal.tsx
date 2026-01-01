@@ -12,9 +12,10 @@ import {
   ChevronUp,
   AlertTriangle,
   Image as ImageIcon,
+  Star,
 } from 'lucide-react';
 import { clsx } from 'clsx';
-import { Asset, AssetStatus, assetApi, SPRITE_CATEGORIES } from '../../services/assetApi';
+import { Asset, assetApi, SPRITE_CATEGORIES } from '../../services/assetApi';
 import { useToast } from '../ui/Toast';
 
 interface AssetPreviewModalProps {
@@ -24,14 +25,17 @@ interface AssetPreviewModalProps {
 }
 
 // Status badge configuration
-const STATUS_CONFIG: Record<AssetStatus, { label: string; color: string }> = {
+const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
   pending: { label: 'Pending', color: 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300' },
   generating: { label: 'Generating', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300' },
   completed: { label: 'Ready for Review', color: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300' },
+  review: { label: 'In Review', color: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300' },
   approved: { label: 'Approved', color: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300' },
   rejected: { label: 'Rejected', color: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300' },
   failed: { label: 'Failed', color: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300' },
 };
+
+const DEFAULT_STATUS = { label: 'Unknown', color: 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300' };
 
 export function AssetPreviewModal({ asset, onClose, onUpdate }: AssetPreviewModalProps) {
   const { showToast } = useToast();
@@ -48,14 +52,16 @@ export function AssetPreviewModal({ asset, onClose, onUpdate }: AssetPreviewModa
   const [regenerating, setRegenerating] = useState(false);
   const [removingBg, setRemovingBg] = useState(false);
   const [publishing, setPublishing] = useState(false);
+  const [settingActive, setSettingActive] = useState(false);
 
-  const statusConfig = STATUS_CONFIG[asset.status];
+  const statusConfig = STATUS_CONFIG[asset.status] || DEFAULT_STATUS;
   const isSprite = SPRITE_CATEGORIES.includes(asset.category);
-  const canApprove = asset.status === 'completed' || asset.status === 'rejected';
-  const canReject = asset.status === 'completed' || asset.status === 'approved';
+  const canApprove = asset.status === 'completed' || asset.status === 'rejected' || asset.status === 'review';
+  const canReject = asset.status === 'completed' || asset.status === 'approved' || asset.status === 'review';
   const canRegenerate = asset.status !== 'generating' && asset.status !== 'pending';
   const canRemoveBg = isSprite && asset.status === 'approved';
   const canPublish = isSprite && asset.status === 'approved';
+  const canSetActive = asset.status === 'approved' && !asset.is_active;
 
   // Fetch preview URL
   useEffect(() => {
@@ -116,6 +122,24 @@ export function AssetPreviewModal({ asset, onClose, onUpdate }: AssetPreviewModa
     try {
       await assetApi.approve(asset.id);
       showToast('Asset approved', 'success');
+
+      // Auto-remove background and publish for sprites
+      if (isSprite) {
+        showToast('Removing background...', 'info');
+        try {
+          await assetApi.removeBackground(asset.id);
+          showToast('Background removed. Publishing...', 'info');
+          try {
+            await assetApi.publish(asset.id);
+            showToast('Published to public bucket', 'success');
+          } catch {
+            showToast('Background removed, but publish failed. Try manually.', 'warning');
+          }
+        } catch {
+          showToast('Approved, but background removal failed. Try manually.', 'warning');
+        }
+      }
+
       onUpdate();
       onClose();
     } catch (err) {
@@ -184,6 +208,20 @@ export function AssetPreviewModal({ asset, onClose, onUpdate }: AssetPreviewModa
     }
   };
 
+  const handleSetActive = async () => {
+    setSettingActive(true);
+    try {
+      await assetApi.setActive(asset.id);
+      showToast('Asset set as active', 'success');
+      onUpdate();
+      onClose();
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to set active', 'error');
+    } finally {
+      setSettingActive(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
@@ -202,6 +240,12 @@ export function AssetPreviewModal({ asset, onClose, onUpdate }: AssetPreviewModa
             )}>
               {statusConfig.label}
             </span>
+            {asset.is_active && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700">
+                <Star className="w-3 h-3 fill-current" />
+                Active
+              </span>
+            )}
           </div>
           <button
             onClick={onClose}
@@ -430,6 +474,20 @@ export function AssetPreviewModal({ asset, onClose, onUpdate }: AssetPreviewModa
                           Publish
                         </button>
                       )}
+                    </div>
+                  )}
+
+                  {/* Set Active button */}
+                  {canSetActive && (
+                    <div className="flex gap-2">
+                      <button
+                        onClick={handleSetActive}
+                        disabled={settingActive}
+                        className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-emerald-600 text-white rounded-lg text-sm font-medium hover:bg-emerald-700 disabled:opacity-50 transition-colors"
+                      >
+                        {settingActive ? <Loader2 className="w-4 h-4 animate-spin" /> : <Star className="w-4 h-4" />}
+                        Set as Active
+                      </button>
                     </div>
                   )}
                 </div>

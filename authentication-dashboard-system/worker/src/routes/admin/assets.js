@@ -35,58 +35,98 @@ async function hashString(str) {
 // ============================================================================
 
 const STYLE_GUIDE = `
-VISUAL STYLE REQUIREMENTS:
+VISUAL STYLE - NOTROPOLIS GAME:
 
-The art direction is 90s AESTHETIC with MODERN RENDERING QUALITY - like a 2024 HD remaster of a classic 90s game.
-Think: Pixar's "The Incredibles" or modern city-builder games (Cities Skylines 2, Two Point Hospital).
+CRITICAL: This is NOT cartoon style. NOT cel-shaded. NOT flat.
+The art direction is RETRO 90s CGI with HYPER-REALISTIC MODERN RENDERING.
+Think: Pixar's Toy Story 1 SHAPES with Pixar's modern RENDERING QUALITY.
+Think: SimCity 3000 / RollerCoaster Tycoon building DESIGN with Unreal Engine 5 surface quality.
 
-DESIGN AESTHETIC (90s):
-- Chunky, slightly exaggerated proportions - buildings feel solid and toylike
-- Bold, saturated but harmonious colors
-- Clean geometric shapes with smooth curves
-- Playful and charming character - not gritty or ultra-realistic
-- Stylized details that read well at small sizes
+DESIGN AESTHETIC (the 90s part - SHAPES AND PROPORTIONS ONLY):
+- Chunky, geometric 3D forms with slightly simplified shapes
+- Stocky, blocky proportions (not realistic human ratios)
+- Clean, readable silhouettes designed for small display sizes
+- No unnecessary complexity - functional design
 
-RENDERING QUALITY (Modern):
-- Smooth, refined surfaces - NO noise, NO grain, NO rough textures
-- Professional studio lighting from TOP-LEFT at 45 degrees (SAME ANGLE FOR ALL VIEWS)
-- Soft ambient occlusion in corners and under overhangs
-- Subtle global illumination with gentle light bounce
-- Clean specular highlights on glass, metal, polished surfaces
-- Muted but vibrant color palette - not washed out, not oversaturated
-- Crisp edges with perfect anti-aliasing
-- Quality level: Modern animated film / AAA game cinematics
+RENDERING QUALITY (the modern part - THIS IS CRITICAL):
+- PHOTOREALISTIC surface rendering with realistic material properties
+- Rich, detailed textures (actual brick texture, wood grain, metal reflections)
+- Soft ambient occlusion creating depth in every corner and crevice
+- Subsurface scattering on appropriate materials (skin, wax, marble)
+- Realistic specular highlights and fresnel effects on glass/metal
+- PBR (Physically Based Rendering) material appearance
+- Global illumination with natural light bounce
+- Crisp, clean anti-aliasing (4K quality downscaled)
+- Professional product photography lighting
+- "Hero shot" or "box art" level polish - every surface finished perfectly
+- NOT flat, NOT cartoon, NOT cel-shaded, NOT stylized lighting
 
-SHADOWS (CRITICAL):
-- NO EXTERNAL CAST SHADOWS - the building must not cast any shadow outside its footprint
-- Shadows should ONLY exist as ambient occlusion WITHIN the building (under overhangs, in corners, window recesses)
-- The building should appear as if lit by soft diffused studio lighting with no ground shadow
-- This is essential because external shadows will be lost during background removal
+COLOR PALETTE:
+- Slightly muted, vintage color grading (like early 2000s 3D renders)
+- Rich, saturated colors but not oversaturated
+- Natural color variation and weathering on surfaces
 
-CRITICAL - NO BASE/PLATFORM:
-- Building sits directly on the reference sheet - NO concrete base, NO platform, NO ground plane
-- The building just floats on the gray background like a product shot
-- Each view shows ONLY the building itself, cleanly cut out
+LIGHTING DIRECTION: Consistent TOP-LEFT soft studio lighting. Shadows fall BOTTOM-RIGHT but are soft, not harsh.
 
-BUILDING FOOTPRINT (CRITICAL):
-- Building must fill an ISOMETRIC DIAMOND footprint (not rectangular)
-- The building shape should be roughly SQUARE when viewed from above
-- Avoid long rectangular buildings - make them compact and chunky to fit the diamond tile
-- Building extends UPWARD from the diamond base
+SQUARE CANVAS WITH DIAMOND FOOTPRINT (CRITICAL):
+ALL building sprites must be rendered on a SQUARE canvas. The building sits on a diamond-shaped footprint within this square. The diamond footprint touches the middle of each edge of the square.
 
-LIGHTING CONSISTENCY:
-- Light source: TOP-LEFT at 45 degrees for ALL views
-- Shadows fall to BOTTOM-RIGHT
-- Same lighting intensity and color temperature across all views
-- This ensures all buildings look consistent when placed together in-game
+Diagram:
+┌─────────────┐
+│      ▲      │
+│     /·\\     │
+│    / · \\    │
+│   /  ·  \\   │
+│  ◄───·───►  │  ← Diamond footprint inside square
+│   \\  ·  /   │
+│    \\ · /    │
+│     \\·/     │
+│      ▼      │
+└─────────────┘
 
-Think: High-quality 3D game asset like you'd see in a modern city-builder game. Clean, professional, realistic rendering.
+Buildings extend UPWARD from this diamond base. The square canvas must be tall enough to contain the full building height.
 
-CRITICAL RULES:
-- Building orientation: Entry/door on BOTTOM LEFT in isometric view
-- Country-neutral: No flags, currency symbols, or nationality-specific elements
-- Building ONLY: No vehicles, people, animals, or surrounding objects
-- NO BASE/PLATFORM/GROUND - building floats on reference sheet background`;
+CENTERING (ABSOLUTELY CRITICAL):
+- The diamond footprint must be PERFECTLY CENTERED horizontally within the canvas
+- The building's center of mass must align with the canvas center horizontally
+- When the tile is placed on the isometric map, the building must appear centered on the tile
+- NO horizontal offset or lean - the building sits DEAD CENTER on the tile
+- The vertical center of the diamond base should be at the BOTTOM THIRD of the canvas
+
+BUILDING ORIENTATION (CRITICAL):
+For ALL building sprites, the 45-degree isometric view must have the entry point/door positioned on the BOTTOM LEFT side of the building. The front facade should face bottom-left, with the building extending toward the top-right.
+
+NO BASE/PLATFORM (ABSOLUTELY FORBIDDEN):
+=== THIS IS THE MOST IMPORTANT RULE - VIOLATING THIS RUINS THE ASSET ===
+- NEVER EVER include a concrete base, platform, foundation, or ground plane under the building
+- NEVER show sidewalks, paths, or paving around the building
+- NEVER show grass, soil, or any terrain under the building
+- The building must appear to FLOAT in space like a product render
+- The building's walls go straight down and END - there is NOTHING below
+- Think: 3D model isolated on transparent background, like an online store product image
+- If the bottom edge of the building shows ANY ground element, the asset is REJECTED
+- Building should look like it was cut out with scissors - clean edges, no environment
+
+NO EXTERNAL SHADOWS (CRITICAL):
+- NO cast shadows outside the building footprint
+- Shadows ONLY exist as ambient occlusion WITHIN the building (under overhangs, corners, window recesses)
+- Building appears lit by soft diffused studio lighting with no ground shadow
+
+COUNTRY-NEUTRAL:
+All assets must be COUNTRY-NEUTRAL. Do not include:
+- National flags of any country
+- Country-specific signage, text, or symbols
+- Currency symbols (no $, £, €, etc.)
+- Nationality-specific architectural elements
+- Keep text generic (e.g., "POLICE", "BANK", "RESTAURANT")
+
+CLEAN BUILDINGS:
+Building assets must show ONLY the building itself. Do not include:
+- Vehicles, people, or animals
+- Street furniture (benches, lamp posts, trash cans)
+- Other buildings or structures
+- Trees, bushes, or landscaping
+- Ground shadows extending beyond the diamond footprint`;
 
 const REFERENCE_SHEET_TEMPLATE = `
 REFERENCE SHEET TEMPLATE LAYOUT (CRITICAL - FOLLOW EXACTLY):
@@ -644,6 +684,45 @@ const TERRAIN_FEATURES = {
     water_edge_base: `Water tile with land transition. The water should blend naturally into grass/land on the specified edge(s). Gentle shore/beach effect at the transition.`
 };
 
+// ============================================================================
+// TERRAIN VARIATION AUTO-GENERATION MAPPINGS
+// When a base terrain type is approved, auto-generate all its variations
+// ============================================================================
+
+const TERRAIN_VARIATIONS = {
+    // Road: base tile approved → generate all 15 connection variants
+    road: [
+        'road_ns', 'road_ew',                                           // Straights (2)
+        'road_ne', 'road_nw', 'road_se', 'road_sw',                     // Corners (4)
+        'road_nes', 'road_new', 'road_nsw', 'road_esw',                 // T-junctions (4)
+        'road_nesw',                                                     // 4-way (1)
+        'road_n', 'road_e', 'road_s', 'road_w'                          // Dead ends (4)
+    ],
+
+    // Dirt: base tile approved → generate all 6 connection variants
+    dirt: [
+        'dirt_ns', 'dirt_ew',                                           // Straights (2)
+        'dirt_ne', 'dirt_nw', 'dirt_se', 'dirt_sw'                      // Corners (4)
+    ],
+
+    // Water: base tile approved → generate all 12 edge/corner variants
+    water: [
+        'water_edge_n', 'water_edge_e', 'water_edge_s', 'water_edge_w', // Edges (4)
+        'water_corner_ne', 'water_corner_nw', 'water_corner_se', 'water_corner_sw', // Outer corners (4)
+        'water_inner_ne', 'water_inner_nw', 'water_inner_se', 'water_inner_sw'      // Inner corners (4)
+    ]
+};
+
+// NPC/Vehicle directional sprite mappings
+// When base character/vehicle reference is approved, auto-generate all direction variants
+const DIRECTIONAL_SPRITE_VARIANTS = {
+    // Pedestrian: 4 directions × 2 animation frames = 8 sprites (as 4 sprite strips)
+    pedestrian: ['ped_walk_n', 'ped_walk_s', 'ped_walk_e', 'ped_walk_w'],
+
+    // Car: 4 directions × 1 sprite = 4 sprites
+    car: ['car_n', 'car_s', 'car_e', 'car_w']
+};
+
 /**
  * Build prompt for terrain tile generation
  */
@@ -828,7 +907,14 @@ CRITICAL - UNIVERSAL COMPATIBILITY:
 ${isSmallIcon ? '' : `- Show ONLY the effect elements - NO BUILDING VISIBLE
 - Use only universal elements (smoke, fire, sparks, generic debris, dust)
 - NO specific building materials (no bricks, wood planks, concrete chunks)
-- The effect MUST work whether overlaid on a canvas tent, wooden shack, or stone temple`}
+- The effect MUST work whether overlaid on a canvas tent, wooden shack, or stone temple
+
+CENTERING (ABSOLUTELY CRITICAL):
+- The effect must be PERFECTLY CENTERED on the canvas both horizontally and vertically
+- The effect's center of mass must align with the building's center point
+- When overlaid on a building, the effect should appear centered on the building tile
+- NO horizontal or vertical offset - the effect sits DEAD CENTER
+- This ensures fire appears centered on the building, not off to one side`}
 
 ${STYLE_GUIDE}
 
@@ -915,6 +1001,27 @@ ${customDetails ? `ADDITIONAL NOTES:\n${customDetails}` : ''}`;
 // ============================================================================
 
 const NPC_FEATURES = {
+    // === PEDESTRIAN DIRECTIONAL WALK CYCLES ===
+    // Each direction gets a 2-frame sprite strip (64x32 = 2 frames of 32x32)
+    ped_walk_n: `2-frame walk cycle sprite strip. Pedestrian walking AWAY from camera (NORTH direction in isometric). Back of character visible. Chunky 90s CGI style. Business casual clothing. Each frame shows alternating leg positions.`,
+
+    ped_walk_s: `2-frame walk cycle sprite strip. Pedestrian walking TOWARD camera (SOUTH direction in isometric). Front of character visible. Chunky 90s CGI style. Business casual clothing. Each frame shows alternating leg positions.`,
+
+    ped_walk_e: `2-frame walk cycle sprite strip. Pedestrian walking RIGHT (EAST direction in isometric). Side profile, facing right. Chunky 90s CGI style. Business casual clothing. Each frame shows alternating leg positions.`,
+
+    ped_walk_w: `2-frame walk cycle sprite strip. Pedestrian walking LEFT (WEST direction in isometric). Side profile, facing left. Chunky 90s CGI style. Business casual clothing. Each frame shows alternating leg positions.`,
+
+    // === CAR DIRECTIONAL SPRITES ===
+    // Each direction is a single sprite showing the car facing that direction
+    car_n: `Car viewed from isometric angle, pointing AWAY (NORTH). Rear of car visible, front pointing away from camera. Chunky, toy-like 90s proportions. Generic sedan. No brand markings.`,
+
+    car_s: `Car viewed from isometric angle, pointing TOWARD camera (SOUTH). Front of car visible, facing the camera. Chunky, toy-like 90s proportions. Generic sedan. No brand markings.`,
+
+    car_e: `Car viewed from isometric angle, pointing RIGHT (EAST). Side profile, car facing right. Chunky, toy-like 90s proportions. Generic sedan. No brand markings.`,
+
+    car_w: `Car viewed from isometric angle, pointing LEFT (WEST). Side profile, car facing left. Chunky, toy-like 90s proportions. Generic sedan. No brand markings.`,
+
+    // === LEGACY (for backwards compatibility) ===
     pedestrian_walk: `4-frame walk cycle sprite strip. Chunky 90s CGI character. Business casual clothing. Walking pose from side view. Each frame shows different leg position. Generic adult pedestrian.`,
 
     pedestrian_stand: `Standing idle pose. Chunky 90s CGI character. Business casual clothing. Neutral standing position. Could have subtle idle animation frames.`,
@@ -938,24 +1045,51 @@ const NPC_FEATURES = {
 function buildNPCPrompt(npcType, customDetails = '') {
     const npcName = npcType.replace(/_/g, ' ').toUpperCase();
     const features = NPC_FEATURES[npcType];
-    const isPedestrian = npcType.startsWith('pedestrian_');
-    const isCar = npcType.startsWith('car_');
+
+    // Detect sprite type for proper sizing
+    const isPedWalk = npcType.startsWith('ped_walk_');
+    const isCarDirection = ['car_n', 'car_s', 'car_e', 'car_w'].includes(npcType);
+    const isPedestrian = npcType.startsWith('pedestrian_') || isPedWalk;
 
     if (!features) {
         throw new Error(`No features defined for NPC type: ${npcType}. Provide customDetails.`);
     }
 
-    const sizeSpec = isPedestrian
-        ? 'Sprite strip: 128x32 pixels (4 frames of 32x32 each) OR single 32x32 for idle'
-        : 'Single sprite: 64x32 pixels (fits road tile)';
+    // Size specifications based on type
+    let sizeSpec;
+    if (isPedWalk) {
+        sizeSpec = 'Sprite strip: 64x32 pixels (2 frames of 32x32 each for walk animation)';
+    } else if (isCarDirection) {
+        sizeSpec = 'Single sprite: 64x32 pixels (one car facing specific direction)';
+    } else if (isPedestrian) {
+        sizeSpec = 'Sprite strip: 128x32 pixels (4 frames of 32x32 each) OR single 32x32 for idle';
+    } else {
+        sizeSpec = 'Single sprite: 64x32 pixels (fits road tile)';
+    }
+
+    // Direction info for directional sprites
+    let directionNote = '';
+    if (isPedWalk || isCarDirection) {
+        const direction = npcType.split('_').pop().toUpperCase();
+        const directionMap = {
+            'N': 'NORTH (away from camera, back visible)',
+            'S': 'SOUTH (toward camera, front visible)',
+            'E': 'EAST (facing right)',
+            'W': 'WEST (facing left)'
+        };
+        directionNote = `\nDIRECTION: ${directionMap[direction] || direction}
+- The ${isPedWalk ? 'character' : 'vehicle'} must be clearly facing/moving in the ${direction} direction
+- When placed on the isometric map, this sprite shows movement toward ${direction}`;
+    }
 
     return `Create an ambient NPC sprite: ${npcName}.
 
 FORMAT REQUIREMENTS:
-- ${isPedestrian ? '45-degree isometric side view' : '45-degree isometric view'}
+- 45-degree isometric view
 - ${sizeSpec}
 - Background: TRANSPARENT (PNG-ready)
 - Purpose: ${isPedestrian ? 'Pedestrians walking on sidewalks' : 'Vehicles driving on roads'}
+${directionNote}
 
 THE NPC:
 ${features}
@@ -969,6 +1103,7 @@ CRITICAL:
 - ${isPedestrian ? 'Character proportions should match the stocky, geometric style' : 'Vehicle should look toy-like and chunky, not realistic'}
 - Country-neutral (no flags, specific national markings)
 - NO external shadows
+- Sprite must be CENTERED on the canvas
 
 ${customDetails ? `ADDITIONAL NOTES:\n${customDetails}` : ''}`;
 }
@@ -1260,6 +1395,77 @@ ${STYLE_REFERENCE_ANCHOR}`;
     }
 }
 
+// ============================================================================
+// ASSET DEPENDENCY CHECKING
+// Some assets require other assets to be approved first
+// ============================================================================
+
+/**
+ * Check if scene generation dependencies are met.
+ * Scenes require avatar base assets to be approved for proper compositing testing.
+ * Returns { canGenerate: boolean, missing: string[], message: string }
+ */
+async function checkSceneDependencies(env) {
+    // Check for approved avatar base assets
+    const avatarBase = await env.DB.prepare(`
+        SELECT COUNT(*) as count FROM generated_assets
+        WHERE category = 'avatar' AND asset_key LIKE 'base_%' AND status = 'approved'
+    `).first();
+
+    const missing = [];
+
+    if (!avatarBase || avatarBase.count === 0) {
+        missing.push('Avatar base body (avatar/base_*)');
+    }
+
+    // Optionally check for other dependencies
+    // We could also require buildings, effects, etc. to be done first
+    // For now, just require avatar base for compositing testing
+
+    if (missing.length > 0) {
+        return {
+            canGenerate: false,
+            missing,
+            message: `Scene generation blocked. Required assets not yet approved: ${missing.join(', ')}. Scenes need avatar assets for compositing.`
+        };
+    }
+
+    return { canGenerate: true, missing: [], message: 'All dependencies met.' };
+}
+
+/**
+ * Check if sprite generation has required reference sheet approved.
+ * Building sprites need building_ref, NPC sprites need character_ref, etc.
+ */
+async function checkSpriteReferenceDependency(env, category, assetKey) {
+    const refCategoryMap = {
+        'building_sprite': 'building_ref',
+        'npc': 'character_ref',
+        'effect': 'effect_ref'
+    };
+
+    const refCategory = refCategoryMap[category];
+    if (!refCategory) {
+        return { canGenerate: true }; // No reference needed
+    }
+
+    // Check if there's an approved reference for this asset_key
+    const ref = await env.DB.prepare(`
+        SELECT id, status FROM generated_assets
+        WHERE category = ? AND asset_key = ? AND status = 'approved'
+        ORDER BY created_at DESC LIMIT 1
+    `).bind(refCategory, assetKey).first();
+
+    if (!ref) {
+        return {
+            canGenerate: false,
+            message: `No approved ${refCategory.replace('_', ' ')} found for "${assetKey}". Generate and approve a reference sheet first.`
+        };
+    }
+
+    return { canGenerate: true, referenceId: ref.id };
+}
+
 // Gemini API helper - Uses Nano Banana Pro (gemini-3-pro-image-preview)
 // referenceImage: optional { buffer: Uint8Array, mimeType: string } for image-to-image generation
 async function generateWithGemini(env, prompt, referenceImage = null) {
@@ -1427,16 +1633,23 @@ export async function handleAssetRoutes(request, env, path, method, user) {
             // Get the object from R2 private bucket and create a signed URL
             // Since Cloudflare R2 doesn't support presigned URLs directly in Workers,
             // we'll return the image data as a data URL or use a proxy approach
-            const r2Key = asset.r2_key;
+            const r2Key = asset.r2_key_private;
             const object = await env.R2_PRIVATE.get(r2Key);
 
             if (!object) {
                 return Response.json({ success: false, error: 'Image not found in storage' }, { status: 404 });
             }
 
-            // Convert to base64 data URL
+            // Convert to base64 data URL (chunked to avoid stack overflow on large images)
             const arrayBuffer = await object.arrayBuffer();
-            const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+            const uint8Array = new Uint8Array(arrayBuffer);
+            let binary = '';
+            const chunkSize = 8192;
+            for (let i = 0; i < uint8Array.length; i += chunkSize) {
+                const chunk = uint8Array.subarray(i, i + chunkSize);
+                binary += String.fromCharCode.apply(null, chunk);
+            }
+            const base64 = btoa(binary);
             const contentType = object.httpMetadata?.contentType || 'image/png';
             const dataUrl = `data:${contentType};base64,${base64}`;
 
@@ -1452,6 +1665,32 @@ export async function handleAssetRoutes(request, env, path, method, user) {
         // POST /api/admin/assets/generate - Generate a new asset
         if (action === 'generate' && method === 'POST') {
             const { category, asset_key, prompt, variant = 1, custom_details } = await request.json();
+
+            // === DEPENDENCY CHECKS ===
+            // Scene generation requires avatar assets to be approved first
+            if (category === 'scene') {
+                const sceneCheck = await checkSceneDependencies(env);
+                if (!sceneCheck.canGenerate) {
+                    return Response.json({
+                        error: 'Scene generation blocked',
+                        reason: sceneCheck.message,
+                        missing_dependencies: sceneCheck.missing,
+                        hint: 'Generate and approve avatar base assets first (avatar/base_male, avatar/base_female)'
+                    }, { status: 400 });
+                }
+            }
+
+            // Sprite generation requires approved reference sheet
+            if (['building_sprite', 'npc', 'effect'].includes(category)) {
+                const spriteCheck = await checkSpriteReferenceDependency(env, category, asset_key);
+                if (!spriteCheck.canGenerate) {
+                    return Response.json({
+                        error: 'Sprite generation blocked',
+                        reason: spriteCheck.message,
+                        hint: 'Generate and approve a reference sheet for this asset first'
+                    }, { status: 400 });
+                }
+            }
 
             // Build the full prompt based on category using the master prompt builder
             let fullPrompt = prompt;
@@ -1599,7 +1838,7 @@ export async function handleAssetRoutes(request, env, path, method, user) {
             }
         }
 
-        // POST /api/admin/assets/remove-background/:id - Remove background from asset
+        // POST /api/admin/assets/remove-background/:id - Remove background and trim transparent pixels
         if (action === 'remove-background' && method === 'POST' && param1) {
             const id = param1;
 
@@ -1617,35 +1856,29 @@ export async function handleAssetRoutes(request, env, path, method, user) {
                 return Response.json({ error: 'Original image not found in R2' }, { status: 404 });
             }
 
-            // Call Removal.ai API with image file
+            // Call Slazzer API with image file - includes crop=true to trim transparent pixels
             const arrayBuffer = await originalObj.arrayBuffer();
             const formData = new FormData();
-            formData.append('image_file', new Blob([arrayBuffer], { type: 'image/png' }), 'image.png');
+            formData.append('source_image_file', new Blob([arrayBuffer], { type: 'image/png' }), 'image.png');
+            formData.append('crop', 'true'); // Trim transparent pixels from all edges
 
-            const removalResponse = await fetch('https://api.removal.ai/3.0/remove', {
+            const slazzerResponse = await fetch('https://api.slazzer.com/v2.0/remove_image_background', {
                 method: 'POST',
                 headers: {
-                    'Rm-Token': env.REMOVAL_AI_API_KEY
+                    'API-KEY': env.SLAZZER_API_KEY
                 },
                 body: formData
             });
 
-            if (!removalResponse.ok) {
-                const error = await removalResponse.text();
+            if (!slazzerResponse.ok) {
+                const error = await slazzerResponse.text();
                 return Response.json({ error: `Background removal failed: ${error}` }, { status: 500 });
             }
 
-            const result = await removalResponse.json();
+            // Slazzer returns the image directly as binary
+            const transparentBuffer = await slazzerResponse.arrayBuffer();
 
-            if (!result.url) {
-                return Response.json({ error: 'No result URL from Removal.ai' }, { status: 500 });
-            }
-
-            // Fetch the processed image
-            const processedResponse = await fetch(result.url);
-            const transparentBuffer = await processedResponse.arrayBuffer();
-
-            // Store transparent version in private bucket (still an original, not game-ready)
+            // Store transparent + trimmed version in private bucket
             const newR2Key = asset.r2_key_private.replace('.png', '_transparent.png');
             await env.R2_PRIVATE.put(newR2Key, transparentBuffer, {
                 httpMetadata: { contentType: 'image/png' }
@@ -1664,21 +1897,156 @@ export async function handleAssetRoutes(request, env, path, method, user) {
                 success: true,
                 r2_key: newR2Key,
                 bucket: 'private',
-                note: 'Transparent version stored. Use POST /process/:id to create game-ready WebP.'
+                note: 'Background removed and transparent pixels trimmed. Use POST /process/:id to publish.'
             });
         }
 
-        // PUT /api/admin/assets/approve/:id - Approve an asset
+        // PUT /api/admin/assets/approve/:id - Approve an asset and set as active
         if (action === 'approve' && method === 'PUT' && param1) {
             const id = param1;
 
+            // Get asset details to know category and asset_key
+            const asset = await env.DB.prepare(`
+                SELECT category, asset_key FROM generated_assets WHERE id = ?
+            `).bind(id).first();
+
+            if (!asset) {
+                return Response.json({ error: 'Asset not found' }, { status: 404 });
+            }
+
+            // Deactivate other assets of the same category and asset_key
             await env.DB.prepare(`
                 UPDATE generated_assets
-                SET status = 'approved', approved_at = CURRENT_TIMESTAMP, approved_by = ?
+                SET is_active = FALSE
+                WHERE category = ? AND asset_key = ? AND id != ?
+            `).bind(asset.category, asset.asset_key, id).run();
+
+            // Approve and set as active
+            await env.DB.prepare(`
+                UPDATE generated_assets
+                SET status = 'approved', approved_at = CURRENT_TIMESTAMP, approved_by = ?, is_active = TRUE
                 WHERE id = ?
             `).bind(user?.username || 'admin', id).run();
 
-            await logAudit(env, 'approve', parseInt(id), user?.username);
+            await logAudit(env, 'approve', parseInt(id), user?.username, { set_active: true });
+
+            // Check if this is a base terrain type that should auto-generate variations
+            let autoGeneratedVariations = [];
+            if (asset.category === 'terrain' && TERRAIN_VARIATIONS[asset.asset_key]) {
+                const variations = TERRAIN_VARIATIONS[asset.asset_key];
+                for (const variant of variations) {
+                    // Create placeholder asset record with 'pending' status
+                    const insertResult = await env.DB.prepare(`
+                        INSERT INTO generated_assets (category, asset_key, variant, status, parent_asset_id)
+                        VALUES (?, ?, 1, 'pending', ?)
+                        ON CONFLICT (category, asset_key, variant) DO NOTHING
+                    `).bind('terrain', variant, id).run();
+
+                    if (insertResult.meta?.changes > 0) {
+                        const newId = insertResult.meta?.last_row_id;
+                        // Queue for generation
+                        await env.DB.prepare(`
+                            INSERT INTO asset_generation_queue (asset_id, priority)
+                            VALUES (?, 1)
+                        `).bind(newId).run();
+                        autoGeneratedVariations.push({ variant, id: newId });
+                    }
+                }
+                await logAudit(env, 'auto_queue_variations', parseInt(id), user?.username, {
+                    base_type: asset.asset_key,
+                    queued_variations: autoGeneratedVariations.map(v => v.variant)
+                });
+            }
+
+            // Check if this is an NPC/vehicle reference that should auto-generate directional sprites
+            if (asset.category === 'character_ref' && asset.asset_key === 'pedestrian') {
+                const directions = DIRECTIONAL_SPRITE_VARIANTS.pedestrian;
+                for (const dir of directions) {
+                    const insertResult = await env.DB.prepare(`
+                        INSERT INTO generated_assets (category, asset_key, variant, status, parent_asset_id)
+                        VALUES (?, ?, 1, 'pending', ?)
+                        ON CONFLICT (category, asset_key, variant) DO NOTHING
+                    `).bind('npc', dir, id).run();
+
+                    if (insertResult.meta?.changes > 0) {
+                        const newId = insertResult.meta?.last_row_id;
+                        await env.DB.prepare(`
+                            INSERT INTO asset_generation_queue (asset_id, priority)
+                            VALUES (?, 1)
+                        `).bind(newId).run();
+                        autoGeneratedVariations.push({ dir, id: newId });
+                    }
+                }
+                await logAudit(env, 'auto_queue_directions', parseInt(id), user?.username, {
+                    base_type: asset.asset_key,
+                    queued_directions: autoGeneratedVariations.map(v => v.dir)
+                });
+            }
+
+            // Check if this is a vehicle reference that should auto-generate directional sprites
+            if (asset.category === 'vehicle_ref' && asset.asset_key.startsWith('car')) {
+                const directions = DIRECTIONAL_SPRITE_VARIANTS.car;
+                for (const dir of directions) {
+                    const insertResult = await env.DB.prepare(`
+                        INSERT INTO generated_assets (category, asset_key, variant, status, parent_asset_id)
+                        VALUES (?, ?, 1, 'pending', ?)
+                        ON CONFLICT (category, asset_key, variant) DO NOTHING
+                    `).bind('npc', dir, id).run();
+
+                    if (insertResult.meta?.changes > 0) {
+                        const newId = insertResult.meta?.last_row_id;
+                        await env.DB.prepare(`
+                            INSERT INTO asset_generation_queue (asset_id, priority)
+                            VALUES (?, 1)
+                        `).bind(newId).run();
+                        autoGeneratedVariations.push({ dir, id: newId });
+                    }
+                }
+                await logAudit(env, 'auto_queue_directions', parseInt(id), user?.username, {
+                    base_type: asset.asset_key,
+                    queued_directions: autoGeneratedVariations.map(v => v.dir)
+                });
+            }
+
+            return Response.json({
+                success: true,
+                is_active: true,
+                auto_queued: autoGeneratedVariations.length > 0 ? autoGeneratedVariations : undefined
+            });
+        }
+
+        // PUT /api/admin/assets/set-active/:id - Set an existing approved asset as the active one
+        if (action === 'set-active' && method === 'PUT' && param1) {
+            const id = param1;
+
+            // Get asset details
+            const asset = await env.DB.prepare(`
+                SELECT category, asset_key, status FROM generated_assets WHERE id = ?
+            `).bind(id).first();
+
+            if (!asset) {
+                return Response.json({ error: 'Asset not found' }, { status: 404 });
+            }
+
+            if (asset.status !== 'approved') {
+                return Response.json({ error: 'Only approved assets can be set as active' }, { status: 400 });
+            }
+
+            // Deactivate other assets of the same category and asset_key
+            await env.DB.prepare(`
+                UPDATE generated_assets
+                SET is_active = FALSE
+                WHERE category = ? AND asset_key = ?
+            `).bind(asset.category, asset.asset_key).run();
+
+            // Set this one as active
+            await env.DB.prepare(`
+                UPDATE generated_assets
+                SET is_active = TRUE
+                WHERE id = ?
+            `).bind(id).run();
+
+            await logAudit(env, 'set_active', parseInt(id), user?.username);
 
             return Response.json({ success: true });
         }

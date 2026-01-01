@@ -11,7 +11,7 @@ import {
   Image as ImageIcon,
 } from 'lucide-react';
 import { clsx } from 'clsx';
-import { Asset, AssetStatus, assetApi } from '../../services/assetApi';
+import { Asset, assetApi } from '../../services/assetApi';
 
 interface AssetCardProps {
   asset: Asset;
@@ -21,7 +21,7 @@ interface AssetCardProps {
 }
 
 // Status badge configuration
-const STATUS_CONFIG: Record<AssetStatus, { label: string; color: string; icon: React.ReactNode }> = {
+const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
   pending: {
     label: 'Pending',
     color: 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300',
@@ -35,6 +35,11 @@ const STATUS_CONFIG: Record<AssetStatus, { label: string; color: string; icon: R
   completed: {
     label: 'Ready for Review',
     color: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300',
+    icon: <Eye className="w-3 h-3" />,
+  },
+  review: {
+    label: 'In Review',
+    color: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300',
     icon: <Eye className="w-3 h-3" />,
   },
   approved: {
@@ -54,6 +59,13 @@ const STATUS_CONFIG: Record<AssetStatus, { label: string; color: string; icon: R
   },
 };
 
+// Fallback for unknown statuses
+const DEFAULT_STATUS_CONFIG = {
+  label: 'Unknown',
+  color: 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300',
+  icon: <Clock className="w-3 h-3" />,
+};
+
 export function AssetCard({
   asset,
   onPreview,
@@ -64,7 +76,7 @@ export function AssetCard({
   const [loadingThumbnail, setLoadingThumbnail] = useState(true);
   const [thumbnailError, setThumbnailError] = useState(false);
 
-  const statusConfig = STATUS_CONFIG[asset.status];
+  const statusConfig = STATUS_CONFIG[asset.status] || DEFAULT_STATUS_CONFIG;
   const isGenerating = asset.status === 'generating';
   const canGenerateSprite = showGenerateSprite && asset.status === 'approved';
 
@@ -73,7 +85,8 @@ export function AssetCard({
     let mounted = true;
 
     const fetchThumbnail = async () => {
-      if (asset.status === 'pending' || asset.status === 'generating') {
+      // Skip preview fetch for assets without images
+      if (asset.status === 'pending' || asset.status === 'generating' || asset.status === 'failed') {
         setLoadingThumbnail(false);
         return;
       }
@@ -154,7 +167,7 @@ export function AssetCard({
         </div>
 
         {/* Status badge */}
-        <div className="mb-2">
+        <div className="flex items-center gap-1.5 mb-2 flex-wrap">
           <span className={clsx(
             'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium',
             statusConfig.color
@@ -162,6 +175,11 @@ export function AssetCard({
             {statusConfig.icon}
             {statusConfig.label}
           </span>
+          {asset.is_active && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-700">
+              ★ Active
+            </span>
+          )}
         </div>
 
         {/* Parent reference info */}
