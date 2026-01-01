@@ -230,7 +230,20 @@ The building should SCREAM "market vendor" at first glance.`,
 - Clear indication that this plot of land has been purchased
 - Small footprint - just the stake and immediate surroundings
 - Maybe a small surveyor's flag or ribbon
-This is a placeholder for purchased but unbuilt land.`
+This is a placeholder for purchased but unbuilt land.`,
+
+    demolished: `MUST BE UNMISTAKABLY A DEMOLISHED/RUINED BUILDING with these distinctive features:
+- Pile of rubble and debris (bricks, wood, concrete chunks)
+- Broken walls - partial wall sections still standing at different heights
+- Exposed rebar and twisted metal
+- Dust clouds or settling debris
+- "CONDEMNED" or "DEMOLITION" sign or yellow caution tape
+- Construction/safety barriers around the perimeter
+- Maybe a wrecking ball or demolition crane element
+- Dark scorch marks suggesting damage
+- Broken glass and scattered materials
+- NOT a construction site - this is destruction/ruin
+This shows a building at 0% health waiting to be cleared.`
 };
 
 /**
@@ -644,6 +657,9 @@ const TERRAIN_FEATURES = {
 // ============================================================================
 
 const TERRAIN_VARIATIONS = {
+    // Grass: base tile approved → generate the seamless grass tile
+    grass: ['grass_tile'],
+
     // Road: base tile approved → generate all 15 connection variants
     road: [
         'road_ns', 'road_ew',                                           // Straights (2)
@@ -669,6 +685,12 @@ const TERRAIN_VARIATIONS = {
 
 // Terrain reference sheet layouts - defines grid positions for all variations
 const TERRAIN_REF_LAYOUTS = {
+    grass: {
+        grid: '1x1', // Single tile - establishes the grass style
+        tiles: [
+            { key: 'grass_tile', label: 'Seamless Grass', pos: 'center' }
+        ]
+    },
     road: {
         grid: '4x4', // 4 columns, 4 rows = 16 slots (15 tiles + 1 empty)
         tiles: [
@@ -791,6 +813,7 @@ const DIRECTIONAL_SPRITE_VARIANTS = {
  * Build prompt for terrain tile generation
  */
 function buildTerrainPrompt(terrainType, customDetails = '') {
+    const isGrass = terrainType === 'grass_tile';
     const isRoad = terrainType.startsWith('road_');
     const isDirt = terrainType.startsWith('dirt_');
     const isWaterEdge = terrainType.startsWith('water_') && terrainType !== 'water';
@@ -798,7 +821,10 @@ function buildTerrainPrompt(terrainType, customDetails = '') {
     let baseFeatures;
     let specificDetails = '';
 
-    if (isRoad) {
+    if (isGrass) {
+        baseFeatures = TERRAIN_FEATURES.grass;
+        specificDetails = 'Seamless tiling grass tile. This is the base ground that all other terrain sits on.';
+    } else if (isRoad) {
         baseFeatures = TERRAIN_FEATURES.road_base;
         const directions = terrainType.replace('road_', '');
         specificDetails = `Road connects to: ${directions.toUpperCase().split('').join(', ')} direction(s).`;
@@ -849,6 +875,7 @@ ${customDetails ? `ADDITIONAL NOTES:\n${customDetails}` : ''}`;
 
 const BUILDING_SIZE_CLASSES = {
     claim_stake: { canvas: '64x64', class: 'TINY' },
+    demolished: { canvas: '128x128', class: 'SHORT' },
     market_stall: { canvas: '128x128', class: 'SHORT' },
     hot_dog_stand: { canvas: '128x128', class: 'SHORT' },
     campsite: { canvas: '128x128', class: 'SHORT' },

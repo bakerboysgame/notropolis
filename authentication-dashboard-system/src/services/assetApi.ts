@@ -50,7 +50,7 @@ export const ASSET_KEYS: Record<string, string[]> = {
   building_ref: [
     'restaurant', 'bank', 'temple', 'casino', 'manor', 'police_station',
     'high_street_store', 'shop', 'burger_bar', 'motel', 'market_stall',
-    'hot_dog_stand', 'campsite', 'claim_stake'
+    'hot_dog_stand', 'campsite', 'claim_stake', 'demolished'
   ],
   character_ref: ['pedestrian', 'pedestrian_business', 'pedestrian_casual', 'avatar_base'],
   vehicle_ref: ['car_sedan', 'car_sports', 'car_van', 'car_taxi'],
@@ -65,16 +65,16 @@ export const ASSET_KEYS: Record<string, string[]> = {
     'pedestrian_walk', 'pedestrian_stand', 'pedestrian_suit', 'pedestrian_casual',
     'car_sedan', 'car_sports', 'car_van', 'car_taxi'
   ],
-  // Terrain reference sheets - for terrain with multiple variations
-  // When approved, all variation sprites auto-generate
+  // Terrain reference sheets - when approved, sprites auto-generate
   terrain_ref: [
+    'grass',  // Generates seamless grass tile
     'road',   // Generates 15 road tiles (straights, corners, T-junctions, 4-way, dead-ends)
     'dirt',   // Generates 6 dirt tiles (straights, corners)
     'water',  // Generates 12 water tiles (edges, outer/inner corners)
   ],
   // Simple terrain - single tiles with no variations
   terrain: [
-    'grass', 'trees', 'mountain', 'sand',
+    'trees', 'mountain', 'sand',
   ],
   scene: [
     'arrest_bg', 'court_bg', 'prison_bg', 'hero_bg', 'bank_bg',
