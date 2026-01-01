@@ -219,7 +219,18 @@ The building should SCREAM "hot dog vendor" at first glance.`,
 - "FRESH" or "MARKET" signage
 - Rustic farmer's market aesthetic
 - Apron hanging on hook
-The building should SCREAM "market vendor" at first glance.`
+The building should SCREAM "market vendor" at first glance.`,
+
+    claim_stake: `MUST BE UNMISTAKABLY A LAND CLAIM STAKE with these distinctive features:
+- Wooden stake/post driven into the ground (main element)
+- Small wooden "SOLD" or "CLAIMED" sign hanging from the post
+- Simple rope or ribbon tied near the top
+- The stake is the ONLY structure - no buildings, just the marker
+- Stakes should look weathered but sturdy
+- Clear indication that this plot of land has been purchased
+- Small footprint - just the stake and immediate surroundings
+- Maybe a small surveyor's flag or ribbon
+This is a placeholder for purchased but unbuilt land.`
 };
 
 /**
@@ -837,6 +848,7 @@ ${customDetails ? `ADDITIONAL NOTES:\n${customDetails}` : ''}`;
 // ============================================================================
 
 const BUILDING_SIZE_CLASSES = {
+    claim_stake: { canvas: '64x64', class: 'TINY' },
     market_stall: { canvas: '128x128', class: 'SHORT' },
     hot_dog_stand: { canvas: '128x128', class: 'SHORT' },
     campsite: { canvas: '128x128', class: 'SHORT' },
@@ -1420,9 +1432,33 @@ ${customDetails ? `ADDITIONAL NOTES:\n${customDetails}` : ''}`;
 // ============================================================================
 
 /**
- * Build prompt for ownership overlay generation
+ * Build prompt for overlay generation (ownership, claim stakes, etc.)
  */
 function buildOverlayPrompt(overlayType, customDetails = '') {
+    // Claim stake / land marker
+    if (overlayType === 'claim_stake') {
+        return `Create a CLAIM STAKE marker for purchased but unbuilt land.
+
+FORMAT REQUIREMENTS:
+- Size: 64x64 pixels
+- Background: TRANSPARENT (PNG-ready)
+- Isometric 45-degree view
+
+THE STAKE:
+- Wooden stake/post driven into the ground at center
+- Small "SOLD" or "CLAIMED" sign hanging from it (or just a flag)
+- Simple rope or ribbon tied to the stake
+- Visible from isometric view, stake is vertical, sign faces camera
+
+STYLE: 90s CGI aesthetic (chunky geometric shapes, photorealistic textures)
+- Simple wooden post with grain texture
+- Weathered but sturdy appearance
+- Clear visual indicator that this land is owned
+
+${customDetails ? `ADDITIONAL NOTES:\n${customDetails}` : ''}`;
+    }
+
+    // Ownership color overlays
     const isPlayerOwned = overlayType === 'owned_self';
     const color = isPlayerOwned ? 'GREEN (#22c55e)' : 'RED (#ef4444)';
     const meaning = isPlayerOwned ? 'player-owned' : 'enemy-owned';

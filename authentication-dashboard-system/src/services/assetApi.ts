@@ -50,7 +50,7 @@ export const ASSET_KEYS: Record<string, string[]> = {
   building_ref: [
     'restaurant', 'bank', 'temple', 'casino', 'manor', 'police_station',
     'high_street_store', 'shop', 'burger_bar', 'motel', 'market_stall',
-    'hot_dog_stand', 'campsite'
+    'hot_dog_stand', 'campsite', 'claim_stake'
   ],
   character_ref: ['pedestrian', 'pedestrian_business', 'pedestrian_casual', 'avatar_base'],
   vehicle_ref: ['car_sedan', 'car_sports', 'car_van', 'car_taxi'],
