@@ -10,12 +10,14 @@ import {
   Clock,
   Edit2,
   Trash2,
-  LogOut
+  LogOut,
+  ArrowRightLeft
 } from 'lucide-react';
 import { useCompanies } from '../hooks/useCompanies';
 import { useActiveCompany } from '../contexts/CompanyContext';
 import { LocationPicker } from '../components/game/LocationPicker';
 import { LevelProgress } from '../components/game/LevelProgress';
+import { HeroStatus } from '../components/game/HeroStatus';
 import { GameCompany } from '../types/game';
 
 export function CompanyDashboard() {
@@ -216,6 +218,25 @@ export function CompanyDashboard() {
         level={company.level}
       />
 
+      {/* Hero Status (only show when in a location) */}
+      {company.current_map_id && company.location_type && (
+        <HeroStatus
+          companyId={company.id}
+          locationType={company.location_type}
+          cash={company.cash}
+          landPercentage={company.land_percentage || 0}
+          landOwnershipStreak={company.land_ownership_streak || 0}
+          onHeroSuccess={async () => {
+            // Reload company data after hero
+            const updated = await getCompany(company.id);
+            if (updated) {
+              setCompany(updated);
+              setActiveCompany(updated);
+            }
+          }}
+        />
+      )}
+
       {/* Stats Grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <div className="bg-neutral-800 rounded-lg p-4">
@@ -257,6 +278,18 @@ export function CompanyDashboard() {
             {company.ticks_since_action}
           </p>
         </div>
+      </div>
+
+      {/* Bank Transfer Button */}
+      <div className="mb-6">
+        <button
+          onClick={() => navigate('/bank')}
+          className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg p-4 flex items-center justify-center gap-3 transition-colors"
+        >
+          <ArrowRightLeft className="w-5 h-5" />
+          <span className="font-bold">Bank Transfers</span>
+          <span className="text-blue-200 text-sm">Transfer cash between your companies</span>
+        </button>
       </div>
 
       {/* Location Section */}

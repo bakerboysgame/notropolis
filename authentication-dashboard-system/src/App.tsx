@@ -19,6 +19,7 @@ import { Companies } from './pages/Companies';
 import { CompanyCreate } from './pages/CompanyCreate';
 import { CompanyDashboard } from './pages/CompanyDashboard';
 import { GameMap } from './pages/GameMap';
+import { Bank } from './pages/Bank';
 import { ProtectedPageRoute } from './components/ProtectedPageRoute';
 import { api, apiHelpers } from './services/api';
 
@@ -233,6 +234,15 @@ function App() {
                 <ProtectedRoute>
                   <Layout>
                     <CompanyDashboard />
+                  </Layout>
+                </ProtectedRoute>
+              } />
+
+              {/* Bank Route */}
+              <Route path="/bank" element={
+                <ProtectedRoute>
+                  <Layout>
+                    <Bank />
                   </Layout>
                 </ProtectedRoute>
               } />

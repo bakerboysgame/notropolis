@@ -27,6 +27,17 @@ import {
   removeSecurity
 } from './src/routes/game/security.js';
 import { postActionCheck } from './src/routes/game/levels.js';
+import {
+  getHeroStatus,
+  heroOut,
+  joinLocation as heroJoinLocation,
+  getAvailableLocations
+} from './src/routes/game/hero.js';
+import {
+  getBankStatus,
+  transferCash,
+  getTransferHistory
+} from './src/routes/game/bank.js';
 
 export default {
   async fetch(request, env, ctx) {
@@ -356,6 +367,29 @@ export default {
 
         case path === '/api/game/security/remove' && method === 'POST':
           return handleMarketAction(request, authService, env, corsHeaders, removeSecurity);
+
+        // ==================== GAME HERO ENDPOINTS ====================
+        case path === '/api/game/hero/status' && method === 'GET':
+          return handleHeroGetAction(request, authService, env, corsHeaders, getHeroStatus);
+
+        case path === '/api/game/hero/hero-out' && method === 'POST':
+          return handleMarketAction(request, authService, env, corsHeaders, heroOut);
+
+        case path === '/api/game/hero/join-location' && method === 'POST':
+          return handleMarketAction(request, authService, env, corsHeaders, heroJoinLocation);
+
+        case path === '/api/game/hero/available-locations' && method === 'GET':
+          return handleHeroGetAction(request, authService, env, corsHeaders, getAvailableLocations);
+
+        // ==================== GAME BANK ENDPOINTS ====================
+        case path === '/api/game/bank/status' && method === 'GET':
+          return handleHeroGetAction(request, authService, env, corsHeaders, getBankStatus);
+
+        case path === '/api/game/bank/transfer' && method === 'POST':
+          return handleMarketAction(request, authService, env, corsHeaders, transferCash);
+
+        case path === '/api/game/bank/history' && method === 'GET':
+          return handleHeroGetAction(request, authService, env, corsHeaders, getTransferHistory);
 
         default:
           return new Response(JSON.stringify({ 
@@ -6439,6 +6473,43 @@ async function handleGameCompanyRoutes(request, authService, env, corsHeaders) {
           });
         }
 
+        // Check hero unlock requirements for cities and capitals
+        if (map.location_type === 'city') {
+          const townHero = await env.DB.prepare(`
+            SELECT id FROM game_transactions
+            WHERE company_id = ? AND action_type = 'hero_out'
+            AND details LIKE '%"unlocks":"city"%'
+            LIMIT 1
+          `).bind(companyId).first();
+
+          if (!townHero) {
+            return new Response(JSON.stringify({
+              success: false,
+              error: 'You must hero out of a Town before joining a City'
+            }), {
+              status: 403,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            });
+          }
+        } else if (map.location_type === 'capital') {
+          const cityHero = await env.DB.prepare(`
+            SELECT id FROM game_transactions
+            WHERE company_id = ? AND action_type = 'hero_out'
+            AND details LIKE '%"unlocks":"capital"%'
+            LIMIT 1
+          `).bind(companyId).first();
+
+          if (!cityHero) {
+            return new Response(JSON.stringify({
+              success: false,
+              error: 'You must hero out of a City before joining the Capital'
+            }), {
+              status: 403,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            });
+          }
+        }
+
         // Determine starting cash based on location type
         const startingCash = {
           town: 50000,
@@ -7242,6 +7313,63 @@ async function handleAttackHistory(request, authService, env, corsHeaders) {
     }
 
     const result = await getAttackHistory(request, env, company);
+
+    return new Response(JSON.stringify(result), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+
+  } catch (error) {
+    return new Response(JSON.stringify({
+      success: false,
+      error: error.message
+    }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+}
+
+/**
+ * Handler for hero GET requests (company_id from query params)
+ */
+async function handleHeroGetAction(request, authService, env, corsHeaders, actionFn) {
+  const authHeader = request.headers.get('Authorization');
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return new Response(JSON.stringify({
+      success: false,
+      error: 'Unauthorized'
+    }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+
+  const token = authHeader.split(' ')[1];
+
+  try {
+    const { user } = await authService.getUserFromToken(token);
+
+    // Get company_id from query params for GET requests
+    const url = new URL(request.url);
+    const companyId = url.searchParams.get('company_id');
+
+    // Get company and verify ownership
+    const company = await env.DB.prepare(`
+      SELECT * FROM game_companies WHERE id = ? AND user_id = ?
+    `).bind(companyId || user.id, user.id).first();
+
+    if (!company) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Company not found'
+      }), {
+        status: 404,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Call the action function
+    const result = await actionFn(request, env, company);
 
     return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }

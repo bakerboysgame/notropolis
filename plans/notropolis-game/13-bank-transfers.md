@@ -25,15 +25,16 @@ Implement the bank system allowing transfers between a user's own companies with
 |------|---------|
 | `authentication-dashboard-system/src/pages/Bank.tsx` | Bank interface |
 | `authentication-dashboard-system/src/components/game/TransferModal.tsx` | Transfer confirmation |
-| `authentication-dashboard-system/src/worker/routes/game/bank.ts` | Bank API |
-| `authentication-dashboard-system/migrations/0017_create_transfers_table.sql` | Transfer tracking |
+| `authentication-dashboard-system/src/components/game/TransferHistory.tsx` | Transfer history display |
+| `authentication-dashboard-system/worker/src/routes/game/bank.js` | Bank API |
+| `authentication-dashboard-system/migrations/0019_create_transfers_table.sql` | Transfer tracking |
 
 ## Implementation Details
 
 ### Database Migration
 
 ```sql
--- 0017_create_transfers_table.sql
+-- 0019_create_transfers_table.sql
 CREATE TABLE bank_transfers (
   id TEXT PRIMARY KEY,
   from_company_id TEXT NOT NULL,
@@ -52,64 +53,90 @@ CREATE INDEX idx_transfers_time ON bank_transfers(created_at);
 
 ### Transfer Limits
 
-```typescript
-// utils/bankLimits.ts
+**Key Rules:**
+- Each company can **SEND** max 3 transfers per day
+- Each company can **RECEIVE** max 3 transfers per day
+- Max amount per transfer depends on **receiving** company's location type
+- Transfers only move **cash** - **offshore can ONLY be increased by heroing a location**
+
+```javascript
+// worker/src/routes/game/bank.js (at top of file)
+
+// Universal daily limits (applies to ALL location types)
+export const DAILY_SEND_LIMIT = 3;    // Per company
+export const DAILY_RECEIVE_LIMIT = 3; // Per company
+
 export const TRANSFER_LIMITS = {
   town: {
     maxPerTransfer: 50_000,
-    maxTransfersPerDay: 3,
   },
   city: {
     maxPerTransfer: 500_000,
-    maxTransfersPerDay: 3,
   },
   capital: {
     maxPerTransfer: 1_000_000,
-    maxTransfersPerDay: 3,
   },
-} as const;
+};
 
-export function getTransferLimits(locationType: 'town' | 'city' | 'capital') {
-  return TRANSFER_LIMITS[locationType];
+export function getTransferLimits(locationType) {
+  return {
+    ...TRANSFER_LIMITS[locationType],
+    maxSendPerDay: DAILY_SEND_LIMIT,
+    maxReceivePerDay: DAILY_RECEIVE_LIMIT,
+  };
 }
 ```
 
 ### Bank API
 
-```typescript
-// worker/routes/game/bank.ts
-export async function getTransferStatus(env: Env, companyId: string) {
+```javascript
+// worker/src/routes/game/bank.js
+export async function getTransferStatus(env, companyId) {
   const company = await env.DB.prepare(
     'SELECT * FROM game_companies WHERE id = ?'
   ).bind(companyId).first();
 
-  if (!company.current_map_id) {
-    return { canReceive: false, reason: 'Not in a location' };
-  }
-
-  const limits = getTransferLimits(company.location_type);
-
-  // Count today's transfers TO this company
   const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
 
-  const todayTransfers = await env.DB.prepare(`
+  // Count today's transfers FROM this company (sending limit)
+  const sentToday = await env.DB.prepare(`
+    SELECT COUNT(*) as count
+    FROM bank_transfers
+    WHERE from_company_id = ?
+      AND date(created_at) = date(?)
+  `).bind(companyId, today).first();
+
+  // Count today's transfers TO this company (receiving limit)
+  const receivedToday = await env.DB.prepare(`
     SELECT COUNT(*) as count, COALESCE(SUM(amount), 0) as total
     FROM bank_transfers
     WHERE to_company_id = ?
       AND date(created_at) = date(?)
   `).bind(companyId, today).first();
 
+  const limits = company.current_map_id
+    ? getTransferLimits(company.location_type)
+    : { maxPerTransfer: 0, maxSendPerDay: DAILY_SEND_LIMIT, maxReceivePerDay: DAILY_RECEIVE_LIMIT };
+
   return {
-    canReceive: todayTransfers.count < limits.maxTransfersPerDay,
-    transfersToday: todayTransfers.count,
-    amountReceivedToday: todayTransfers.total,
-    maxTransfersPerDay: limits.maxTransfersPerDay,
+    // Sending status
+    canSend: !company.is_in_prison && sentToday.count < DAILY_SEND_LIMIT,
+    sentToday: sentToday.count,
+    maxSendPerDay: DAILY_SEND_LIMIT,
+
+    // Receiving status
+    canReceive: company.current_map_id && receivedToday.count < DAILY_RECEIVE_LIMIT,
+    receivedToday: receivedToday.count,
+    amountReceivedToday: receivedToday.total,
+    maxReceivePerDay: DAILY_RECEIVE_LIMIT,
     maxPerTransfer: limits.maxPerTransfer,
+
     locationType: company.location_type,
+    isInPrison: company.is_in_prison,
   };
 }
 
-export async function transfer(request: Request, env: Env, user: User) {
+export async function transfer(request, env, user) {
   const { from_company_id, to_company_id, amount } = await request.json();
 
   // Validate ownership of both companies
@@ -146,17 +173,30 @@ export async function transfer(request: Request, env: Env, user: User) {
     throw new Error('Insufficient funds');
   }
 
-  // Check daily limit
   const today = new Date().toISOString().split('T')[0];
-  const todayTransfers = await env.DB.prepare(`
+
+  // Check SENDING limit (from_company)
+  const sentToday = await env.DB.prepare(`
+    SELECT COUNT(*) as count
+    FROM bank_transfers
+    WHERE from_company_id = ?
+      AND date(created_at) = date(?)
+  `).bind(from_company_id, today).first();
+
+  if (sentToday.count >= DAILY_SEND_LIMIT) {
+    throw new Error(`This company has reached its daily sending limit (${DAILY_SEND_LIMIT})`);
+  }
+
+  // Check RECEIVING limit (to_company)
+  const receivedToday = await env.DB.prepare(`
     SELECT COUNT(*) as count
     FROM bank_transfers
     WHERE to_company_id = ?
       AND date(created_at) = date(?)
   `).bind(to_company_id, today).first();
 
-  if (todayTransfers.count >= limits.maxTransfersPerDay) {
-    throw new Error(`Destination company has reached daily transfer limit (${limits.maxTransfersPerDay})`);
+  if (receivedToday.count >= DAILY_RECEIVE_LIMIT) {
+    throw new Error(`Destination company has reached its daily receiving limit (${DAILY_RECEIVE_LIMIT})`);
   }
 
   // Perform transfer
@@ -199,7 +239,7 @@ export async function transfer(request: Request, env: Env, user: User) {
   };
 }
 
-export async function getTransferHistory(env: Env, companyId: string) {
+export async function getTransferHistory(env, companyId) {
   const transfers = await env.DB.prepare(`
     SELECT
       bt.*,
@@ -397,6 +437,92 @@ export function TransferHistory({ companyId }) {
 }
 ```
 
+### TransferModal Component
+
+```tsx
+// components/game/TransferModal.tsx
+export function TransferModal({ fromCompany, toCompany, amount, onConfirm, onClose }) {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleConfirm = async () => {
+    setIsSubmitting(true);
+    try {
+      await onConfirm();
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <div className="bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4">
+        <h2 className="text-xl font-bold text-white mb-4">Confirm Transfer</h2>
+
+        <div className="space-y-4 mb-6">
+          <div className="bg-gray-700 p-3 rounded">
+            <p className="text-gray-400 text-sm">From</p>
+            <p className="text-white font-bold">{fromCompany?.name}</p>
+            <p className="text-green-400">${fromCompany?.cash?.toLocaleString()}</p>
+          </div>
+
+          <div className="text-center text-2xl text-gray-400">↓</div>
+
+          <div className="bg-gray-700 p-3 rounded">
+            <p className="text-gray-400 text-sm">To</p>
+            <p className="text-white font-bold">{toCompany?.name}</p>
+            <p className="text-sm text-gray-400">{toCompany?.location_type || 'No location'}</p>
+          </div>
+
+          <div className="bg-blue-900/30 p-3 rounded text-center">
+            <p className="text-gray-400 text-sm">Amount</p>
+            <p className="text-2xl font-bold text-blue-400">${amount?.toLocaleString()}</p>
+          </div>
+        </div>
+
+        <div className="flex gap-3">
+          <button
+            onClick={onClose}
+            disabled={isSubmitting}
+            className="flex-1 py-3 bg-gray-700 text-white rounded"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleConfirm}
+            disabled={isSubmitting}
+            className="flex-1 py-3 bg-blue-600 text-white rounded disabled:opacity-50"
+          >
+            {isSubmitting ? 'Transferring...' : 'Confirm'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+```
+
+### Route Registration (worker/index.js)
+
+Add to the switch statement in `worker/index.js` after the hero endpoints:
+
+```javascript
+// ==================== GAME BANK ENDPOINTS ====================
+case path === '/api/game/bank/status' && method === 'GET':
+  return handleHeroGetAction(request, authService, env, corsHeaders, getBankStatus);
+
+case path === '/api/game/bank/transfer' && method === 'POST':
+  return handleMarketAction(request, authService, env, corsHeaders, bankTransfer);
+
+case path === '/api/game/bank/history' && method === 'GET':
+  return handleHeroGetAction(request, authService, env, corsHeaders, getBankHistory);
+```
+
+Add import at top of `worker/index.js`:
+
+```javascript
+import { getTransferStatus as getBankStatus, transfer as bankTransfer, getTransferHistory as getBankHistory } from './src/routes/game/bank.js';
+```
+
 ## Database Changes
 
 - New `bank_transfers` table for tracking transfers
@@ -408,30 +534,41 @@ export function TransferHistory({ companyId }) {
 | Valid transfer | Own company to own company | Cash moved |
 | Insufficient funds | Amount > cash | Error |
 | Transfer to other user | Different user's company | Error: not owned |
-| Daily limit exceeded | 4th transfer to town | Error: daily limit |
+| **Sending limit exceeded** | 4th transfer FROM company | Error: sending limit |
+| **Receiving limit exceeded** | 4th transfer TO company | Error: receiving limit |
 | Amount over max | 60k to town | Error: max 50k |
 | Send from prison | In prison | Error |
 | Receive in prison | To company in prison | Success |
 | Transfer history | After transfers | Shows both sent/received |
+| **Offshore untouched** | Any transfer | Only cash moves, offshore unchanged |
 
 ## Acceptance Checklist
 
 - [ ] Can transfer between own companies
 - [ ] Cannot transfer to other users' companies
-- [ ] Transfer limits by destination type
-- [ ] Daily transfer limit enforced (3/day)
+- [ ] Transfer amount limits by destination location type (town/city/capital)
+- [ ] **Sending limit enforced (3 per day per company)**
+- [ ] **Receiving limit enforced (3 per day per company)**
 - [ ] Cannot send while in prison
 - [ ] Can receive while in prison
 - [ ] Transfer history shows both directions
 - [ ] Balance updates immediately
+- [ ] **Only cash is transferred, offshore is untouched**
 - [ ] Transactions logged for both companies
 
 ## Deployment
 
 ```bash
-# Run migration
-CLOUDFLARE_API_TOKEN="..." npx wrangler d1 execute notropolis-database --file=migrations/0017_create_transfers_table.sql --remote
+# Run migration (from authentication-dashboard-system directory)
+cd authentication-dashboard-system
+CLOUDFLARE_API_TOKEN="..." npx wrangler d1 execute notropolis-database --file=migrations/0019_create_transfers_table.sql --remote
 
+# Deploy worker
+cd worker
+CLOUDFLARE_API_TOKEN="..." CLOUDFLARE_ACCOUNT_ID="..." npx wrangler deploy
+
+# Deploy frontend
+cd ..
 npm run build
 CLOUDFLARE_API_TOKEN="..." CLOUDFLARE_ACCOUNT_ID="..." npx wrangler pages deploy ./dist --project-name=notropolis-dashboard
 ```
@@ -439,9 +576,12 @@ CLOUDFLARE_API_TOKEN="..." CLOUDFLARE_ACCOUNT_ID="..." npx wrangler pages deploy
 ## Handoff Notes
 
 - Transfers are between YOUR companies only (same user)
-- Limits are on the RECEIVING company
-- Daily limit resets at midnight UTC
+- Amount limit depends on the RECEIVING company's location type
+- **Each company has a SENDING limit of 3 transfers per day**
+- **Each company has a RECEIVING limit of 3 transfers per day**
+- Daily limits reset at midnight UTC
 - Can receive while in prison (to help pay fine)
 - Cannot send while in prison
 - Consider adding transfer fee in future
-- Offshore funds cannot be transferred (only used for company slots)
+- **CRITICAL: Only CASH can be transferred. Offshore funds CANNOT be moved via bank transfers.**
+- **Offshore can ONLY be increased by heroing a location** (see Stage 12)
