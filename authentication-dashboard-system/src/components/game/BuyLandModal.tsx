@@ -1,11 +1,17 @@
 import { useState } from 'react';
 import { X, DollarSign, MapPin } from 'lucide-react';
 import { api, apiHelpers, BuyLandRequest, BuyLandResponse } from '../../services/api';
+import { type LevelUnlocks } from '../../utils/levels';
+
+interface LevelUpData {
+  newLevel: number;
+  unlocks: LevelUnlocks;
+}
 
 interface BuyLandModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (levelUp?: LevelUpData | null) => void;
   tile: any;
   map: any;
   activeCompanyId: string;
@@ -65,13 +71,13 @@ export function BuyLandModal({
         tile_y: tile.y,
       };
 
-      const response = await api.post<{ success: boolean; data: BuyLandResponse }>(
+      const response = await api.post<{ success: boolean; data: BuyLandResponse & { levelUp?: LevelUpData } }>(
         '/api/game/land/buy',
         request
       );
 
       if (response.data.success) {
-        onSuccess();
+        onSuccess(response.data.data?.levelUp);
         onClose();
       } else {
         setError('Failed to purchase land');

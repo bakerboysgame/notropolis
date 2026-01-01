@@ -1,11 +1,17 @@
 import { useState, useEffect } from 'react';
 import { X, Building2, DollarSign, TrendingUp, Lock } from 'lucide-react';
 import { api, apiHelpers, BuildingType, ProfitPreviewResponse, BuildBuildingRequest } from '../../services/api';
+import { type LevelUnlocks } from '../../utils/levels';
+
+interface LevelUpData {
+  newLevel: number;
+  unlocks: LevelUnlocks;
+}
 
 interface BuildModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (levelUp?: LevelUpData | null) => void;
   tile: any;
   activeCompanyId: string;
   activeCompanyCash: number;
@@ -94,10 +100,10 @@ export function BuildModal({
         building_type_id: selectedType,
       };
 
-      const response = await api.post('/api/game/buildings/build', request);
+      const response = await api.post<{ success: boolean; data: { levelUp?: LevelUpData } }>('/api/game/buildings/build', request);
 
       if (response.data.success) {
-        onSuccess();
+        onSuccess(response.data.data?.levelUp);
         onClose();
       } else {
         setError('Failed to build');

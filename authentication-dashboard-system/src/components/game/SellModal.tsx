@@ -2,11 +2,17 @@ import { useState } from 'react';
 import { X, DollarSign, Store, Tag } from 'lucide-react';
 import { api, apiHelpers } from '../../services/api';
 import { calculateSellToStateValue, calculateMinListingPrice } from '../../utils/marketPricing';
+import { type LevelUnlocks } from '../../utils/levels';
+
+interface LevelUpData {
+  newLevel: number;
+  unlocks: LevelUnlocks;
+}
 
 interface SellModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (levelUp?: LevelUpData | null) => void;
   building: any;
   buildingType: any;
   tile: any;
@@ -44,13 +50,13 @@ export function SellModal({
     setError(null);
 
     try {
-      const response = await api.post('/api/game/market/sell-to-state', {
+      const response = await api.post<{ success: boolean; sale_value: number; levelUp?: LevelUpData }>('/api/game/market/sell-to-state', {
         company_id: activeCompanyId,
         building_id: building.id,
       });
 
       if (response.data.success) {
-        onSuccess();
+        onSuccess(response.data.levelUp);
         onClose();
       } else {
         setError('Failed to sell building');

@@ -7,7 +7,14 @@ import { SellModal } from './SellModal';
 import { AttackModal } from './AttackModal';
 import { AttackResult } from './AttackResult';
 import { SecurityModal } from './SecurityModal';
+import { LevelUpModal } from './LevelUpModal';
 import { api, apiHelpers } from '../../services/api';
+import { type LevelUnlocks } from '../../utils/levels';
+
+interface LevelUpData {
+  newLevel: number;
+  unlocks: LevelUnlocks;
+}
 
 interface TileInfoProps {
   mapId: string;
@@ -33,18 +40,25 @@ export function TileInfo({ mapId, x, y, map, onClose, onRefresh }: TileInfoProps
   const [attackResult, setAttackResult] = useState<any>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [levelUpData, setLevelUpData] = useState<LevelUpData | null>(null);
 
-  const handleActionSuccess = async () => {
+  const handleActionSuccess = async (levelUp?: LevelUpData | null) => {
     await refreshCompany(); // Refresh company cash/data
     await refetch(); // Refresh tile data
     if (onRefresh) {
       onRefresh(); // Refresh parent component (map)
     }
+    // Show level-up modal if a level-up occurred
+    if (levelUp) {
+      setLevelUpData(levelUp);
+    }
   };
 
   const handleAttackSuccess = async (result: any) => {
     setAttackResult(result);
-    await handleActionSuccess();
+    // Extract level-up from result if present
+    const levelUp = result?.levelUp;
+    await handleActionSuccess(levelUp);
   };
 
   if (isLoading) {
@@ -261,11 +275,11 @@ export function TileInfo({ mapId, x, y, map, onClose, onRefresh }: TileInfoProps
               setActionLoading(true);
               setActionError(null);
               try {
-                await api.post('/api/game/market/buy-property', {
+                const response = await api.post<{ success: boolean; purchase_price: number; levelUp?: LevelUpData }>('/api/game/market/buy-property', {
                   company_id: activeCompany.id,
                   building_id: building.id,
                 });
-                await handleActionSuccess();
+                await handleActionSuccess(response.data.levelUp);
               } catch (err) {
                 setActionError(apiHelpers.handleError(err));
               } finally {
@@ -381,6 +395,16 @@ export function TileInfo({ mapId, x, y, map, onClose, onRefresh }: TileInfoProps
             </>
           )}
         </>
+      )}
+
+      {/* Level Up Modal */}
+      {levelUpData && (
+        <LevelUpModal
+          isOpen={true}
+          onClose={() => setLevelUpData(null)}
+          newLevel={levelUpData.newLevel}
+          unlocks={levelUpData.unlocks}
+        />
       )}
     </div>
   );

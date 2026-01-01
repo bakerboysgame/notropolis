@@ -4,6 +4,7 @@
  */
 
 import { markAffectedBuildingsDirty } from '../../adjacencyCalculator.js';
+import { postActionCheck } from './levels.js';
 
 // Dirty trick definitions (mirrors dirtyTricks.ts on frontend)
 const DIRTY_TRICKS = {
@@ -229,6 +230,12 @@ export async function performAttack(request, env, company) {
   // Mark affected buildings dirty for profit recalculation (damage changed)
   await markAffectedBuildingsDirty(env, building.x, building.y, building.map_id);
 
+  // Check for level-up (attacks don't level up when caught and sent to prison, only successful ones)
+  let levelUp = null;
+  if (!wasCaught) {
+    levelUp = await postActionCheck(env, company.id, company.level, building.map_id);
+  }
+
   return {
     success: true,
     damage_dealt: damageDealt,
@@ -241,6 +248,7 @@ export async function performAttack(request, env, company) {
     security_active: securityActive,
     police_active: policeActive,
     police_strike: isStrikeDay,
+    levelUp,
   };
 }
 

@@ -26,6 +26,7 @@ import {
   purchaseSecurity,
   removeSecurity
 } from './src/routes/game/security.js';
+import { postActionCheck } from './src/routes/game/levels.js';
 
 export default {
   async fetch(request, env, ctx) {
@@ -6706,6 +6707,9 @@ async function handleBuyLand(request, authService, env, corsHeaders) {
       `).bind(crypto.randomUUID(), company.id, map.id, 'buy_land', tile.id, cost),
     ]);
 
+    // Check for level-up
+    const levelUp = await postActionCheck(env, company.id, company.level, map.id);
+
     return new Response(JSON.stringify({
       success: true,
       data: {
@@ -6715,7 +6719,8 @@ async function handleBuyLand(request, authService, env, corsHeaders) {
           ...tile,
           owner_company_id: company.id,
           purchased_at: new Date().toISOString()
-        }
+        },
+        levelUp
       }
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -6936,6 +6941,9 @@ async function handleBuildBuilding(request, authService, env, corsHeaders) {
     // Mark adjacent buildings as needing profit recalculation
     const affectedCount = await markAffectedBuildingsDirty(env, tile.x, tile.y, tile.map_id);
 
+    // Check for level-up
+    const levelUp = await postActionCheck(env, company.id, company.level, tile.map_id);
+
     return new Response(JSON.stringify({
       success: true,
       data: {
@@ -6943,7 +6951,8 @@ async function handleBuildBuilding(request, authService, env, corsHeaders) {
         profit: profitResult.finalProfit,
         breakdown: profitResult.breakdown,
         affected_buildings: affectedCount,
-        remaining_cash: company.cash - buildingType.cost
+        remaining_cash: company.cash - buildingType.cost,
+        levelUp
       }
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }

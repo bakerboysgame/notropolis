@@ -17,9 +17,12 @@ Implement the level system with cash and action thresholds that unlock buildings
 
 | File | Changes |
 |------|---------|
-| `authentication-dashboard-system/src/components/game/BuildModal.tsx` | Show level-locked buildings |
-| `authentication-dashboard-system/src/components/game/AttackModal.tsx` | Show level-locked tricks |
-| `authentication-dashboard-system/src/pages/CompanyDashboard.tsx` | Show level progress |
+| `authentication-dashboard-system/src/pages/CompanyDashboard.tsx` | Add level progress component |
+| `authentication-dashboard-system/worker/src/routes/game/attacks.js` | Add level check after attack |
+| `authentication-dashboard-system/worker/src/routes/game/market.js` | Add level check after market actions |
+| `authentication-dashboard-system/worker/index.js` | Add level check after land/build actions |
+
+**Note:** BuildModal and AttackModal already have level-locking implemented.
 
 ## Files to Create
 
@@ -28,7 +31,8 @@ Implement the level system with cash and action thresholds that unlock buildings
 | `authentication-dashboard-system/src/components/game/LevelProgress.tsx` | Level progress display |
 | `authentication-dashboard-system/src/components/game/LevelUpModal.tsx` | Level up celebration |
 | `authentication-dashboard-system/src/utils/levels.ts` | Level definitions and calculations |
-| `authentication-dashboard-system/src/worker/routes/game/levels.ts` | Level check API |
+| `authentication-dashboard-system/src/utils/buildingTypes.ts` | Building type definitions (for unlock display) |
+| `authentication-dashboard-system/worker/src/routes/game/levels.js` | Level check helper functions |
 
 ## Implementation Details
 
@@ -98,6 +102,7 @@ export function getUnlocksAtLevel(level: number): {
   buildings: string[];
   tricks: string[];
 } {
+  // Import from buildingTypes.ts and dirtyTricks.ts
   const buildings = Object.values(BUILDING_TYPES)
     .filter(b => b.level_required === level)
     .map(b => b.name);
@@ -108,17 +113,49 @@ export function getUnlocksAtLevel(level: number): {
 
   return { buildings, tricks };
 }
+
+// Note: Requires BUILDING_TYPES from buildingTypes.ts and DIRTY_TRICKS from dirtyTricks.ts
+```
+
+### Building Types Constant
+
+```typescript
+// utils/buildingTypes.ts
+// Mirror of database building_types for client-side unlock display
+
+export interface BuildingTypeInfo {
+  id: string;
+  name: string;
+  level_required: number;
+}
+
+export const BUILDING_TYPES: Record<string, BuildingTypeInfo> = {
+  market_stall: { id: 'market_stall', name: 'Market Stall', level_required: 1 },
+  hot_dog_stand: { id: 'hot_dog_stand', name: 'Hot Dog Stand', level_required: 1 },
+  campsite: { id: 'campsite', name: 'Campsite', level_required: 1 },
+  shop: { id: 'shop', name: 'Shop', level_required: 1 },
+  burger_bar: { id: 'burger_bar', name: 'Burger Bar', level_required: 2 },
+  motel: { id: 'motel', name: 'Motel', level_required: 2 },
+  high_street_store: { id: 'high_street_store', name: 'High Street Store', level_required: 3 },
+  restaurant: { id: 'restaurant', name: 'Restaurant', level_required: 3 },
+  manor: { id: 'manor', name: 'Manor', level_required: 4 },
+  casino: { id: 'casino', name: 'Casino', level_required: 5 },
+};
 ```
 
 ### Level Check on Actions
 
-```typescript
-// worker/routes/game/levels.ts
-export async function checkAndUpdateLevel(env: Env, company: GameCompany): Promise<{
-  leveledUp: boolean;
-  newLevel: number;
-  unlocks: { buildings: string[]; tricks: string[] };
-}> {
+```javascript
+// worker/src/routes/game/levels.js
+// Note: Worker uses JavaScript, not TypeScript
+
+import { getCurrentLevel, getUnlocksAtLevel } from './levelUtils.js';
+
+/**
+ * Check and update company level after actions
+ * @returns {{ leveledUp: boolean, newLevel: number, unlocks: { buildings: string[], tricks: string[] } }}
+ */
+export async function checkAndUpdateLevel(env, company) {
   const calculatedLevel = getCurrentLevel(company.cash, company.total_actions);
 
   if (calculatedLevel > company.level) {
@@ -155,7 +192,7 @@ export async function checkAndUpdateLevel(env: Env, company: GameCompany): Promi
 
 // Call this after any action that increments total_actions
 // Add to buyLand, buildBuilding, performAttack, etc.
-export async function postActionCheck(env: Env, companyId: string) {
+export async function postActionCheck(env, companyId) {
   const company = await env.DB.prepare(
     'SELECT * FROM game_companies WHERE id = ?'
   ).bind(companyId).first();
@@ -164,12 +201,41 @@ export async function postActionCheck(env: Env, companyId: string) {
 }
 ```
 
+### Backend Integration Points
+
+Add level check calls to existing action handlers. Each should include `levelUp` info in response:
+
+```javascript
+// Example: In attacks.js after successful attack
+const levelResult = await postActionCheck(env, company_id);
+
+return Response.json({
+  success: true,
+  data: {
+    // ... existing attack result data ...
+    levelUp: levelResult.leveledUp ? {
+      newLevel: levelResult.newLevel,
+      unlocks: levelResult.unlocks
+    } : null
+  }
+});
+```
+
+Apply same pattern to:
+- `worker/index.js` - `buyLand`, `buildBuilding` routes
+- `worker/src/routes/game/market.js` - `buyProperty` route
+- `worker/src/routes/game/attacks.js` - attack route
+- `worker/src/routes/game/security.js` - security purchase route (if it increments actions)
+
 ### Level Progress Component
 
 ```tsx
 // components/game/LevelProgress.tsx
+import { useActiveCompany } from '../../contexts/CompanyContext';
+import { getLevelProgress, getNextLevelRequirements, getUnlocksAtLevel } from '../../utils/levels';
+
 export function LevelProgress() {
-  const { activeCompany } = useCompany();
+  const { activeCompany } = useActiveCompany();
 
   if (!activeCompany) return null;
 
@@ -263,9 +329,18 @@ export function LevelProgress() {
 
 ```tsx
 // components/game/LevelUpModal.tsx
-export function LevelUpModal({ level, unlocks, onClose }) {
+import { Modal } from '../ui/Modal';
+
+interface LevelUpModalProps {
+  isOpen: boolean;
+  level: number;
+  unlocks: { buildings: string[]; tricks: string[] };
+  onClose: () => void;
+}
+
+export function LevelUpModal({ isOpen, level, unlocks, onClose }: LevelUpModalProps) {
   return (
-    <Modal onClose={onClose}>
+    <Modal isOpen={isOpen} onClose={onClose} title="Level Up!">
       <div className="text-center">
         <div className="text-6xl mb-4">🎉</div>
         <h2 className="text-3xl font-bold text-yellow-400 mb-2">Level Up!</h2>
@@ -305,7 +380,7 @@ export function LevelUpModal({ level, unlocks, onClose }) {
 
         <button
           onClick={onClose}
-          className="w-full py-3 bg-yellow-600 text-white font-bold rounded-lg hover:bg-yellow-700"
+          className="w-full py-3 bg-yellow-600 dark:bg-yellow-600 text-white font-bold rounded-lg hover:bg-yellow-700"
         >
           Continue
         </button>
@@ -313,58 +388,20 @@ export function LevelUpModal({ level, unlocks, onClose }) {
     </Modal>
   );
 }
+
+// Usage example: Include in a parent component that tracks levelUp state
+// const [levelUpInfo, setLevelUpInfo] = useState<{level: number; unlocks: {...}} | null>(null);
+// After API call returns leveledUp: true, set levelUpInfo to show the modal
 ```
 
 ### Level-Locked UI States
 
-```tsx
-// In BuildModal - show locked buildings
-{buildingTypes.map(type => {
-  const isLocked = type.level_required > activeCompany.level;
+**NOTE: These are already implemented in the codebase:**
 
-  return (
-    <div
-      key={type.id}
-      onClick={() => !isLocked && handleSelect(type.id)}
-      className={`p-3 rounded ${
-        isLocked
-          ? 'opacity-50 cursor-not-allowed bg-gray-800'
-          : selected === type.id
-            ? 'bg-blue-600'
-            : 'bg-gray-700 hover:bg-gray-600 cursor-pointer'
-      }`}
-    >
-      <div className="flex justify-between">
-        <span className="font-bold text-white">{type.name}</span>
-        {isLocked ? (
-          <span className="text-yellow-400">🔒 Lvl {type.level_required}</span>
-        ) : (
-          <span className="text-yellow-400">${type.cost.toLocaleString()}</span>
-        )}
-      </div>
-    </div>
-  );
-})}
+- `BuildModal.tsx` (lines 153-189) - Shows locked buildings with "Requires Level X"
+- `AttackModal.tsx` (line 37) - Uses `getAvailableTricks(companyLevel)` to filter by level
 
-// In AttackModal - show locked tricks
-{Object.values(DIRTY_TRICKS).map(trick => {
-  const isLocked = trick.levelRequired > activeCompany.level;
-
-  return (
-    <div
-      key={trick.id}
-      className={isLocked ? 'opacity-50' : ''}
-    >
-      {/* ... */}
-      {isLocked && (
-        <p className="text-xs text-yellow-400">
-          🔒 Requires Level {trick.levelRequired}
-        </p>
-      )}
-    </div>
-  );
-})}
-```
+No changes needed to these components.
 
 ## Database Changes
 
@@ -385,16 +422,16 @@ None - uses existing `level` and `total_actions` columns.
 
 ## Acceptance Checklist
 
-- [ ] Level calculated from cash + actions
-- [ ] Level up triggers on threshold met
-- [ ] Level up modal shows unlocks
-- [ ] Progress bar shows cash progress
-- [ ] Progress bar shows actions progress
-- [ ] Locked buildings greyed out
-- [ ] Locked tricks greyed out
-- [ ] Level displayed in dashboard
-- [ ] Transaction logged on level up
-- [ ] Level 5 shows "max level"
+- [x] Level calculated from cash + actions
+- [x] Level up triggers on threshold met
+- [x] Level up modal shows unlocks
+- [x] Progress bar shows cash progress
+- [x] Progress bar shows actions progress
+- [x] Locked buildings greyed out
+- [x] Locked tricks greyed out
+- [x] Level displayed in dashboard
+- [x] Transaction logged on level up
+- [x] Level 5 shows "max level"
 
 ## Deployment
 

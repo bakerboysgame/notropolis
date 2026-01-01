@@ -5,6 +5,7 @@
 
 import { calculateSellToStateValue, calculateMinListingPrice } from '../../utils/marketPricing.js';
 import { markAffectedBuildingsDirty } from '../../adjacencyCalculator.js';
+import { postActionCheck } from './levels.js';
 
 /**
  * POST /api/game/market/sell-to-state
@@ -74,7 +75,10 @@ export async function sellToState(request, env, company) {
   // Mark adjacent buildings dirty for profit recalc (tile is now empty)
   await markAffectedBuildingsDirty(env, building.x, building.y, building.map_id);
 
-  return { success: true, sale_value: saleValue };
+  // Check for level-up (selling adds cash)
+  const levelUp = await postActionCheck(env, company.id, company.level, building.map_id);
+
+  return { success: true, sale_value: saleValue, levelUp };
 }
 
 /**
@@ -230,7 +234,10 @@ export async function buyProperty(request, env, company) {
     `).bind(crypto.randomUUID(), sellerId, building.map_id, building_id, company.id, price),
   ]);
 
-  return { success: true, purchase_price: price };
+  // Check for level-up (buying property is a major action)
+  const levelUp = await postActionCheck(env, company.id, company.level, building.map_id);
+
+  return { success: true, purchase_price: price, levelUp };
 }
 
 /**

@@ -15,6 +15,7 @@ import {
 import { useCompanies } from '../hooks/useCompanies';
 import { useActiveCompany } from '../contexts/CompanyContext';
 import { LocationPicker } from '../components/game/LocationPicker';
+import { LevelProgress } from '../components/game/LevelProgress';
 import { GameCompany } from '../types/game';
 
 export function CompanyDashboard() {
@@ -207,6 +208,13 @@ export function CompanyDashboard() {
           </button>
         </div>
       </div>
+
+      {/* Level Progress */}
+      <LevelProgress
+        cash={company.cash}
+        totalActions={company.total_actions}
+        level={company.level}
+      />
 
       {/* Stats Grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
