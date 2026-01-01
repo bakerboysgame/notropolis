@@ -15,11 +15,16 @@ import UserManagement from './pages/UserManagement';
 import CompanyUserManagement from './pages/CompanyUserManagement';
 import AuditLogsPage from './pages/AuditLogsPage';
 import { MapBuilder } from './pages/admin/MapBuilder';
+import ModerationAdminPage from './pages/ModerationAdminPage';
 import { Companies } from './pages/Companies';
 import { CompanyCreate } from './pages/CompanyCreate';
 import { CompanyDashboard } from './pages/CompanyDashboard';
 import { GameMap } from './pages/GameMap';
 import { Bank } from './pages/Bank';
+import { MessageBoard } from './pages/MessageBoard';
+import { Temple } from './pages/Temple';
+import { Casino } from './pages/Casino';
+import { Avatar } from './pages/Avatar';
 import { ProtectedPageRoute } from './components/ProtectedPageRoute';
 import { api, apiHelpers } from './services/api';
 
@@ -170,10 +175,7 @@ function App() {
                 <ProtectedRoute>
                   <ProtectedPageRoute pageKey="chat">
                     <Layout>
-                      <div className="text-center py-20">
-                        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Chat</h1>
-                        <p className="text-gray-600 dark:text-gray-400 mt-2">Coming soon...</p>
-                      </div>
+                      <MessageBoard />
                     </Layout>
                   </ProtectedPageRoute>
                 </ProtectedRoute>
@@ -247,6 +249,33 @@ function App() {
                 </ProtectedRoute>
               } />
 
+              {/* Temple Route */}
+              <Route path="/temple" element={
+                <ProtectedRoute>
+                  <Layout>
+                    <Temple />
+                  </Layout>
+                </ProtectedRoute>
+              } />
+
+              {/* Casino Route */}
+              <Route path="/casino" element={
+                <ProtectedRoute>
+                  <Layout>
+                    <Casino />
+                  </Layout>
+                </ProtectedRoute>
+              } />
+
+              {/* Avatar Route */}
+              <Route path="/avatar" element={
+                <ProtectedRoute>
+                  <Layout>
+                    <Avatar />
+                  </Layout>
+                </ProtectedRoute>
+              } />
+
               {/* Game Map Route */}
               <Route path="/map/:mapId" element={
                 <ProtectedRoute>
@@ -269,6 +298,15 @@ function App() {
                   <ProtectedPageRoute pageKey="admin_maps">
                     <Layout>
                       <MapBuilder />
+                    </Layout>
+                  </ProtectedPageRoute>
+                </ProtectedRoute>
+              } />
+              <Route path="/admin/moderation" element={
+                <ProtectedRoute>
+                  <ProtectedPageRoute pageKey="admin_moderation">
+                    <Layout>
+                      <ModerationAdminPage />
                     </Layout>
                   </ProtectedPageRoute>
                 </ProtectedRoute>

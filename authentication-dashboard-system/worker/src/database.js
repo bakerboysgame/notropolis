@@ -1199,12 +1199,12 @@ export class Database {
 
   async getSessionByToken(token) {
     const result = await this.db.prepare(`
-      SELECT s.*, u.* FROM sessions s
+      SELECT s.id as session_id, s.*, u.* FROM sessions s
       JOIN users u ON s.user_id = u.id
       WHERE s.token = ? AND s.expires_at > datetime('now')
       AND u.deleted_at IS NULL
     `).bind(token).first();
-    
+
     return result;
   }
 

@@ -20,7 +20,7 @@ Implement an AI-powered content moderation system for the location chat (message
 | `authentication-dashboard-system/src/pages/ModerationAdminPage.tsx` | Master admin config page |
 | `authentication-dashboard-system/src/services/moderationAdminApi.ts` | Frontend API service |
 | `authentication-dashboard-system/worker/src/routes/game/moderation.js` | Moderation APIs |
-| `authentication-dashboard-system/migrations/0019_create_moderation_settings.sql` | Settings table |
+| `authentication-dashboard-system/migrations/0020_create_moderation_settings.sql` | Settings table |
 
 ## Files to Modify
 
@@ -51,11 +51,15 @@ if (user?.role === 'master_admin') {
 // Add to imports
 import ModerationAdminPage from './pages/ModerationAdminPage'
 
-// Add route (master_admin only)
+// Add route BEFORE the fallback route (around line 276), following existing admin route pattern:
 <Route path="/admin/moderation" element={
-  <ProtectedPageRoute requiredRole="master_admin">
-    <ModerationAdminPage />
-  </ProtectedPageRoute>
+  <ProtectedRoute>
+    <ProtectedPageRoute pageKey="admin_moderation">
+      <Layout>
+        <ModerationAdminPage />
+      </Layout>
+    </ProtectedPageRoute>
+  </ProtectedRoute>
 } />
 ```
 
@@ -81,7 +85,7 @@ npx wrangler secret put DEEPSEEK_API_KEY
 ### Database Migration
 
 ```sql
--- 0019_create_moderation_settings.sql
+-- 0020_create_moderation_settings.sql
 
 -- Single row table for global moderation settings
 CREATE TABLE moderation_settings (
@@ -264,38 +268,72 @@ export async function moderateMessage(env, companyId, messageContent) {
   }
 }
 
-// Admin API: Get settings
-export async function handleGetSettings(request, env) {
+// Admin API: Get settings (master_admin only)
+export async function handleGetModerationSettings(request, authService, env, corsHeaders) {
+  const authHeader = request.headers.get('Authorization');
+  if (!authHeader?.startsWith('Bearer ')) {
+    return new Response(JSON.stringify({ success: false, error: 'Unauthorized' }), {
+      status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+
+  const { user } = await authService.getUserFromToken(authHeader.split(' ')[1]);
+  if (user.role !== 'master_admin') {
+    return new Response(JSON.stringify({ success: false, error: 'Master admin only' }), {
+      status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+
   const settings = await env.DB.prepare(
     'SELECT * FROM moderation_settings WHERE id = ?'
   ).bind('global').first();
 
-  return Response.json({
+  return new Response(JSON.stringify({
     success: true,
     data: {
       ...settings,
       available_models: DEEPSEEK_MODELS,
     },
-  });
+  }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 }
 
-// Admin API: Update settings
-export async function handleUpdateSettings(request, env, user) {
+// Admin API: Update settings (master_admin only)
+export async function handleUpdateModerationSettings(request, authService, env, corsHeaders) {
+  const authHeader = request.headers.get('Authorization');
+  if (!authHeader?.startsWith('Bearer ')) {
+    return new Response(JSON.stringify({ success: false, error: 'Unauthorized' }), {
+      status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+
+  const { user } = await authService.getUserFromToken(authHeader.split(' ')[1]);
+  if (user.role !== 'master_admin') {
+    return new Response(JSON.stringify({ success: false, error: 'Master admin only' }), {
+      status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+
   const { model, temperature, max_tokens, system_prompt, enabled } = await request.json();
 
   // Validate model
   if (model && !DEEPSEEK_MODELS.find(m => m.id === model)) {
-    return Response.json({ success: false, error: 'Invalid model' }, { status: 400 });
+    return new Response(JSON.stringify({ success: false, error: 'Invalid model' }), {
+      status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
   }
 
   // Validate temperature
   if (temperature !== undefined && (temperature < 0 || temperature > 2)) {
-    return Response.json({ success: false, error: 'Temperature must be 0-2' }, { status: 400 });
+    return new Response(JSON.stringify({ success: false, error: 'Temperature must be 0-2' }), {
+      status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
   }
 
   // Validate max_tokens
   if (max_tokens !== undefined && (max_tokens < 64 || max_tokens > 4096)) {
-    return Response.json({ success: false, error: 'Max tokens must be 64-4096' }, { status: 400 });
+    return new Response(JSON.stringify({ success: false, error: 'Max tokens must be 64-4096' }), {
+      status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
   }
 
   await env.DB.prepare(`
@@ -320,28 +358,60 @@ export async function handleUpdateSettings(request, env, user) {
   // Invalidate cache so new settings apply immediately
   invalidateSettingsCache();
 
-  return Response.json({ success: true });
+  return new Response(JSON.stringify({ success: true }), {
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+  });
 }
 
-// Admin API: Test moderation with sample message
-export async function handleTestModeration(request, env) {
+// Admin API: Test moderation with sample message (master_admin only)
+export async function handleTestModeration(request, authService, env, corsHeaders) {
+  const authHeader = request.headers.get('Authorization');
+  if (!authHeader?.startsWith('Bearer ')) {
+    return new Response(JSON.stringify({ success: false, error: 'Unauthorized' }), {
+      status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+
+  const { user } = await authService.getUserFromToken(authHeader.split(' ')[1]);
+  if (user.role !== 'master_admin') {
+    return new Response(JSON.stringify({ success: false, error: 'Master admin only' }), {
+      status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+
   const { message } = await request.json();
 
   if (!message || message.trim().length === 0) {
-    return Response.json({ success: false, error: 'Message required' }, { status: 400 });
+    return new Response(JSON.stringify({ success: false, error: 'Message required' }), {
+      status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
   }
 
   // Use a test company ID
   const result = await moderateMessage(env, 'test', message);
 
-  return Response.json({
+  return new Response(JSON.stringify({
     success: true,
     data: result,
-  });
+  }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 }
 
-// Admin API: Get moderation log
-export async function handleGetLog(request, env) {
+// Admin API: Get moderation log (master_admin only)
+export async function handleGetModerationLog(request, authService, env, corsHeaders) {
+  const authHeader = request.headers.get('Authorization');
+  if (!authHeader?.startsWith('Bearer ')) {
+    return new Response(JSON.stringify({ success: false, error: 'Unauthorized' }), {
+      status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+
+  const { user } = await authService.getUserFromToken(authHeader.split(' ')[1]);
+  if (user.role !== 'master_admin') {
+    return new Response(JSON.stringify({ success: false, error: 'Master admin only' }), {
+      status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+
   const url = new URL(request.url);
   const limit = Math.min(parseInt(url.searchParams.get('limit') || '50'), 100);
   const rejectedOnly = url.searchParams.get('rejected') === 'true';
@@ -360,38 +430,38 @@ export async function handleGetLog(request, env) {
 
   const logs = await env.DB.prepare(query).bind(limit).all();
 
-  return Response.json({
+  return new Response(JSON.stringify({
     success: true,
     data: logs.results,
-  });
+  }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 }
 ```
 
 ### Route Registration
 
 ```javascript
-// Add to worker/index.js route handling
+// 1. Add to imports at top of worker/index.js (around line 40):
+import {
+  handleGetModerationSettings,
+  handleUpdateModerationSettings,
+  handleTestModeration,
+  handleGetModerationLog
+} from './src/routes/game/moderation.js';
 
-// Moderation admin routes (master_admin only)
-if (path === '/api/game/moderation/settings' && method === 'GET') {
-  requireMasterAdmin(user);
-  return moderation.handleGetSettings(request, env);
-}
+// 2. Add to the switch statement BEFORE "// ==================== GAME COMPANY ENDPOINTS ====================" (around line 308):
 
-if (path === '/api/game/moderation/settings' && method === 'PUT') {
-  requireMasterAdmin(user);
-  return moderation.handleUpdateSettings(request, env, user);
-}
+        // ==================== GAME MODERATION ADMIN ENDPOINTS ====================
+        case path === '/api/game/moderation/settings' && method === 'GET':
+          return handleGetModerationSettings(request, authService, env, corsHeaders);
 
-if (path === '/api/game/moderation/test' && method === 'POST') {
-  requireMasterAdmin(user);
-  return moderation.handleTestModeration(request, env);
-}
+        case path === '/api/game/moderation/settings' && method === 'PUT':
+          return handleUpdateModerationSettings(request, authService, env, corsHeaders);
 
-if (path === '/api/game/moderation/log' && method === 'GET') {
-  requireMasterAdmin(user);
-  return moderation.handleGetLog(request, env);
-}
+        case path === '/api/game/moderation/test' && method === 'POST':
+          return handleTestModeration(request, authService, env, corsHeaders);
+
+        case path === '/api/game/moderation/log' && method === 'GET':
+          return handleGetModerationLog(request, authService, env, corsHeaders);
 ```
 
 ### Frontend API Service
@@ -1041,7 +1111,7 @@ npx wrangler secret put DEEPSEEK_API_KEY
 # Enter: sk-cb83615f28e8442782e6277fb2a01637
 
 # 2. Run migration
-CLOUDFLARE_API_TOKEN="..." npx wrangler d1 execute notropolis-database --file=migrations/0019_create_moderation_settings.sql --remote
+CLOUDFLARE_API_TOKEN="..." npx wrangler d1 execute notropolis-database --file=migrations/0020_create_moderation_settings.sql --remote
 
 # 3. Deploy
 npm run build

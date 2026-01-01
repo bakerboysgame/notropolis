@@ -8,6 +8,8 @@
  * 3. Land ownership streak (maintain X% of land for Y ticks)
  */
 
+import { checkAvatarUnlocks } from './avatar.js';
+
 /**
  * Hero requirements by location type
  */
@@ -258,6 +260,10 @@ export async function heroOut(request, env, company) {
 
   await env.DB.batch(statements);
 
+  // Check for avatar unlocks after hero out
+  // Note: Use company.user_id since heroOut receives company, not user
+  const { newlyUnlocked } = await checkAvatarUnlocks(env, company.user_id);
+
   return {
     success: true,
     path: status.qualifiedPath,
@@ -268,6 +274,8 @@ export async function heroOut(request, env, company) {
     total_to_offshore: totalToOffshore,
     new_offshore: company.offshore + totalToOffshore,
     unlocks: status.unlocks,
+    // Include newly unlocked avatar items
+    unlocked_items: newlyUnlocked,
   };
 }
 

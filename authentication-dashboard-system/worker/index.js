@@ -38,6 +38,63 @@ import {
   transferCash,
   getTransferHistory
 } from './src/routes/game/bank.js';
+import {
+  handleGetModerationSettings,
+  handleUpdateModerationSettings,
+  handleTestModeration,
+  handleGetModerationLog
+} from './src/routes/game/moderation.js';
+import {
+  getMessages,
+  postMessage,
+  getUnreadCount,
+  markMessagesAsRead,
+  donate,
+  getDonationLeaderboard,
+  playRoulette
+} from './src/routes/game/social.js';
+import {
+  getAvatarItems,
+  updateAvatar,
+  getAvatarImage,
+} from './src/routes/game/avatar.js';
+import { handleAssetRoutes } from './src/routes/admin/assets.js';
+
+// Helper to get active company from request (used by social endpoints)
+// For GET requests, reads company_id from query params
+// For POST requests, caller should pass parsedBody containing company_id
+async function getActiveCompany(authService, env, request, parsedBody = null) {
+  const authHeader = request.headers.get('Authorization');
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    throw new Error('Authentication required');
+  }
+
+  const token = authHeader.split(' ')[1];
+  const { user } = await authService.getUserFromToken(token);
+
+  // Get company_id from query params (GET) or parsed body (POST)
+  let companyId;
+  if (request.method === 'GET') {
+    const url = new URL(request.url);
+    companyId = url.searchParams.get('company_id');
+  } else if (parsedBody) {
+    companyId = parsedBody.company_id;
+  }
+
+  if (!companyId) {
+    throw new Error('company_id is required');
+  }
+
+  const company = await env.DB.prepare(`
+    SELECT * FROM game_companies WHERE id = ? AND user_id = ?
+  `).bind(companyId, user.id).first();
+
+  if (!company) {
+    throw new Error('Company not found or access denied');
+  }
+
+  return company;
+}
 
 export default {
   async fetch(request, env, ctx) {
@@ -306,6 +363,46 @@ export default {
         case path.match(/^\/api\/admin\/maps\/[^/]+\/tiles$/) && method === 'PUT':
           return handleUpdateTiles(request, authService, env, corsHeaders);
 
+        // ==================== ADMIN ASSET PIPELINE ENDPOINTS ====================
+        case path.startsWith('/api/admin/assets'):
+          // Get user from token for audit logging
+          const assetAuthHeader = request.headers.get('Authorization');
+          if (!assetAuthHeader || !assetAuthHeader.startsWith('Bearer ')) {
+            return new Response(JSON.stringify({ error: 'Authentication required' }), {
+              status: 401,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            });
+          }
+          const assetToken = assetAuthHeader.split(' ')[1];
+          const { user: assetUser } = await authService.getUserFromToken(assetToken);
+          if (!assetUser || assetUser.role !== 'master_admin') {
+            return new Response(JSON.stringify({ error: 'Master admin access required' }), {
+              status: 403,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            });
+          }
+          const assetResponse = await handleAssetRoutes(request, env, path, method, assetUser);
+          // Add CORS headers to response
+          const assetHeaders = new Headers(assetResponse.headers);
+          Object.entries(corsHeaders).forEach(([key, value]) => assetHeaders.set(key, value));
+          return new Response(assetResponse.body, {
+            status: assetResponse.status,
+            headers: assetHeaders
+          });
+
+        // ==================== GAME MODERATION ADMIN ENDPOINTS ====================
+        case path === '/api/game/moderation/settings' && method === 'GET':
+          return handleGetModerationSettings(request, authService, env, corsHeaders);
+
+        case path === '/api/game/moderation/settings' && method === 'PUT':
+          return handleUpdateModerationSettings(request, authService, env, corsHeaders);
+
+        case path === '/api/game/moderation/test' && method === 'POST':
+          return handleTestModeration(request, authService, env, corsHeaders);
+
+        case path === '/api/game/moderation/log' && method === 'GET':
+          return handleGetModerationLog(request, authService, env, corsHeaders);
+
         // ==================== GAME COMPANY ENDPOINTS ====================
         case path.startsWith('/api/game/companies'):
           return handleGameCompanyRoutes(request, authService, env, corsHeaders);
@@ -390,6 +487,109 @@ export default {
 
         case path === '/api/game/bank/history' && method === 'GET':
           return handleHeroGetAction(request, authService, env, corsHeaders, getTransferHistory);
+
+        // ==================== SOCIAL ENDPOINTS ====================
+        case path === '/api/game/messages' && method === 'GET': {
+          const company = await getActiveCompany(authService, env, request);
+          const url = new URL(request.url);
+          const page = parseInt(url.searchParams.get('page') || '1');
+          const messages = await getMessages(env, company.current_map_id, page);
+          return new Response(JSON.stringify({ success: true, data: messages }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        case path === '/api/game/messages' && method === 'POST': {
+          const company = await getActiveCompany(authService, env, request, requestBody);
+          const result = await postMessage(env, company, requestBody.content);
+          return new Response(JSON.stringify({ success: true, data: result }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        case path === '/api/game/messages/unread' && method === 'GET': {
+          const company = await getActiveCompany(authService, env, request);
+          const result = await getUnreadCount(env, company);
+          return new Response(JSON.stringify({ success: true, ...result }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        case path === '/api/game/messages/read' && method === 'POST': {
+          const company = await getActiveCompany(authService, env, request, requestBody);
+          const result = await markMessagesAsRead(env, company);
+          return new Response(JSON.stringify({ success: true, ...result }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        case path === '/api/game/temple/donate' && method === 'POST': {
+          const company = await getActiveCompany(authService, env, request, requestBody);
+          const result = await donate(env, company, requestBody.amount);
+          return new Response(JSON.stringify({ success: true, data: result }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        case path === '/api/game/temple/leaderboard' && method === 'GET': {
+          const leaderboard = await getDonationLeaderboard(env);
+          return new Response(JSON.stringify({ success: true, data: leaderboard }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        case path === '/api/game/casino/roulette' && method === 'POST': {
+          const company = await getActiveCompany(authService, env, request, requestBody);
+          const result = await playRoulette(env, company, requestBody.bet_amount, requestBody.bet_type, requestBody.bet_value);
+          return new Response(JSON.stringify({ success: true, data: result }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        // ==================== AVATAR ENDPOINTS ====================
+        case path === '/api/game/avatar/items' && method === 'GET': {
+          const authHeader = request.headers.get('Authorization');
+          const token = authHeader.split(' ')[1];
+          const { user } = await authService.getUserFromToken(token);
+          const url = new URL(request.url);
+          const companyId = url.searchParams.get('company_id');
+          if (!companyId) throw new Error('company_id is required');
+
+          const result = await getAvatarItems(env, user.id, companyId);
+          return new Response(JSON.stringify({ success: true, data: result }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        case path === '/api/game/avatar/update' && method === 'POST': {
+          const authHeader = request.headers.get('Authorization');
+          const token = authHeader.split(' ')[1];
+          const { user } = await authService.getUserFromToken(token);
+          const { company_id, category, item_id } = await request.json();
+          if (!company_id) throw new Error('company_id is required');
+
+          // Verify company belongs to user
+          const company = await env.DB.prepare(
+            'SELECT id FROM game_companies WHERE id = ? AND user_id = ?'
+          ).bind(company_id, user.id).first();
+          if (!company) throw new Error('Company not found');
+
+          const result = await updateAvatar(env, user.id, company_id, category, item_id);
+          return new Response(JSON.stringify({ success: true, data: result }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        case path === '/api/game/avatar/image' && method === 'GET': {
+          const url = new URL(request.url);
+          const companyId = url.searchParams.get('company_id');
+          if (!companyId) throw new Error('company_id is required');
+
+          const result = await getAvatarImage(env, companyId);
+          return new Response(JSON.stringify({ success: true, data: result }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
 
         default:
           return new Response(JSON.stringify({ 
@@ -1172,7 +1372,7 @@ async function handleGetSessions(request, authService, db) {
     'X-Frame-Options': 'DENY',
     'Strict-Transport-Security': 'max-age=31536000; includeSubDomains'
   };
-  
+
   const authHeader = request.headers.get('Authorization');
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     return new Response(JSON.stringify({
@@ -1183,16 +1383,30 @@ async function handleGetSessions(request, authService, db) {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
   }
-  
+
   const token = authHeader.split(' ')[1];
-  
+
   try {
     const { user } = await authService.getUserFromToken(token);
     const sessions = await db.getUserSessions(user.id);
-    
+
+    // Get current session to identify which one is active
+    const currentSession = await db.getSessionByToken(token);
+    const currentSessionId = currentSession?.session_id;
+
+    // Transform sessions to match frontend expectations
+    const transformedSessions = sessions.map(session => ({
+      id: session.id,
+      device_info: session.device_name || `${session.browser || 'Unknown'} on ${session.os || 'Unknown'}`,
+      ip_address: session.ip_address || 'Unknown',
+      last_active_at: session.created_at,
+      created_at: session.created_at,
+      is_current: session.id === currentSessionId
+    }));
+
     return new Response(JSON.stringify({
       success: true,
-      data: sessions
+      sessions: transformedSessions
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });

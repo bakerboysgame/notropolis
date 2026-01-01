@@ -32,12 +32,19 @@ binding = "RATE_LIMIT_KV"
 id = "b0bff4ae1eaa4acba02039fb14fb280b"
 preview_id = "e05954baf2de423bb0d94a404832e0f5"
 
-# ==================== R2 STORAGE (Optional) ====================
-# Uncomment if you need file storage
-# Create: wrangler r2 bucket create notropolis-data
-# [[r2_buckets]]
-# binding = "DATA_BUCKET"
-# bucket_name = "notropolis-data"
+# ==================== R2 STORAGE (Avatars) ====================
+[[r2_buckets]]
+binding = "AVATARS_BUCKET"
+bucket_name = "notropolis-avatars"
+
+# ==================== R2 STORAGE (Asset Pipeline) ====================
+[[r2_buckets]]
+binding = "R2_PRIVATE"
+bucket_name = "notropolis-assets-private"
+
+[[r2_buckets]]
+binding = "R2_PUBLIC"
+bucket_name = "notropolis-game-assets"
 
 # ==================== ENVIRONMENT VARIABLES ====================
 [vars]
@@ -95,6 +102,20 @@ database_id = "9bbea853-8bb6-4e13-8713-e8086fef0528"
 [[env.production.kv_namespaces]]
 binding = "RATE_LIMIT_KV"
 id = "b0bff4ae1eaa4acba02039fb14fb280b"
+
+# R2 bucket for production
+[[env.production.r2_buckets]]
+binding = "AVATARS_BUCKET"
+bucket_name = "notropolis-avatars"
+
+# R2 Asset Pipeline buckets for production
+[[env.production.r2_buckets]]
+binding = "R2_PRIVATE"
+bucket_name = "notropolis-assets-private"
+
+[[env.production.r2_buckets]]
+binding = "R2_PUBLIC"
+bucket_name = "notropolis-game-assets"
 
 # ==================== PREVIEW ENVIRONMENT ====================
 [env.preview]

@@ -67,11 +67,12 @@ Notropolis is a competitive multiplayer property tycoon game where players run a
 | 10 | ✅ [Prison System](10-prison-system.md) | Arrest, fines, action blocking |
 | 11 | ✅ [Level Progression](11-level-progression.md) | Level thresholds and content unlocks |
 | 12 | ✅ [Hero System](12-hero-system.md) | Cash out to offshore, location progression |
-| 13 | [Bank Transfers](13-bank-transfers.md) | Transfer cash between your companies |
-| 14a | [Chat Moderation](14a-chat-moderation.md) | AI moderation for message boards (DeepSeek) |
-| 14 | [Social Features](14-social-features.md) | Message boards, temple, casino |
-| 15 | [Avatar System](15-avatar-system.md) | Character customization |
-| 16 | [Visual Polish](16-visual-polish.md) | Zoomed view, sprites, event scenes |
+| 13 | ✅ [Bank Transfers](13-bank-transfers.md) | Transfer cash between your companies |
+| 14a | ✅ [Chat Moderation](14a-chat-moderation.md) | AI moderation for message boards (DeepSeek) |
+| 14 | ✅ [Social Features](14-social-features.md) | Message boards, temple, casino |
+| 15 | ✅ [Avatar System](15-avatar-system.md) | Character customization |
+| 16a | [Asset Requirements](16a-asset-requirements.md) | Sprite specifications for isometric view |
+| 16 | [Visual Polish](16-visual-polish.md) | Isometric zoomed view, two-mode interaction |
 | 17 | [Achievements](17-achievements.md) | Trophies, badges, leaderboards |
 
 ## Out of Scope

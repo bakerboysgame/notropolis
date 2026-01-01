@@ -8,6 +8,7 @@ Implement message boards, temple donations, and casino for social/entertainment 
 
 `[Requires: Stage 03 complete]` - Needs companies for posting.
 `[Requires: Stage 04 complete]` - Needs map context.
+`[Requires: Stage 14a complete]` - Message moderation system must be in place.
 
 ## Complexity
 
@@ -21,15 +22,24 @@ Implement message boards, temple donations, and casino for social/entertainment 
 | `authentication-dashboard-system/src/pages/Temple.tsx` | Donation page |
 | `authentication-dashboard-system/src/pages/Casino.tsx` | Roulette game |
 | `authentication-dashboard-system/src/components/game/RouletteWheel.tsx` | Roulette UI |
-| `authentication-dashboard-system/src/worker/routes/game/social.ts` | Social APIs |
-| `authentication-dashboard-system/migrations/0018_create_social_tables.sql` | Social tables |
+| `authentication-dashboard-system/worker/src/routes/game/social.js` | Social APIs |
+| `authentication-dashboard-system/src/hooks/useUnreadMessages.ts` | Unread count hook |
+| `authentication-dashboard-system/migrations/0021_create_social_tables.sql` | Social tables |
+
+## Files to Modify
+
+| File | Change |
+|------|--------|
+| `authentication-dashboard-system/worker/index.js` | Register social route handlers |
+| `authentication-dashboard-system/src/components/Sidebar.tsx` | Add unread badge to Chat nav item |
+| `authentication-dashboard-system/src/App.tsx` | Add routes for MessageBoard, Temple, Casino |
 
 ## Implementation Details
 
 ### Database Migration
 
 ```sql
--- 0018_create_social_tables.sql
+-- 0021_create_social_tables.sql
 
 -- Message boards
 CREATE TABLE messages (
@@ -91,9 +101,13 @@ CREATE INDEX idx_casino_company ON casino_games(company_id);
 
 ### Message Board API
 
-```typescript
-// worker/routes/game/social.ts
-export async function getMessages(env: Env, mapId: string, page = 1) {
+```javascript
+// worker/src/routes/game/social.js
+
+import { moderateMessage } from './moderation.js';
+
+// Get messages for a map (paginated)
+export async function getMessages(env, mapId, page = 1) {
   const limit = 50;
   const offset = (page - 1) * limit;
 
@@ -109,10 +123,11 @@ export async function getMessages(env: Env, mapId: string, page = 1) {
   return messages.results;
 }
 
-export async function postMessage(request: Request, env: Env, company: GameCompany) {
-  requireNotInPrison(company);
-
-  const { content } = await request.json();
+// Post a new message (with moderation from Stage 14a)
+export async function postMessage(env, company, content) {
+  if (company.in_prison) {
+    throw new Error('Cannot post messages while in prison');
+  }
 
   if (!content || content.trim().length === 0) {
     throw new Error('Message cannot be empty');
@@ -138,6 +153,13 @@ export async function postMessage(request: Request, env: Env, company: GameCompa
     }
   }
 
+  // === AI MODERATION (Stage 14a) ===
+  const moderation = await moderateMessage(env, company.id, content.trim());
+  if (!moderation.allowed) {
+    throw new Error(moderation.reason || 'Message was rejected by moderation');
+  }
+  // === END MODERATION ===
+
   await env.DB.prepare(`
     INSERT INTO messages (id, map_id, company_id, content)
     VALUES (?, ?, ?, ?)
@@ -147,7 +169,7 @@ export async function postMessage(request: Request, env: Env, company: GameCompa
 }
 
 // Get unread message count for current map
-export async function getUnreadCount(env: Env, company: GameCompany) {
+export async function getUnreadCount(env, company) {
   const result = await env.DB.prepare(`
     SELECT COUNT(*) as count
     FROM messages m
@@ -162,7 +184,7 @@ export async function getUnreadCount(env: Env, company: GameCompany) {
 }
 
 // Mark messages as read (called when viewing message board)
-export async function markMessagesAsRead(env: Env, company: GameCompany) {
+export async function markMessagesAsRead(env, company) {
   await env.DB.prepare(`
     INSERT INTO message_read_status (company_id, map_id, last_read_at)
     VALUES (?, ?, CURRENT_TIMESTAMP)
@@ -256,11 +278,13 @@ export function MessageBoard() {
 
 ### Temple API
 
-```typescript
-export async function donate(request: Request, env: Env, company: GameCompany) {
-  requireNotInPrison(company);
+```javascript
+// Add to worker/src/routes/game/social.js
 
-  const { amount } = await request.json();
+export async function donate(env, company, amount) {
+  if (company.in_prison) {
+    throw new Error('Cannot donate while in prison');
+  }
 
   if (amount <= 0) throw new Error('Invalid amount');
   if (amount > company.cash) throw new Error('Insufficient funds');
@@ -288,7 +312,7 @@ export async function donate(request: Request, env: Env, company: GameCompany) {
   return { success: true, amount };
 }
 
-export async function getDonationLeaderboard(env: Env) {
+export async function getDonationLeaderboard(env) {
   const leaderboard = await env.DB.prepare(`
     SELECT c.name, SUM(d.amount) as total_donated
     FROM donations d
@@ -372,7 +396,9 @@ export function Temple() {
 
 ### Casino API
 
-```typescript
+```javascript
+// Add to worker/src/routes/game/social.js
+
 const MAX_BET = 10000;
 
 const ROULETTE_PAYOUTS = {
@@ -387,10 +413,10 @@ const ROULETTE_PAYOUTS = {
 
 const RED_NUMBERS = [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36];
 
-export async function playRoulette(request: Request, env: Env, company: GameCompany) {
-  requireNotInPrison(company);
-
-  const { bet_amount, bet_type, bet_value } = await request.json();
+export async function playRoulette(env, company, bet_amount, bet_type, bet_value) {
+  if (company.in_prison) {
+    throw new Error('Cannot gamble while in prison');
+  }
 
   if (bet_amount <= 0) throw new Error('Invalid bet amount');
   if (bet_amount > MAX_BET) throw new Error(`Maximum bet is $${MAX_BET.toLocaleString()}`);
@@ -596,11 +622,98 @@ export function Casino() {
 - [ ] Casino max bet enforced
 - [ ] All games logged
 
+## Route Registration (worker/index.js)
+
+Add the social route handlers to the main worker file:
+
+```javascript
+// 1. Add to imports at top of worker/index.js:
+import {
+  getMessages,
+  postMessage,
+  getUnreadCount,
+  markMessagesAsRead,
+  donate,
+  getDonationLeaderboard,
+  playRoulette
+} from './src/routes/game/social.js';
+
+// 2. Add to the switch statement after other game endpoints:
+
+        // ==================== SOCIAL ENDPOINTS ====================
+        case path === '/api/game/messages' && method === 'GET': {
+          const company = await getActiveCompany(authService, env, request);
+          const url = new URL(request.url);
+          const page = parseInt(url.searchParams.get('page') || '1');
+          const messages = await getMessages(env, company.current_map_id, page);
+          return new Response(JSON.stringify({ success: true, data: messages }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        case path === '/api/game/messages' && method === 'POST': {
+          const company = await getActiveCompany(authService, env, request);
+          const { content } = await request.json();
+          const result = await postMessage(env, company, content);
+          return new Response(JSON.stringify({ success: true, data: result }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        case path === '/api/game/messages/unread' && method === 'GET': {
+          const company = await getActiveCompany(authService, env, request);
+          const result = await getUnreadCount(env, company);
+          return new Response(JSON.stringify({ success: true, ...result }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        case path === '/api/game/messages/read' && method === 'POST': {
+          const company = await getActiveCompany(authService, env, request);
+          const result = await markMessagesAsRead(env, company);
+          return new Response(JSON.stringify({ success: true, ...result }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        case path === '/api/game/temple/donate' && method === 'POST': {
+          const company = await getActiveCompany(authService, env, request);
+          const { amount } = await request.json();
+          const result = await donate(env, company, amount);
+          return new Response(JSON.stringify({ success: true, data: result }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        case path === '/api/game/temple/leaderboard' && method === 'GET': {
+          const leaderboard = await getDonationLeaderboard(env);
+          return new Response(JSON.stringify({ success: true, data: leaderboard }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        case path === '/api/game/casino/roulette' && method === 'POST': {
+          const company = await getActiveCompany(authService, env, request);
+          const { bet_amount, bet_type, bet_value } = await request.json();
+          const result = await playRoulette(env, company, bet_amount, bet_type, bet_value);
+          return new Response(JSON.stringify({ success: true, data: result }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+```
+
 ## Deployment
 
 ```bash
-CLOUDFLARE_API_TOKEN="..." npx wrangler d1 execute notropolis-database --file=migrations/0018_create_social_tables.sql --remote
+# From authentication-dashboard-system directory
 
+# 1. Run migration
+CLOUDFLARE_API_TOKEN="..." npx wrangler d1 execute notropolis-database --file=migrations/0021_create_social_tables.sql --remote
+
+# 2. Deploy worker
+cd worker && CLOUDFLARE_API_TOKEN="..." npx wrangler deploy && cd ..
+
+# 3. Build and deploy frontend
 npm run build
 CLOUDFLARE_API_TOKEN="..." CLOUDFLARE_ACCOUNT_ID="..." npx wrangler pages deploy ./dist --project-name=notropolis-dashboard
 ```

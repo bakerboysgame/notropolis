@@ -59,6 +59,9 @@ const ENDPOINT_AUTHORIZATION = [
 
   // ==================== GAME MARKET ENDPOINTS ====================
   { pattern: '/api/game/market/*', roles: [], companyIsolation: false }, // All market endpoints require auth
+
+  // ==================== GAME MODERATION ADMIN ENDPOINTS ====================
+  { pattern: '/api/game/moderation/*', roles: ['master_admin'], companyIsolation: false },
 ];
 
 // Match a URL path against a pattern
@@ -110,7 +113,7 @@ function findAuthConfig(path, method) {
 
 // Built-in pages that are always available to specific roles (cannot be restricted)
 const ROLE_BUILTIN_PAGES = {
-  master_admin: ['dashboard', 'analytics', 'reports', 'settings', 'user_management', 'audit_logs', 'company_users', 'admin_maps'],
+  master_admin: ['dashboard', 'analytics', 'reports', 'settings', 'user_management', 'audit_logs', 'company_users', 'admin_maps', 'admin_moderation'],
   admin: ['company_users', 'audit_logs']
 };
 

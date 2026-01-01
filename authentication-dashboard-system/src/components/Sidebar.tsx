@@ -15,6 +15,7 @@ import {
   Moon,
   Map,
   Briefcase,
+  Shield,
   LucideIcon
 } from 'lucide-react'
 import { clsx } from 'clsx'
@@ -22,6 +23,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { usePermissions } from '../contexts/PermissionsContext'
 import { useFeatureFlags } from '../hooks/useFeatureFlags'
 import { useTheme } from '../contexts/ThemeContext'
+import { useUnreadMessages } from '../hooks/useUnreadMessages'
 
 type SidebarState = 'expanded' | 'collapsed' | 'minimized'
 
@@ -64,6 +66,7 @@ export default function Sidebar() {
   const { hasPageAccess } = usePermissions()
   const { companyManagementEnabled, auditLoggingEnabled } = useFeatureFlags()
   const { theme, toggleTheme } = useTheme()
+  const { unreadCount } = useUnreadMessages()
   const isMobile = useIsMobile()
   const sidebarRef = useRef<HTMLDivElement>(null)
   const touchStartX = useRef<number>(0)
@@ -177,6 +180,7 @@ export default function Sidebar() {
       }
       // Master admin gets map builder
       items.push({ name: 'Map Builder', href: '/admin/maps', icon: Map, pageKey: 'admin_maps', requiresMasterAdmin: true })
+      items.push({ name: 'Chat Moderation', href: '/admin/moderation', icon: Shield, pageKey: 'admin_moderation', requiresMasterAdmin: true })
     } else if (user?.role === 'admin') {
       // Admin gets company users if company management is enabled (built-in page)
       if (companyManagementEnabled) {
@@ -307,17 +311,25 @@ export default function Sidebar() {
                 >
                   <ItemIcon className={clsx('flex-shrink-0', isMobile ? 'w-6 h-6' : isCollapsed ? 'w-6 h-6' : 'w-5 h-5')} />
                   {(!isCollapsed || isMobile) && (
-                    <span className="whitespace-nowrap flex items-center gap-2">
+                    <span className="whitespace-nowrap flex items-center gap-2 flex-1">
                       {item.name}
                       {isMasterAdminItem && (
                         <span className="text-[10px] bg-primary-100 dark:bg-primary-900/50 text-primary-700 dark:text-primary-300 px-1.5 py-0.5 rounded font-semibold">
                           ADMIN
                         </span>
                       )}
+                      {item.pageKey === 'chat' && unreadCount > 0 && (
+                        <span className="ml-auto text-[10px] bg-primary-500 text-white px-1.5 py-0.5 rounded-full font-bold min-w-[18px] text-center">
+                          {unreadCount > 99 ? '99+' : unreadCount}
+                        </span>
+                      )}
                     </span>
                   )}
                   {isCollapsed && !isMobile && isMasterAdminItem && (
                     <span className="absolute -top-1 -right-1 w-2 h-2 bg-primary-500 rounded-full"></span>
+                  )}
+                  {isCollapsed && !isMobile && item.pageKey === 'chat' && unreadCount > 0 && (
+                    <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-primary-500 rounded-full border-2 border-white dark:border-neutral-900"></span>
                   )}
                 </Link>
               </li>
