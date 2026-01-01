@@ -1380,7 +1380,7 @@ export async function handleAssetRoutes(request, env, path, method, user) {
                 ORDER BY asset_key, variant
             `).bind(category).all();
 
-            return Response.json({ assets: assets.results });
+            return Response.json({ success: true, data: assets.results || [] });
         }
 
         // GET /api/admin/assets/queue - Get generation queue status
@@ -1393,7 +1393,60 @@ export async function handleAssetRoutes(request, env, path, method, user) {
                 ORDER BY q.priority, q.created_at
             `).all();
 
-            return Response.json({ queue: queue.results });
+            const items = queue.results || [];
+            const pending = items.filter(i => i.status === 'queued').length;
+            const generating = items.filter(i => i.status === 'processing').length;
+
+            return Response.json({
+                success: true,
+                data: {
+                    pending,
+                    generating,
+                    items: items.map(i => ({
+                        id: i.id,
+                        category: i.category,
+                        asset_key: i.asset_key,
+                        status: i.status === 'queued' ? 'pending' : 'generating',
+                        created_at: i.created_at
+                    }))
+                }
+            });
+        }
+
+        // GET /api/admin/assets/preview/:assetId - Get signed preview URL for private asset
+        if (action === 'preview' && method === 'GET' && param1) {
+            const assetId = param1;
+            const asset = await env.DB.prepare(`
+                SELECT * FROM generated_assets WHERE id = ?
+            `).bind(assetId).first();
+
+            if (!asset) {
+                return Response.json({ success: false, error: 'Asset not found' }, { status: 404 });
+            }
+
+            // Get the object from R2 private bucket and create a signed URL
+            // Since Cloudflare R2 doesn't support presigned URLs directly in Workers,
+            // we'll return the image data as a data URL or use a proxy approach
+            const r2Key = asset.r2_key;
+            const object = await env.R2_PRIVATE.get(r2Key);
+
+            if (!object) {
+                return Response.json({ success: false, error: 'Image not found in storage' }, { status: 404 });
+            }
+
+            // Convert to base64 data URL
+            const arrayBuffer = await object.arrayBuffer();
+            const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+            const contentType = object.httpMetadata?.contentType || 'image/png';
+            const dataUrl = `data:${contentType};base64,${base64}`;
+
+            return Response.json({
+                success: true,
+                data: {
+                    url: dataUrl,
+                    expires_at: new Date(Date.now() + 3600000).toISOString() // 1 hour (not really used for data URLs)
+                }
+            });
         }
 
         // POST /api/admin/assets/generate - Generate a new asset

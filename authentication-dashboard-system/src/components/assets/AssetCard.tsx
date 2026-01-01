@@ -167,7 +167,7 @@ export function AssetCard({
         {/* Parent reference info */}
         {asset.parent_asset_id && (
           <p className="text-xs text-gray-500 dark:text-gray-400 mb-2 truncate">
-            Parent: #{asset.parent_asset_id.slice(0, 8)}...
+            Parent: #{String(asset.parent_asset_id).slice(0, 8)}
           </p>
         )}
 
