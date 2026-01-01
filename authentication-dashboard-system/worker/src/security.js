@@ -333,13 +333,15 @@ export class SecurityService {
     headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
     
     // Content Security Policy - Security compliant
+    // Use SERVER_URL from environment to avoid hardcoded domains
+    const apiUrl = this.env.SERVER_URL || 'https://api.notropolis.net';
     const csp = [
       "default-src 'self'",
       "script-src 'self' 'unsafe-inline' 'unsafe-eval'", // Needed for React
       "style-src 'self' 'unsafe-inline'", // Needed for styled components
       "img-src 'self' data: https:",
       "font-src 'self' data:",
-      "connect-src 'self' https://api.notropolis.net https://api.brevo.com",
+      `connect-src 'self' ${apiUrl} https://api.brevo.com`,
       "frame-ancestors 'none'",
       "base-uri 'self'",
       "form-action 'self'"
@@ -351,18 +353,27 @@ export class SecurityService {
     
     // CORS headers if origin provided
     if (corsOrigin) {
+      // Build allowed origins from environment variables
+      const clientUrl = this.env.CLIENT_URL || 'https://boss.notropolis.net';
+      const corsOriginEnv = this.env.CORS_ORIGIN || clientUrl;
+
+      // Parse additional origins from env (comma-separated) if provided
+      const additionalOrigins = this.env.ADDITIONAL_CORS_ORIGINS
+        ? this.env.ADDITIONAL_CORS_ORIGINS.split(',').map(o => o.trim())
+        : [];
+
       const allowedOrigins = [
-        'https://boss.notropolis.net',
-        'https://bossmode.notropolis.net',
-        'https://notropolis.net',
+        clientUrl,
+        corsOriginEnv,
+        ...additionalOrigins,
         'http://localhost:5173', // Vite dev server
         'http://localhost:3000'  // Alternative dev port
-      ];
+      ].filter((v, i, a) => a.indexOf(v) === i); // Dedupe
 
       if (allowedOrigins.includes(corsOrigin)) {
         headers.set('Access-Control-Allow-Origin', corsOrigin);
       } else {
-        headers.set('Access-Control-Allow-Origin', 'https://boss.notropolis.net');
+        headers.set('Access-Control-Allow-Origin', clientUrl);
       }
       
       headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');

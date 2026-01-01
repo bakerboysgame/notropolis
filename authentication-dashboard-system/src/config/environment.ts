@@ -1,9 +1,16 @@
 // Environment configuration for Notropolis Game Dashboard
 // Update these values for your specific application
+
+// Warn if API URL is not configured in production
+const apiBaseUrl = (import.meta as any).env?.VITE_API_BASE_URL;
+if (!apiBaseUrl && (import.meta as any).env?.PROD) {
+  console.warn('[Config] VITE_API_BASE_URL not set. Using fallback. Set this in your environment for production.');
+}
+
 export const config = {
   // API Configuration
   // In production, set VITE_API_BASE_URL in your environment
-  API_BASE_URL: (import.meta as any).env?.VITE_API_BASE_URL || 'https://api.notropolis.net',
+  API_BASE_URL: apiBaseUrl || 'https://api.notropolis.net',
 
   // Application Configuration
   // Customize these for your application

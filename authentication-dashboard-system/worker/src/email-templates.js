@@ -160,9 +160,10 @@ export function build2FACodeEmail({ brandName, firstName, magicCode }) {
  * @param {string} params.firstName - Invited user's first name
  * @param {string} params.companyName - Company name
  * @param {string} params.invitationLink - Invitation acceptance URL
+ * @param {string} [params.supportEmail] - Support email address (optional)
  * @returns {Object} { subject, htmlContent }
  */
-export function buildInvitationEmail({ brandName, firstName, companyName, invitationLink }) {
+export function buildInvitationEmail({ brandName, firstName, companyName, invitationLink, supportEmail = 'support@notropolis.net' }) {
   return {
     subject: `You've been invited to ${brandName} as a ${companyName} Admin`,
     htmlContent: `<!DOCTYPE html>
@@ -182,7 +183,7 @@ export function buildInvitationEmail({ brandName, firstName, companyName, invita
 
     <p><a href="${invitationLink}" target="_blank">${invitationLink}</a></p><br>
 
-    <p>This link expires in 72 hours. Contact Notropolis at support@notropolis.net for a new link after this time.</p><br>
+    <p>This link expires in 72 hours. Contact ${brandName} at ${supportEmail} for a new link after this time.</p><br>
 
     <p>If you weren't expecting this invitation, you can safely ignore this email.</p><br>
 

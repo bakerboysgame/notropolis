@@ -66,7 +66,7 @@ Notropolis is a competitive multiplayer property tycoon game where players run a
 | 09 | ✅ [Security & Fire](09-security-fire.md) | Defense systems and fire spread |
 | 10 | ✅ [Prison System](10-prison-system.md) | Arrest, fines, action blocking |
 | 11 | ✅ [Level Progression](11-level-progression.md) | Level thresholds and content unlocks |
-| 12 | [Hero System](12-hero-system.md) | Cash out to offshore, location progression |
+| 12 | ✅ [Hero System](12-hero-system.md) | Cash out to offshore, location progression |
 | 13 | [Bank Transfers](13-bank-transfers.md) | Transfer cash between your companies |
 | 14a | [Chat Moderation](14a-chat-moderation.md) | AI moderation for message boards (DeepSeek) |
 | 14 | [Social Features](14-social-features.md) | Message boards, temple, casino |

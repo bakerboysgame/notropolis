@@ -552,7 +552,8 @@ export class EmailService {
         brandName,
         firstName: firstName || 'Admin',
         companyName,
-        invitationLink
+        invitationLink,
+        supportEmail: this.env.SUPPORT_EMAIL || 'support@notropolis.net'
       });
 
       // Send email via Postmark API

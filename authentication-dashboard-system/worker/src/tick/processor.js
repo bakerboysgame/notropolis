@@ -5,6 +5,7 @@
 
 import { processMapProfits, updateIdleCompanies } from './profitCalculator.js';
 import { processMapFires } from './fireSpread.js';
+import { HERO_REQUIREMENTS } from '../routes/game/hero.js';
 
 /**
  * Process a single game tick across all active maps
@@ -51,6 +52,7 @@ export async function processTick(env) {
     let totalFiresExtinguished = 0;
     let totalBuildingsDamaged = 0;
     let totalBuildingsCollapsed = 0;
+    let totalLandStreaksUpdated = 0;
 
     // Step 2: Process each map
     for (const map of activeMaps.results) {
@@ -69,6 +71,10 @@ export async function processTick(env) {
         totalGrossProfit += profitStats.grossProfit;
         totalTaxAmount += profitStats.taxAmount;
         totalNetProfit += profitStats.netProfit;
+
+        // Update land ownership streaks for hero system
+        const landStreaksUpdated = await updateLandOwnershipStreaks(env, map.id);
+        totalLandStreaksUpdated += landStreaksUpdated;
       } catch (err) {
         console.error(`Error processing map ${map.id}:`, err);
         // Continue processing other maps even if one fails
@@ -108,6 +114,7 @@ export async function processTick(env) {
       firesExtinguished: totalFiresExtinguished,
       buildingsDamaged: totalBuildingsDamaged,
       buildingsCollapsed: totalBuildingsCollapsed,
+      landStreaksUpdated: totalLandStreaksUpdated,
       executionTimeMs
     };
 
@@ -140,6 +147,84 @@ export async function processTick(env) {
 
     throw err;
   }
+}
+
+/**
+ * Update land ownership streak for companies on a map
+ * Used for the hero system's land ownership path
+ *
+ * @param {Object} env - Worker environment with DB binding
+ * @param {string} mapId - Map ID to process
+ * @returns {number} Number of companies updated
+ */
+async function updateLandOwnershipStreaks(env, mapId) {
+  // Get map details for requirements
+  const map = await env.DB.prepare(
+    'SELECT location_type FROM maps WHERE id = ?'
+  ).bind(mapId).first();
+
+  if (!map || !map.location_type) {
+    return 0;
+  }
+
+  const requirements = HERO_REQUIREMENTS[map.location_type];
+  if (!requirements) {
+    return 0;
+  }
+
+  // Get total free land tiles on this map
+  const totalLandResult = await env.DB.prepare(`
+    SELECT COUNT(*) as total
+    FROM tiles
+    WHERE map_id = ? AND terrain_type = 'free_land'
+  `).bind(mapId).first();
+
+  const totalLand = totalLandResult?.total || 0;
+  if (totalLand === 0) {
+    return 0;
+  }
+
+  // Get all companies on this map with their land ownership
+  const companiesResult = await env.DB.prepare(`
+    SELECT
+      gc.id,
+      gc.land_ownership_streak,
+      COUNT(t.id) as owned_land
+    FROM game_companies gc
+    LEFT JOIN tiles t ON t.owner_company_id = gc.id AND t.map_id = ?
+    WHERE gc.current_map_id = ?
+    GROUP BY gc.id
+  `).bind(mapId, mapId).all();
+
+  if (companiesResult.results.length === 0) {
+    return 0;
+  }
+
+  const statements = [];
+
+  for (const company of companiesResult.results) {
+    const ownedLand = company.owned_land || 0;
+    const percentage = (ownedLand / totalLand) * 100;
+    const meetsThreshold = percentage >= requirements.landPercentage;
+
+    // If meets threshold, increment streak; otherwise reset to 0
+    const newStreak = meetsThreshold ? (company.land_ownership_streak || 0) + 1 : 0;
+
+    statements.push(
+      env.DB.prepare(`
+        UPDATE game_companies
+        SET land_ownership_streak = ?,
+            land_percentage = ?
+        WHERE id = ?
+      `).bind(newStreak, percentage, company.id)
+    );
+  }
+
+  if (statements.length > 0) {
+    await env.DB.batch(statements);
+  }
+
+  return statements.length;
 }
 
 /**

@@ -108,7 +108,7 @@ export interface AchievementCondition {
 export interface AchievementReward {
   avatar_items?: string[];
   badge_id?: string;
-  offshore_bonus?: number;
+  // NOTE: No offshore_bonus - offshore can ONLY be increased by heroing a location
 }
 
 export const ACHIEVEMENT_CATEGORIES = [
@@ -175,7 +175,8 @@ export const ACHIEVEMENTS = [
     rarity: 'legendary',
     points: 1000,
     conditions: { type: 'hero_country_complete' },
-    rewards: { badge_id: 'national_hero', offshore_bonus: 1000000 },
+    rewards: { badge_id: 'national_hero', avatar_items: ['national_hero_outfit'] },
+    // NOTE: No offshore bonus - offshore can ONLY be increased by heroing
   },
 
   // Combat achievements
@@ -440,12 +441,7 @@ async function grantRewards(env: Env, userId: string, rewards: AchievementReward
     }
   }
 
-  if (rewards.offshore_bonus) {
-    // Add to all user's companies
-    await env.DB.prepare(`
-      UPDATE game_companies SET offshore = offshore + ? WHERE user_id = ?
-    `).bind(rewards.offshore_bonus, userId).run();
-  }
+  // NOTE: No offshore_bonus handling - offshore can ONLY be increased by heroing a location
 }
 ```
 
@@ -611,8 +607,8 @@ export function AchievementUnlock({ achievement, onDismiss }) {
 | Progress tracking | Partial completion | Progress updated |
 | Badge reward | Complete with badge reward | Badge granted |
 | Avatar reward | Complete with avatar reward | Item unlocked |
-| Offshore reward | Complete with bonus | Offshore increased |
 | Category filter | Select combat | Only combat shown |
+| **No offshore change** | Any achievement | Offshore only changes via hero |
 
 ## Acceptance Checklist
 
@@ -645,6 +641,7 @@ CLOUDFLARE_API_TOKEN="..." CLOUDFLARE_ACCOUNT_ID="..." npx wrangler pages deploy
 - Progress is stored per-user, not per-company
 - Badges are displayed on user profile
 - Avatar rewards unlock items for all companies
+- **CRITICAL: Rewards do NOT include offshore bonuses. Offshore can ONLY be increased by heroing a location** (see Stage 12)
 - Consider adding achievement leaderboard
 - Consider adding seasonal/limited achievements
 - Hook achievement checks into: hero, attack, tick, transactions
