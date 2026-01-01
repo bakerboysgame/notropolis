@@ -61,7 +61,8 @@ export async function postMessage(env, company, content) {
   // === AI MODERATION (Stage 14a) ===
   const moderation = await moderateMessage(env, company.id, content.trim());
   if (!moderation.allowed) {
-    throw new Error(moderation.reason || 'Message was rejected by moderation');
+    const reason = moderation.reason || 'Message violates community guidelines';
+    throw new Error(`Message blocked: ${reason}`);
   }
   // Use censored version if provided, otherwise use original
   const finalContent = moderation.censored || content.trim();

@@ -28,9 +28,1265 @@ async function hashString(str) {
     return hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 16);
 }
 
+// ============================================================================
+// STYLE GUIDE AND PROMPT BUILDER
+// Art direction: Retro 90s CGI aesthetic with modern render quality
+// Think: Modern HD remaster of a 90s game - Pixar 1995 style with 2024 rendering
+// ============================================================================
+
+const STYLE_GUIDE = `
+VISUAL STYLE REQUIREMENTS:
+
+The art direction is 90s AESTHETIC with MODERN RENDERING QUALITY - like a 2024 HD remaster of a classic 90s game.
+Think: Pixar's "The Incredibles" or modern city-builder games (Cities Skylines 2, Two Point Hospital).
+
+DESIGN AESTHETIC (90s):
+- Chunky, slightly exaggerated proportions - buildings feel solid and toylike
+- Bold, saturated but harmonious colors
+- Clean geometric shapes with smooth curves
+- Playful and charming character - not gritty or ultra-realistic
+- Stylized details that read well at small sizes
+
+RENDERING QUALITY (Modern):
+- Smooth, refined surfaces - NO noise, NO grain, NO rough textures
+- Professional studio lighting from TOP-LEFT at 45 degrees (SAME ANGLE FOR ALL VIEWS)
+- Soft ambient occlusion in corners and under overhangs
+- Subtle global illumination with gentle light bounce
+- Clean specular highlights on glass, metal, polished surfaces
+- Muted but vibrant color palette - not washed out, not oversaturated
+- Crisp edges with perfect anti-aliasing
+- Quality level: Modern animated film / AAA game cinematics
+
+SHADOWS (CRITICAL):
+- NO EXTERNAL CAST SHADOWS - the building must not cast any shadow outside its footprint
+- Shadows should ONLY exist as ambient occlusion WITHIN the building (under overhangs, in corners, window recesses)
+- The building should appear as if lit by soft diffused studio lighting with no ground shadow
+- This is essential because external shadows will be lost during background removal
+
+CRITICAL - NO BASE/PLATFORM:
+- Building sits directly on the reference sheet - NO concrete base, NO platform, NO ground plane
+- The building just floats on the gray background like a product shot
+- Each view shows ONLY the building itself, cleanly cut out
+
+BUILDING FOOTPRINT (CRITICAL):
+- Building must fill an ISOMETRIC DIAMOND footprint (not rectangular)
+- The building shape should be roughly SQUARE when viewed from above
+- Avoid long rectangular buildings - make them compact and chunky to fit the diamond tile
+- Building extends UPWARD from the diamond base
+
+LIGHTING CONSISTENCY:
+- Light source: TOP-LEFT at 45 degrees for ALL views
+- Shadows fall to BOTTOM-RIGHT
+- Same lighting intensity and color temperature across all views
+- This ensures all buildings look consistent when placed together in-game
+
+Think: High-quality 3D game asset like you'd see in a modern city-builder game. Clean, professional, realistic rendering.
+
+CRITICAL RULES:
+- Building orientation: Entry/door on BOTTOM LEFT in isometric view
+- Country-neutral: No flags, currency symbols, or nationality-specific elements
+- Building ONLY: No vehicles, people, animals, or surrounding objects
+- NO BASE/PLATFORM/GROUND - building floats on reference sheet background`;
+
+const REFERENCE_SHEET_TEMPLATE = `
+REFERENCE SHEET TEMPLATE LAYOUT (CRITICAL - FOLLOW EXACTLY):
+
+Canvas: 16:9 landscape, neutral gray background (#808080)
+
+LAYOUT - 6 SEPARATE BOXES arranged in a 3x2 grid:
+ROW 1 (top):
+  [FRONT VIEW] - Building viewed straight-on from the front entrance side
+  [LEFT SIDE VIEW] - Building viewed from the left side (90 degrees from front)
+  [BACK VIEW] - Building viewed from the back (opposite of front entrance)
+
+ROW 2 (bottom):
+  [RIGHT SIDE VIEW] - Building viewed from the right side (90 degrees from front)
+  [ISOMETRIC VIEW] - 45-degree angle view with entrance on BOTTOM-LEFT
+  [DETAIL CLOSEUPS] - 3-4 material/texture detail shots
+
+CRITICAL LAYOUT RULES:
+- Each view must be in its OWN SEPARATE BOX with white border
+- Views must NOT overlap or blend into each other
+- Each box has a bold label at the top (e.g., "FRONT VIEW", "BACK VIEW")
+- Title at very top: "BUILDING REFERENCE SHEET: [BUILDING NAME]"
+- All 6 boxes should be roughly equal size
+- EVERY VIEW shows the COMPLETE building, not cropped
+
+This is a professional orthographic reference sheet like game studios use for 3D modeling.`;
+
+// Building-specific distinctive features
+// IMPORTANT: Features should be OBVIOUSLY identifiable - almost comically obvious what the building is
+const BUILDING_FEATURES = {
+    restaurant: `MUST BE UNMISTAKABLY A RESTAURANT with these distinctive features:
+- COMPACT SQUARE FOOTPRINT building (fits isometric diamond tile, not rectangular)
+- HUGE illuminated "RESTAURANT" sign on the roof or facade (the word RESTAURANT must be visible)
+- Giant fork and knife crossed logo mounted on the building facade
+- Red and white striped awning over entrance
+- Large windows showing tables with white tablecloths and wine glasses inside
+- Steam rising from chimney (suggesting cooking)
+- Elegant double doors with brass handles
+- Chef's hat or plate-and-cutlery motif on signage
+- TWO STORIES tall to fill the vertical space
+NO outdoor furniture, tables, or items outside the building footprint.
+The building should SCREAM "this is a restaurant" at first glance.`,
+
+    bank: `MUST BE UNMISTAKABLY A BANK with these distinctive features:
+- Massive stone columns at entrance (Greek temple style)
+- HUGE "BANK" text carved into stone or on brass plaque
+- Giant vault door visible through windows or as decorative element
+- Gold/brass everywhere - door handles, window frames, trim
+- Clock mounted prominently above entrance
+- Security bars on all windows
+- Heavy bronze double doors with serious locks
+- Stone steps leading up to imposing entrance
+- Money bag or coin imagery in architecture
+The building should SCREAM "this is a bank" at first glance.`,
+
+    temple: `MUST BE UNMISTAKABLY A TEMPLE with these distinctive features:
+- Multi-tiered pagoda-style roof with curved eaves
+- Ornate roof decorations (dragons, phoenixes, or abstract spiritual symbols)
+- Grand stone staircase leading to main entrance
+- Large ceremonial doors with intricate carvings
+- Incense burner or offering table visible at entrance
+- Bell tower or prayer bell
+- Decorative columns with spiritual motifs
+- Peaceful garden elements (stone lanterns, small trees)
+- Roof tiles in traditional terracotta or gold
+Religion-neutral but clearly spiritual/sacred architecture.`,
+
+    casino: `MUST BE UNMISTAKABLY A CASINO with these distinctive features:
+- MASSIVE illuminated "CASINO" sign with hundreds of light bulbs
+- Giant playing card suits (spades, hearts, diamonds, clubs) on facade
+- Huge dice or roulette wheel decorations
+- Red carpet and velvet rope entrance
+- Gold and red color scheme everywhere
+- Flashing lights covering the entire facade
+- Showgirl or lucky 7 imagery
+- Grand double doors with golden handles
+- Slot machine silhouettes visible through windows
+The building should SCREAM "Las Vegas casino" at first glance.`,
+
+    police_station: `MUST BE UNMISTAKABLY A POLICE STATION with these distinctive features:
+- LARGE "POLICE" text prominently displayed on building
+- Classic blue police lamp outside entrance (illuminated)
+- Blue and white color scheme
+- Badge or shield emblem on facade
+- Heavy reinforced double doors
+- Barred windows on lower level
+- Security cameras visible
+- Handcuff or badge motifs in architecture
+- Utilitarian brick and concrete construction
+The building should SCREAM "police station" at first glance.`,
+
+    manor: `MUST BE UNMISTAKABLY A WEALTHY MANOR with these distinctive features:
+- Grand columned entrance portico with stone steps
+- Multiple stories with many tall windows
+- Ornate cornices and decorative stonework
+- Multiple chimneys on steep rooflines
+- Wrought iron gates or fence elements
+- Coat of arms or family crest on facade
+- Manicured topiary at entrance
+- Luxury car silhouette in driveway (optional)
+- Stained glass or arched windows
+The building should SCREAM "wealthy mansion" at first glance.`,
+
+    high_street_store: `MUST BE UNMISTAKABLY A DEPARTMENT STORE with these distinctive features:
+- Two-story Victorian retail building
+- LARGE "DEPARTMENT STORE" or "STORE" signage
+- Multiple display windows with mannequins visible
+- Revolving door entrance
+- Ornate upper floor with decorative moldings
+- Shopping bag motif or logo
+- Awning over each display window
+- "SALE" or "OPEN" signs in windows
+The building should SCREAM "shopping destination" at first glance.`,
+
+    motel: `MUST BE UNMISTAKABLY A MOTEL with these distinctive features:
+- TALL neon "MOTEL" sign (classic roadside style)
+- "VACANCY" sign underneath (illuminated)
+- Single-story row of rooms with numbered doors
+- Ice machine and vending machine alcove
+- Parking spaces in front of each door
+- Pool area visible (optional)
+- Office with "RECEPTION" sign
+- Classic Americana roadside aesthetic
+The building should SCREAM "roadside motel" at first glance.`,
+
+    burger_bar: `MUST BE UNMISTAKABLY A BURGER RESTAURANT with these distinctive features:
+- GIANT hamburger model/sign on the roof
+- Neon "BURGERS" sign with glowing tubes
+- 1950s chrome diner aesthetic
+- Red and white color scheme
+- Large windows showing checkered floor inside
+- Counter stools visible through windows
+- Menu board with burger pictures
+- Milkshake or fries imagery
+- Classic American diner style
+The building should SCREAM "burger joint" at first glance.`,
+
+    shop: `MUST BE UNMISTAKABLY A SMALL SHOP with these distinctive features:
+- "SHOP" or "OPEN" sign prominently displayed
+- Striped fabric awning over entrance
+- Display window with goods visible
+- Small A-frame sign outside
+- Brass door handle and bell
+- Friendly welcoming appearance
+- Newspaper stand or product display outside
+- Classic corner shop aesthetic
+The building should SCREAM "neighborhood shop" at first glance.`,
+
+    campsite: `MUST BE UNMISTAKABLY A CAMPSITE with these distinctive features:
+- Large canvas A-frame tent as centerpiece
+- Stone campfire ring with logs and flames/smoke
+- "CAMP" flag or wooden sign
+- Cooking pot over fire
+- Wooden supply crates and barrels
+- Oil lantern on post (glowing)
+- Outdoor adventurer aesthetic
+- Sleeping bag visible at tent entrance
+The building should SCREAM "camping site" at first glance.`,
+
+    hot_dog_stand: `MUST BE UNMISTAKABLY A HOT DOG STAND with these distinctive features:
+- GIANT hot dog model on top of cart
+- "HOT DOGS" sign prominently displayed
+- Large striped umbrella
+- Mustard and ketchup bottles visible
+- Steamer box with steam rising
+- Menu board with prices
+- Napkin dispenser
+- Classic street food cart aesthetic
+The building should SCREAM "hot dog vendor" at first glance.`,
+
+    market_stall: `MUST BE UNMISTAKABLY A MARKET STALL with these distinctive features:
+- Wooden vendor booth with canvas awning
+- Crates overflowing with colorful produce/goods
+- Hand-painted price signs
+- Weighing scale on counter
+- Hanging baskets of goods
+- "FRESH" or "MARKET" signage
+- Rustic farmer's market aesthetic
+- Apron hanging on hook
+The building should SCREAM "market vendor" at first glance.`
+};
+
+/**
+ * Build a complete prompt for building reference sheet generation
+ * Combines style guide + template layout + building-specific features
+ */
+function buildBuildingRefPrompt(buildingType, customDetails = '') {
+    const buildingName = buildingType.replace(/_/g, ' ').toUpperCase();
+    const features = BUILDING_FEATURES[buildingType] || customDetails;
+
+    if (!features) {
+        throw new Error(`No features defined for building type: ${buildingType}. Provide customDetails.`);
+    }
+
+    return `Create a building reference sheet for a ${buildingName}.
+
+${REFERENCE_SHEET_TEMPLATE}
+
+Title: "BUILDING REFERENCE SHEET: 90s CGI ${buildingName}"
+
+THE ${buildingName}:
+${features}
+
+${STYLE_GUIDE}
+
+${customDetails ? `ADDITIONAL NOTES:\n${customDetails}` : ''}
+
+Remember: All views must show the exact same building. This is a professional reference sheet for game asset development. The quality should be like promotional concept art - clean, polished, and production-ready.`;
+}
+
+// ============================================================================
+// ASSET CATEGORY PROMPT BUILDERS
+// All prompts reference approved reference sheets for style consistency
+// ============================================================================
+
+/**
+ * Core style reference that all non-ref assets should include
+ * References the approved building reference sheets as style anchors
+ */
+const STYLE_REFERENCE_ANCHOR = `
+STYLE CONSISTENCY (CRITICAL):
+Your output MUST match the established art style from the approved building reference sheets.
+Reference these approved assets for visual consistency:
+- Same chunky, slightly exaggerated 90s CGI proportions
+- Same modern rendering quality (smooth surfaces, soft ambient occlusion)
+- Same top-left lighting at 45 degrees
+- Same muted but vibrant color palette
+- Same clean, anti-aliased edges
+- Same "Pixar's The Incredibles / Two Point Hospital" aesthetic
+
+If in doubt, match the style of the restaurant or temple reference sheets exactly.`;
+
+// ============================================================================
+// REFERENCE SHEET BUILDERS (Non-Building)
+// These establish the style for each asset category before sprites are made
+// ============================================================================
+
+const CHARACTER_REF_TEMPLATE = `
+CHARACTER REFERENCE SHEET TEMPLATE LAYOUT (CRITICAL - FOLLOW EXACTLY):
+
+Canvas: 16:9 landscape, neutral gray background (#808080)
+
+LAYOUT - 6 SEPARATE BOXES arranged in a 3x2 grid:
+ROW 1 (top):
+  [FRONT VIEW] - Character viewed straight-on from front
+  [SIDE PROFILE] - Character viewed from left side (90 degrees)
+  [BACK VIEW] - Character viewed from behind
+
+ROW 2 (bottom):
+  [3/4 FRONT VIEW] - 45-degree front angle (shows depth)
+  [3/4 BACK VIEW] - 45-degree back angle
+  [FACE CLOSEUP + DETAILS] - Head closeup, hands, shoes, material textures
+
+CRITICAL LAYOUT RULES:
+- Each view in its OWN SEPARATE BOX with white border
+- Views must NOT overlap or blend into each other
+- Bold label at top of each box
+- Title at very top: "CHARACTER REFERENCE SHEET: [CHARACTER NAME]"
+- EVERY VIEW shows the COMPLETE character, same pose
+- Same lighting across all views (top-left at 45 degrees)`;
+
+const VEHICLE_REF_TEMPLATE = `
+VEHICLE REFERENCE SHEET TEMPLATE LAYOUT (CRITICAL - FOLLOW EXACTLY):
+
+Canvas: 16:9 landscape, neutral gray background (#808080)
+
+LAYOUT - 6 SEPARATE BOXES arranged in a 3x2 grid:
+ROW 1 (top):
+  [FRONT VIEW] - Vehicle viewed straight-on from front
+  [SIDE VIEW] - Vehicle viewed from driver's side
+  [BACK VIEW] - Vehicle viewed from behind
+
+ROW 2 (bottom):
+  [TOP-DOWN VIEW] - Vehicle viewed from directly above
+  [ISOMETRIC VIEW] - 45-degree isometric angle (game view)
+  [DETAIL CLOSEUPS] - Wheels, headlights, interior glimpse, material textures
+
+CRITICAL LAYOUT RULES:
+- Each view in its OWN SEPARATE BOX with white border
+- Views must NOT overlap
+- Bold label at top of each box
+- Title at very top: "VEHICLE REFERENCE SHEET: [VEHICLE NAME]"
+- Same vehicle in every view
+- Same lighting (top-left at 45 degrees)`;
+
+const EFFECT_REF_TEMPLATE = `
+EFFECT REFERENCE SHEET TEMPLATE LAYOUT (CRITICAL - FOLLOW EXACTLY):
+
+Canvas: 16:9 landscape, neutral gray background (#808080)
+
+LAYOUT - 6 SEPARATE BOXES arranged in a 3x2 grid:
+ROW 1 (top):
+  [EFFECT OVERVIEW] - Full effect from isometric game view angle
+  [FRONT VIEW] - Effect viewed straight-on
+  [SIDE VIEW] - Effect from side angle
+
+ROW 2 (bottom):
+  [TOP-DOWN VIEW] - Effect from above
+  [ANIMATION FRAMES] - 3-4 key frames showing effect progression/variation
+  [ELEMENT BREAKDOWN] - Individual particles, flames, smoke, debris isolated
+
+CRITICAL LAYOUT RULES:
+- Each view in its OWN SEPARATE BOX with white border
+- Effect on TRANSPARENT background within each box (gray shows through)
+- Bold label at top of each box
+- Title at very top: "EFFECT REFERENCE SHEET: [EFFECT NAME]"
+- This is the reference for creating overlays that work on ANY building`;
+
+// Character reference features (for pedestrians and avatar base)
+const CHARACTER_REF_FEATURES = {
+    pedestrian_business: `BUSINESS PEDESTRIAN - adult in professional attire:
+- Chunky, stocky 90s CGI proportions (slightly exaggerated)
+- Head is large relative to body (stylized, not realistic)
+- Simple geometric shapes - cylindrical limbs, blocky torso
+- Business suit or smart casual (shirt, trousers, shoes)
+- Neutral expression, professional demeanor
+- Generic adult, gender-neutral or male
+- NO specific ethnicity focus - neutral skin tone placeholder
+This establishes the character style for all business NPCs.`,
+
+    pedestrian_casual: `CASUAL PEDESTRIAN - everyday citizen:
+- Same chunky 90s CGI proportions as business pedestrian
+- Relaxed posture, casual clothing (t-shirt, jeans, sneakers)
+- Slightly less formal stance
+- Could carry shopping bag or nothing
+- Generic everyday person walking around the city
+This establishes the style for casual NPC citizens.`,
+
+    avatar_base: `AVATAR BASE CHARACTER - player character foundation:
+- Chunky, stocky 90s CGI proportions matching pedestrians
+- Neutral standing pose, arms slightly away from body
+- PLACEHOLDER appearance - gray silhouette body
+- This is the BASE that outfits, hair, accessories layer onto
+- Must be perfectly centered for layer compositing
+- Shows body shape that all avatar items must fit
+This is the master reference for all avatar assets.`
+};
+
+// Vehicle reference features
+const VEHICLE_REF_FEATURES = {
+    car_sedan: `SEDAN CAR - generic city vehicle:
+- Chunky, toy-like proportions (not realistic)
+- Rounded edges, simplified details
+- 4-door sedan shape, compact
+- Neutral color (gray/silver) - shows the form
+- NO brand logos, badges, or text
+- Visible wheels with simple hub design
+- Glass windows with subtle tint
+- Headlights and taillights as simple shapes
+This establishes the car style for all vehicles.`,
+
+    car_sports: `SPORTS CAR - flashy vehicle:
+- Same chunky toy-like proportions as sedan
+- Lower, sleeker profile but still stylized
+- 2-door coupe shape
+- Bold color (red or yellow suggested)
+- Spoiler optional, simple design
+- NO brand logos
+This is the sporty variant of the car style.`,
+
+    car_van: `VAN/DELIVERY VEHICLE:
+- Chunky, boxy proportions
+- Taller than sedan, utility shape
+- Side panel (could have generic "DELIVERY" text)
+- White or neutral color
+- Sliding door suggestion
+- NO specific company branding
+Work/utility vehicle variant.`,
+
+    car_taxi: `TAXI CAB:
+- Same proportions as sedan
+- Distinctive yellow color
+- "TAXI" sign on roof (lit)
+- Checkered stripe optional
+- Generic taxi appearance
+- NO specific city/company markings
+City taxi variant.`
+};
+
+// Effect reference features
+const EFFECT_REF_FEATURES = {
+    fire: `FIRE/ARSON EFFECT:
+- Bright orange and yellow flames in multiple layers
+- Dark smoke plumes rising above flames
+- Glowing embers floating upward
+- Base of fire (where it contacts surface - will be transparent)
+- Heat shimmer/distortion suggestion
+- Flames at different heights and intensities
+- NO building visible - just the fire effect itself
+Universal fire effect for any building type.`,
+
+    cluster_bomb: `CLUSTER BOMB/EXPLOSION EFFECT:
+- Multiple impact points across the area
+- Smoke plumes (gray/black) at various heights
+- Fire bursts scattered
+- Debris clouds (generic gray particles)
+- Sparks and flash elements
+- Scorch marks (as floating elements)
+- Dust/dirt kicked up
+Explosive damage covering building footprint.`,
+
+    vandalism: `VANDALISM EFFECT:
+- Spray paint marks (bright colors - pink, green, blue)
+- Floating/splattered paint drips
+- Generic trash debris
+- Broken glass shards
+- Graffiti shapes (abstract, no readable text)
+- Scattered mess appearance
+Surface vandalism overlay.`,
+
+    robbery: `ROBBERY/BREAK-IN EFFECT:
+- Shattered glass (door/window shaped void)
+- Scattered papers and debris
+- Flashlight beam suggestion
+- Open safe/drawer elements
+- Broken lock/handle
+- Signs of forced entry
+Post-robbery scene overlay.`,
+
+    poisoning: `POISONING/TOXIC EFFECT:
+- Green toxic clouds/gas
+- Bubbling green puddles
+- Wilted/dead plant elements
+- Sickly yellow-green color palette
+- Dripping toxic substance
+- Fumes rising
+Toxic contamination overlay.`,
+
+    blackout: `BLACKOUT/ELECTRICAL EFFECT:
+- Darkness/shadow overlay
+- Blue electrical sparks/arcs
+- Broken light fixture elements
+- Flickering light suggestion
+- Exposed wiring sparks
+- Power-out atmosphere
+Electrical failure overlay.`
+};
+
+/**
+ * Build prompt for CHARACTER reference sheet
+ */
+function buildCharacterRefPrompt(characterType, customDetails = '') {
+    const characterName = characterType.replace(/_/g, ' ').toUpperCase();
+    const features = CHARACTER_REF_FEATURES[characterType] || customDetails;
+
+    if (!features) {
+        throw new Error(`No features defined for character type: ${characterType}. Provide customDetails.`);
+    }
+
+    return `Create a character reference sheet for a ${characterName}.
+
+${CHARACTER_REF_TEMPLATE}
+
+Title: "CHARACTER REFERENCE SHEET: 90s CGI ${characterName}"
+
+THE CHARACTER:
+${features}
+
+${STYLE_GUIDE}
+
+${customDetails ? `ADDITIONAL NOTES:\n${customDetails}` : ''}
+
+Remember: All views must show the exact same character. This reference establishes the character proportions and style that all pedestrian NPCs and avatar assets must match.`;
+}
+
+/**
+ * Build prompt for VEHICLE reference sheet
+ */
+function buildVehicleRefPrompt(vehicleType, customDetails = '') {
+    const vehicleName = vehicleType.replace(/_/g, ' ').toUpperCase();
+    const features = VEHICLE_REF_FEATURES[vehicleType] || customDetails;
+
+    if (!features) {
+        throw new Error(`No features defined for vehicle type: ${vehicleType}. Provide customDetails.`);
+    }
+
+    return `Create a vehicle reference sheet for a ${vehicleName}.
+
+${VEHICLE_REF_TEMPLATE}
+
+Title: "VEHICLE REFERENCE SHEET: 90s CGI ${vehicleName}"
+
+THE VEHICLE:
+${features}
+
+${STYLE_GUIDE}
+
+VEHICLE-SPECIFIC RULES:
+- NO brand logos, badges, or manufacturer markings
+- Country-neutral (no specific license plate style)
+- Chunky, toy-like proportions matching the building style
+- Same top-left lighting as buildings
+
+${customDetails ? `ADDITIONAL NOTES:\n${customDetails}` : ''}
+
+Remember: All views must show the exact same vehicle. This reference establishes the vehicle style that all car sprites must match.`;
+}
+
+/**
+ * Build prompt for EFFECT reference sheet
+ */
+function buildEffectRefPrompt(effectType, customDetails = '') {
+    const effectName = effectType.replace(/_/g, ' ').toUpperCase();
+    const features = EFFECT_REF_FEATURES[effectType] || customDetails;
+
+    if (!features) {
+        throw new Error(`No features defined for effect type: ${effectType}. Provide customDetails.`);
+    }
+
+    return `Create an effect reference sheet for ${effectName}.
+
+${EFFECT_REF_TEMPLATE}
+
+Title: "EFFECT REFERENCE SHEET: ${effectName}"
+
+THE EFFECT:
+${features}
+
+${STYLE_GUIDE}
+
+EFFECT-SPECIFIC RULES:
+- NO building or structure visible - effect elements ONLY
+- Must work as overlay on ANY building (tent, shack, temple, etc.)
+- Use only universal elements (fire, smoke, sparks, generic debris)
+- NO specific building materials in the debris
+- Effect should be dramatic but readable at small game sizes
+
+${customDetails ? `ADDITIONAL NOTES:\n${customDetails}` : ''}
+
+Remember: This reference establishes how this effect looks from all angles. The game sprite will be extracted from the isometric view.`;
+}
+
+// ============================================================================
+// TERRAIN TILE FEATURES
+// ============================================================================
+
+const TERRAIN_FEATURES = {
+    grass: `Lush green grass with subtle variation in shade. Small tufts and texture visible but not overwhelming. Natural, well-maintained lawn appearance.`,
+
+    trees: `Dense cluster of trees viewed from above and the side. Chunky, stylized tree canopy with visible foliage masses. Mix of greens. Trees extend above the base diamond footprint like early 3D game trees.`,
+
+    mountain: `Rocky, elevated terrain with chunky rock formations. Gray and brown stone with visible facets. Impassable, rugged appearance. Angular rock shapes with visible polygonal faces.`,
+
+    sand: `Golden/beige sand with subtle ripple texture suggesting wind patterns. Small variation in tone. Beach/desert sand appearance.`,
+
+    water: `Blue water with subtle ripple texture. Gentle reflective quality suggesting calm water surface. Light caustic patterns optional.`,
+
+    // Road tiles - all share base description
+    road_base: `Dark gray asphalt road running through the center. Light gray/beige sidewalks on edges. Clear visual distinction between road surface (vehicles) and sidewalk (pedestrians).`,
+
+    // Dirt tiles
+    dirt_base: `Brown/tan compacted dirt path. Visible texture suggesting worn earth - small pebbles, subtle tire/foot track impressions. Earthy, natural appearance.`,
+
+    // Water edge tiles share this base
+    water_edge_base: `Water tile with land transition. The water should blend naturally into grass/land on the specified edge(s). Gentle shore/beach effect at the transition.`
+};
+
+/**
+ * Build prompt for terrain tile generation
+ */
+function buildTerrainPrompt(terrainType, customDetails = '') {
+    const isRoad = terrainType.startsWith('road_');
+    const isDirt = terrainType.startsWith('dirt_');
+    const isWaterEdge = terrainType.startsWith('water_') && terrainType !== 'water';
+
+    let baseFeatures;
+    let specificDetails = '';
+
+    if (isRoad) {
+        baseFeatures = TERRAIN_FEATURES.road_base;
+        const directions = terrainType.replace('road_', '');
+        specificDetails = `Road connects to: ${directions.toUpperCase().split('').join(', ')} direction(s).`;
+    } else if (isDirt) {
+        baseFeatures = TERRAIN_FEATURES.dirt_base;
+        const directions = terrainType.replace('dirt_', '');
+        specificDetails = `Dirt path connects to: ${directions.toUpperCase().split('').join(', ')} direction(s).`;
+    } else if (isWaterEdge) {
+        baseFeatures = TERRAIN_FEATURES.water_edge_base;
+        const edgeType = terrainType.replace('water_', '');
+        specificDetails = `Edge type: ${edgeType}. Land appears on this side of the tile.`;
+    } else {
+        baseFeatures = TERRAIN_FEATURES[terrainType] || customDetails;
+    }
+
+    if (!baseFeatures) {
+        throw new Error(`No features defined for terrain type: ${terrainType}. Provide customDetails.`);
+    }
+
+    return `Create a single isometric terrain tile for ${terrainType.toUpperCase().replace(/_/g, ' ')}.
+
+FORMAT REQUIREMENTS:
+- Diamond/rhombus shaped tile viewed from above at 45-degree isometric angle
+- Dimensions: Flat diamond that fits a 64x32 pixel canvas (2:1 ratio)
+- Background: TRANSPARENT (PNG-ready)
+- This is a FLAT ground tile (except trees/mountain which extend upward)
+
+THE TERRAIN:
+${baseFeatures}
+${specificDetails}
+
+${STYLE_GUIDE}
+
+${STYLE_REFERENCE_ANCHOR}
+
+CRITICAL:
+- The tile must seamlessly connect when placed adjacent to identical tiles
+- NO external shadows outside the tile footprint
+- Transparent background
+- Match the chunky 90s CGI aesthetic from the building reference sheets
+
+${customDetails ? `ADDITIONAL NOTES:\n${customDetails}` : ''}`;
+}
+
+// ============================================================================
+// BUILDING SPRITE (GAME-READY) - Different from reference sheets
+// ============================================================================
+
+const BUILDING_SIZE_CLASSES = {
+    market_stall: { canvas: '128x128', class: 'SHORT' },
+    hot_dog_stand: { canvas: '128x128', class: 'SHORT' },
+    campsite: { canvas: '128x128', class: 'SHORT' },
+    shop: { canvas: '192x192', class: 'MEDIUM' },
+    burger_bar: { canvas: '192x192', class: 'MEDIUM' },
+    motel: { canvas: '192x192', class: 'MEDIUM' },
+    high_street_store: { canvas: '256x256', class: 'TALL' },
+    restaurant: { canvas: '256x256', class: 'TALL' },
+    manor: { canvas: '256x256', class: 'TALL' },
+    police_station: { canvas: '256x256', class: 'TALL' },
+    casino: { canvas: '320x320', class: 'VERY_TALL' },
+    temple: { canvas: '320x320', class: 'VERY_TALL' },
+    bank: { canvas: '320x320', class: 'VERY_TALL' }
+};
+
+/**
+ * Build prompt for building game sprite (references the approved ref sheet)
+ */
+function buildBuildingSpritePrompt(buildingType, customDetails = '') {
+    const buildingName = buildingType.replace(/_/g, ' ').toUpperCase();
+    const sizeInfo = BUILDING_SIZE_CLASSES[buildingType];
+    const features = BUILDING_FEATURES[buildingType];
+
+    if (!sizeInfo) {
+        throw new Error(`No size class defined for building type: ${buildingType}`);
+    }
+
+    return `Create a single isometric game sprite for a ${buildingName}.
+
+CRITICAL: Use the approved ${buildingName} REFERENCE SHEET as your style guide.
+Extract the 45-degree isometric view from that reference and render it as a standalone sprite.
+
+FORMAT REQUIREMENTS:
+- 45-degree isometric view, single image
+- Canvas: ${sizeInfo.canvas} px SQUARE
+- Background: TRANSPARENT (PNG-ready)
+- Size class: ${sizeInfo.class}
+- Orientation: Entry/front on BOTTOM LEFT, building extends toward top-right
+
+BUILDING FOOTPRINT:
+- Building sits on a DIAMOND-shaped footprint at the BOTTOM of the square canvas
+- The structure extends UPWARD from the diamond base to fill the canvas vertically
+- Building must fill the isometric diamond tile, not be rectangular
+
+THE ${buildingName}:
+${features || customDetails || 'Match the approved reference sheet exactly.'}
+
+${STYLE_GUIDE}
+
+${STYLE_REFERENCE_ANCHOR}
+
+CRITICAL:
+- NO external cast shadows outside the building footprint
+- NO base/platform/ground - building floats on transparent background
+- Building ONLY - no vehicles, people, surrounding objects
+- Match the approved reference sheet EXACTLY in style and detail
+
+${customDetails ? `ADDITIONAL NOTES:\n${customDetails}` : ''}`;
+}
+
+// ============================================================================
+// EFFECT OVERLAYS (Dirty Tricks, Damage, Status)
+// ============================================================================
+
+const EFFECT_FEATURES = {
+    // Dirty trick effects
+    fire: `Bright orange and yellow flames rising upward. Dark smoke plumes billowing. Glowing embers floating. Heat distortion suggestion. Flickering fire tongues at different heights. ARSON attack effect.`,
+
+    cluster_bomb: `Multiple smoke plumes and fire bursts scattered across the footprint. Grey dust clouds. Sparks flying. Scorch marks. Multiple impact points suggesting explosive damage.`,
+
+    vandalism: `Spray paint marks in bright colors (floating, not on surface). Generic trash and debris scattered. Broken glass shards floating. Graffiti suggestion without readable text.`,
+
+    robbery: `Broken glass shards. Open/damaged door imagery. Scattered papers and debris. Flashlight beams. Signs of forced entry.`,
+
+    poisoning: `Green toxic clouds floating. Wilted/dying plant elements. Bubbling green puddles. Toxic fumes rising. Sickly color palette.`,
+
+    blackout: `Darkness overlay with electrical sparks. Broken light elements. Blue electrical arcs. Flickering/failing light suggestion.`,
+
+    // Damage levels
+    damage_25: `Light damage - scattered dust and small debris particles. Thin wisps of smoke. Minor scuff marks. A few floating broken glass shards. Subtle wear.`,
+
+    damage_50: `Medium damage - more prominent dust clouds and debris. Multiple smoke wisps. Larger floating debris (generic gray rubble). Scorch marks and soot patches. Structural warping suggestion.`,
+
+    damage_75: `Heavy damage - heavy dust and smoke clouds. Thick smoke columns. Significant floating debris field. Large scorch marks. Sparks and embers. Structural collapse suggestion. Near-destruction state.`,
+
+    // Status indicators
+    for_sale: `Small wooden or metal sign post with hanging "FOR SALE" placard. Red and white coloring. Classic real estate sign style. 24x24 pixel detail level.`,
+
+    security: `Shield shape with checkmark or lock symbol, OR small security camera. Blue and silver coloring. Protective, secure feeling. 24x24 pixel detail level.`
+};
+
+/**
+ * Build prompt for effect overlay generation
+ */
+function buildEffectPrompt(effectType, customDetails = '') {
+    const effectName = effectType.replace(/_/g, ' ').toUpperCase();
+    const features = EFFECT_FEATURES[effectType];
+
+    const isSmallIcon = ['for_sale', 'security'].includes(effectType);
+
+    if (!features) {
+        throw new Error(`No features defined for effect type: ${effectType}. Provide customDetails.`);
+    }
+
+    const sizeSpec = isSmallIcon
+        ? `Size: Small icon, approximately 24x24 pixels worth of detail.`
+        : `Size: Effect sized to overlay a standard building footprint at 45-degree isometric angle (64x64 px canvas).`;
+
+    return `Create a ${isSmallIcon ? 'status indicator icon' : 'dirty trick/damage effect overlay'} for ${effectName}.
+
+FORMAT REQUIREMENTS:
+- ${isSmallIcon ? 'Small icon with slight 3D perspective' : '45-degree isometric view matching building perspective'}
+- Background: TRANSPARENT (PNG-ready)
+- ${sizeSpec}
+- Purpose: ${isSmallIcon ? 'Positioned at top-right of building' : 'Overlaid on ANY building to show this effect'}
+
+THE EFFECT:
+${features}
+
+CRITICAL - UNIVERSAL COMPATIBILITY:
+${isSmallIcon ? '' : `- Show ONLY the effect elements - NO BUILDING VISIBLE
+- Use only universal elements (smoke, fire, sparks, generic debris, dust)
+- NO specific building materials (no bricks, wood planks, concrete chunks)
+- The effect MUST work whether overlaid on a canvas tent, wooden shack, or stone temple`}
+
+${STYLE_GUIDE}
+
+${STYLE_REFERENCE_ANCHOR}
+
+${customDetails ? `ADDITIONAL NOTES:\n${customDetails}` : ''}`;
+}
+
+// ============================================================================
+// SCENE ILLUSTRATIONS
+// ============================================================================
+
+const SCENE_FEATURES = {
+    // Background scenes (no character slot needed)
+    arrest_bg: `Exterior scene - street or building entrance at dusk/night. Police lights (blue/red) illuminating the area. Dramatic lighting. Space in center-foreground for character placement.`,
+
+    court_bg: `Courtroom interior. Judge's bench visible. Wooden courtroom furniture. High ceilings. Formal, imposing legal atmosphere. Scales of justice optional. Space in foreground for defendant.`,
+
+    prison_bg: `Prison cell interior. Concrete/brick walls. Bars visible (cell door or window). Basic bunk bed. Harsh institutional lighting. Confined, punishing atmosphere. Space for prisoner.`,
+
+    hero_bg: `Celebration scene - could be yacht deck, tropical beach, or mansion terrace. Bright, sunny, successful atmosphere. Confetti elements optional. Space for triumphant character.`,
+
+    bank_interior_bg: `Grand bank interior. Marble floors and columns. Teller windows/counters. High ceilings. Vault door in background. Brass fixtures. Wealthy, institutional atmosphere.`,
+
+    temple_interior_bg: `Peaceful temple interior. Soft light filtering through windows or from candles. Altar/shrine area. Wooden beams. Spiritual, contemplative atmosphere.`,
+
+    offshore_bg: `Tropical paradise with hidden wealth. Palm trees, crystal blue water, white sand. Small elegant bank building among palms. Secretive luxury.`,
+
+    dirty_trick_bg: `Nighttime urban scene. Shadowy alley or building exterior. Dramatic noir lighting - moonlight, shadows, streetlamp. Suspenseful atmosphere.`,
+
+    // Foreground layers (for compositing over character)
+    arrest_fg: `Police officer arms/hands reaching to grab/escort. Handcuffs visible. Dramatic angle. MUST have transparent center for character placement.`,
+
+    prison_fg: `Prison bars in foreground. Institutional frame elements. MUST have transparent center for character placement behind bars.`,
+
+    hero_fg: `Champagne bottle/glass being raised. Confetti falling. Celebratory hands. MUST have transparent center for character placement.`,
+
+    dirty_trick_fg: `Shadowy hands holding spray can, lighter, or suspicious package. Noir lighting. MUST have transparent center for character placement.`
+};
+
+/**
+ * Build prompt for scene illustration generation
+ */
+function buildScenePrompt(sceneType, customDetails = '') {
+    const sceneName = sceneType.replace(/_/g, ' ').toUpperCase();
+    const features = SCENE_FEATURES[sceneType];
+    const isForeground = sceneType.endsWith('_fg');
+    const isBackground = sceneType.endsWith('_bg');
+
+    if (!features) {
+        throw new Error(`No features defined for scene type: ${sceneType}. Provide customDetails.`);
+    }
+
+    return `Create a scene ${isForeground ? 'FOREGROUND layer' : 'BACKGROUND'} illustration: ${sceneName}.
+
+FORMAT REQUIREMENTS:
+- Aspect ratio: 16:9 widescreen (1920x1080, will be resized to 1280x720)
+- ${isForeground ? 'Background: TRANSPARENT - this is a foreground layer for compositing' : 'Full scene with complete background'}
+- Purpose: ${isForeground ? 'Composited OVER character avatar in scene' : 'Background layer, character avatar composited on top'}
+
+THE SCENE:
+${features}
+
+CHARACTER INTEGRATION:
+${isForeground
+    ? '- Leave transparent center area where character will be placed BEHIND this layer'
+    : '- Leave clear space in the composition where a character avatar will be placed ON TOP'}
+- Characters in this game are chunky 90s CGI style - match that aesthetic
+
+${STYLE_GUIDE}
+
+${STYLE_REFERENCE_ANCHOR}
+
+CRITICAL:
+- Country-neutral (no flags, national symbols, specific currency)
+- Match the 90s CGI aesthetic from building reference sheets
+- ${isForeground ? 'Transparent background with elements only at edges/corners' : 'Complete background scene'}
+
+${customDetails ? `ADDITIONAL NOTES:\n${customDetails}` : ''}`;
+}
+
+// ============================================================================
+// NPC SPRITES (Pedestrians and Vehicles)
+// ============================================================================
+
+const NPC_FEATURES = {
+    pedestrian_walk: `4-frame walk cycle sprite strip. Chunky 90s CGI character. Business casual clothing. Walking pose from side view. Each frame shows different leg position. Generic adult pedestrian.`,
+
+    pedestrian_stand: `Standing idle pose. Chunky 90s CGI character. Business casual clothing. Neutral standing position. Could have subtle idle animation frames.`,
+
+    pedestrian_suit: `4-frame walk cycle. Character in business suit. Professional appearance. Briefcase optional. Corporate worker type.`,
+
+    pedestrian_casual: `4-frame walk cycle. Character in casual clothes. Relaxed appearance. Everyday citizen type.`,
+
+    car_sedan: `Generic sedan car from isometric 45-degree view. Chunky, slightly toy-like proportions. Solid neutral color (gray, blue, or silver). No brand markings.`,
+
+    car_sports: `Sports car from isometric 45-degree view. Sleek but chunky 90s CGI style. Bold color (red or yellow). No brand markings.`,
+
+    car_van: `Delivery/utility van from isometric 45-degree view. Boxy, chunky proportions. White or neutral color. No brand text.`,
+
+    car_taxi: `Taxi cab from isometric 45-degree view. Yellow with "TAXI" sign on roof. Chunky proportions. Generic taxi appearance.`
+};
+
+/**
+ * Build prompt for NPC sprite generation
+ */
+function buildNPCPrompt(npcType, customDetails = '') {
+    const npcName = npcType.replace(/_/g, ' ').toUpperCase();
+    const features = NPC_FEATURES[npcType];
+    const isPedestrian = npcType.startsWith('pedestrian_');
+    const isCar = npcType.startsWith('car_');
+
+    if (!features) {
+        throw new Error(`No features defined for NPC type: ${npcType}. Provide customDetails.`);
+    }
+
+    const sizeSpec = isPedestrian
+        ? 'Sprite strip: 128x32 pixels (4 frames of 32x32 each) OR single 32x32 for idle'
+        : 'Single sprite: 64x32 pixels (fits road tile)';
+
+    return `Create an ambient NPC sprite: ${npcName}.
+
+FORMAT REQUIREMENTS:
+- ${isPedestrian ? '45-degree isometric side view' : '45-degree isometric view'}
+- ${sizeSpec}
+- Background: TRANSPARENT (PNG-ready)
+- Purpose: ${isPedestrian ? 'Pedestrians walking on sidewalks' : 'Vehicles driving on roads'}
+
+THE NPC:
+${features}
+
+${STYLE_GUIDE}
+
+${STYLE_REFERENCE_ANCHOR}
+
+CRITICAL:
+- Match the chunky 90s CGI aesthetic from building reference sheets
+- ${isPedestrian ? 'Character proportions should match the stocky, geometric style' : 'Vehicle should look toy-like and chunky, not realistic'}
+- Country-neutral (no flags, specific national markings)
+- NO external shadows
+
+${customDetails ? `ADDITIONAL NOTES:\n${customDetails}` : ''}`;
+}
+
+// ============================================================================
+// AVATAR ASSETS
+// ============================================================================
+
+const AVATAR_FEATURES = {
+    // Base bodies
+    base_standard: `Standard adult human body silhouette. Neutral standing pose, arms slightly away from body. Average/normal build. Stocky, geometric 90s CGI proportions.`,
+
+    base_athletic: `Athletic adult human body silhouette. Broader shoulders, more muscular proportions. Neutral standing pose. Stocky, geometric 90s CGI proportions.`,
+
+    // Hair styles
+    hair_short: `Short, professional haircut. Neat and tidy. Dark brown/black. Chunky hair masses with subtle strand detail. Business-appropriate.`,
+
+    hair_long: `Longer hair past ears, could reach shoulders. Styled but not overly formal. Dark brown/black. Chunky stylized masses.`,
+
+    hair_mohawk: `Bold mohawk hairstyle. Spiked up center, shaved sides. Could be bold color. Punk/rebellious. Exaggerated chunky spikes.`,
+
+    hair_bald: `Bald/shaved head. Smooth scalp with subtle skin texture. Clean, professional appearance.`,
+
+    hair_slicked: `Slicked back hair. Shiny, product-styled. Professional businessman look. Dark color with highlights.`,
+
+    hair_curly: `Curly/wavy hair. Chunky stylized curls. Medium length. Natural, slightly wild appearance.`,
+
+    // Outfits
+    outfit_suit: `Professional business suit. Dark gray or navy jacket and trousers. White dress shirt, tie. Classic corporate attire.`,
+
+    outfit_casual: `Casual everyday clothes. Polo shirt and chinos, or button-down with jeans. Relaxed but presentable. Earth tones.`,
+
+    outfit_flashy: `Flashy, expensive-looking outfit. Bright colors or patterns. Gold accessories. Showing off wealth.`,
+
+    outfit_street: `Street style clothing. Hoodie, sneakers, urban fashion. Relaxed, youthful appearance.`,
+
+    outfit_gold_legendary: `LEGENDARY: Extraordinary golden suit. Shimmering metallic gold fabric. Luxurious, ostentatious. Sparkle effects. "I made it" appearance.`,
+
+    outfit_prison: `Prison jumpsuit. Orange or striped. Simple, institutional. Disheveled appearance.`,
+
+    outfit_tropical: `Hawaiian shirt, shorts, sandals. Vacation/retirement attire. Relaxed, wealthy retiree look.`,
+
+    outfit_formal: `Black tie formal wear. Tuxedo or evening gown equivalent. Elegant, high-class event attire.`,
+
+    // Headwear
+    headwear_tophat: `Classic tall top hat. Black with band. Formal, old-money wealthy appearance.`,
+
+    headwear_cap: `Casual baseball cap. Curved brim forward. Solid color. Relaxed, sporty.`,
+
+    headwear_fedora: `Fedora hat. Classic gangster/noir style. Dark color with band.`,
+
+    headwear_crown_legendary: `LEGENDARY: Magnificent royal crown. Gold with jewels (rubies, sapphires, emeralds). Ornate metalwork. Regal, ultimate status symbol.`,
+
+    headwear_hardhat: `Construction hard hat. Yellow or white. Working class, builder appearance.`,
+
+    headwear_beanie: `Knit beanie hat. Casual, urban style. Solid color.`,
+
+    // Accessories
+    accessory_sunglasses: `Cool sunglasses. Dark lenses with reflection. Aviator or wayfarer style. Confident appearance.`,
+
+    accessory_watch: `Luxury wristwatch. Metal band (silver or gold). Expensive, successful businessman accessory.`,
+
+    accessory_cigar: `Lit cigar. Smoke wisping upward. Power/wealth symbol. Boss imagery.`,
+
+    accessory_briefcase: `Professional briefcase. Leather, classic style. Business equipment.`,
+
+    accessory_chain: `Gold chain necklace. Chunky, visible. Wealth display.`,
+
+    accessory_earring: `Earring (stud or small hoop). Subtle jewelry accent.`,
+
+    // Backgrounds
+    background_city: `City skyline at dusk/golden hour. Multiple skyscraper silhouettes. Warm sky gradient. Urban, successful, metropolitan.`,
+
+    background_office: `Executive office interior. Large window with city view. Bookshelf, desk edge, wood paneling. Professional corporate.`,
+
+    background_mansion: `Mansion exterior or interior. Grand architecture. Wealth and success backdrop.`,
+
+    background_prison: `Prison cell or yard. Institutional, consequence backdrop. Gray, confined atmosphere.`
+};
+
+/**
+ * Build prompt for avatar asset generation
+ */
+function buildAvatarPrompt(avatarType, customDetails = '') {
+    const avatarName = avatarType.replace(/_/g, ' ').toUpperCase();
+    const features = AVATAR_FEATURES[avatarType];
+
+    const category = avatarType.split('_')[0]; // base, hair, outfit, headwear, accessory, background
+    const isBackground = category === 'background';
+    const isLegendary = avatarType.includes('_legendary');
+
+    if (!features) {
+        throw new Error(`No features defined for avatar type: ${avatarType}. Provide customDetails.`);
+    }
+
+    let layerInstructions;
+    switch (category) {
+        case 'base':
+            layerInstructions = 'BASE LAYER - underlying body shape. Show as neutral gray (skin applied separately). Must align with all other layers.';
+            break;
+        case 'hair':
+            layerInstructions = 'HAIR LAYER - overlays on head position. Must align with base body head position.';
+            break;
+        case 'outfit':
+            layerInstructions = 'OUTFIT LAYER - covers torso, arms, legs. Leave face and hands exposed for skin layer.';
+            break;
+        case 'headwear':
+            layerInstructions = 'HEADWEAR LAYER - sits on/replaces visible hair. Must align with head position.';
+            break;
+        case 'accessory':
+            layerInstructions = 'ACCESSORY LAYER - small addition to face/body. Must align with appropriate body part.';
+            break;
+        case 'background':
+            layerInstructions = 'BACKGROUND LAYER - full coverage, no transparency. Character layers composite on top.';
+            break;
+        default:
+            layerInstructions = 'Layer must align with base body for proper compositing.';
+    }
+
+    return `Create an avatar ${category.toUpperCase()} layer: ${avatarName}.
+
+FORMAT REQUIREMENTS:
+- Front-facing character view
+- Canvas: 512x512 pixels SQUARE
+- Background: ${isBackground ? 'Full coverage (this IS the background)' : 'TRANSPARENT (PNG-ready)'}
+- Purpose: ${layerInstructions}
+
+THE ASSET:
+${features}
+
+${isLegendary ? `
+LEGENDARY RARITY:
+This is a LEGENDARY tier item - make it look SPECIAL, RARE, and DESIRABLE.
+- Premium quality rendering
+- Extra visual flair (sparkles, glow, metallic effects)
+- Should stand out as obviously high-value
+` : ''}
+
+${STYLE_GUIDE}
+
+${STYLE_REFERENCE_ANCHOR}
+
+CRITICAL:
+- Match the chunky, stocky 90s CGI character proportions from reference sheets
+- All avatar layers must align perfectly for compositing
+- ${isBackground ? 'Fill entire canvas as background scene' : 'Transparent background, only the specific element visible'}
+- Country-neutral, gender-appropriate
+
+${customDetails ? `ADDITIONAL NOTES:\n${customDetails}` : ''}`;
+}
+
+// ============================================================================
+// UI ELEMENTS
+// ============================================================================
+
+const UI_FEATURES = {
+    minimap_player: `Small bright GREEN dot or diamond shape. Solid, highly visible. Simple geometric. Subtle glow optional. 8x8 pixels.`,
+
+    minimap_enemy: `Small bright RED dot or diamond shape. Solid, highly visible. Simple geometric. Clearly different from green player marker. 8x8 pixels.`,
+
+    cursor_select: `Glowing diamond outline that surrounds an isometric tile. Bright yellow, white, or cyan edge glow. Just the outline - no fill (or very subtle semi-transparent fill). 68x36 pixels.`
+};
+
+/**
+ * Build prompt for UI element generation
+ */
+function buildUIPrompt(uiType, customDetails = '') {
+    const uiName = uiType.replace(/_/g, ' ').toUpperCase();
+    const features = UI_FEATURES[uiType];
+
+    if (!features) {
+        throw new Error(`No features defined for UI type: ${uiType}. Provide customDetails.`);
+    }
+
+    return `Create a UI element: ${uiName}.
+
+FORMAT REQUIREMENTS:
+- Background: TRANSPARENT (PNG-ready)
+- ${features}
+
+PURPOSE:
+${uiType.startsWith('minimap_') ? 'Shows player/enemy positions on the minimap. Must be highly visible at tiny size.' : 'Highlights currently selected/hovered tile on the game map.'}
+
+STYLE:
+- Clean, simple, easily distinguishable
+- Bright enough to be visible over any terrain or building
+- Smooth anti-aliased edges
+
+${STYLE_REFERENCE_ANCHOR}
+
+${customDetails ? `ADDITIONAL NOTES:\n${customDetails}` : ''}`;
+}
+
+// ============================================================================
+// OWNERSHIP OVERLAYS
+// ============================================================================
+
+/**
+ * Build prompt for ownership overlay generation
+ */
+function buildOverlayPrompt(overlayType, customDetails = '') {
+    const isPlayerOwned = overlayType === 'owned_self';
+    const color = isPlayerOwned ? 'GREEN (#22c55e)' : 'RED (#ef4444)';
+    const meaning = isPlayerOwned ? 'player-owned' : 'enemy-owned';
+
+    return `Create an ownership overlay: ${overlayType.toUpperCase().replace(/_/g, ' ')}.
+
+FORMAT REQUIREMENTS:
+- Diamond/rhombus shape matching tile footprint
+- Size: 64x32 pixels (same as terrain tile)
+- Background: TRANSPARENT (PNG-ready)
+- Opacity: 30-40% semi-transparent
+
+THE OVERLAY:
+- Solid ${color} color fill of the diamond shape
+- Semi-transparent to show terrain/building underneath
+- Indicates this tile is ${meaning}
+
+STYLE:
+- Clean geometric diamond shape
+- Consistent with isometric tile grid
+- Simple color overlay, no gradients or effects needed
+
+${customDetails ? `ADDITIONAL NOTES:\n${customDetails}` : ''}`;
+}
+
+// ============================================================================
+// MASTER PROMPT BUILDER - Routes to correct category builder
+// ============================================================================
+
+/**
+ * Build the appropriate prompt based on asset category
+ * @param {string} category - Asset category (building_ref, terrain, effect, etc.)
+ * @param {string} assetKey - Specific asset identifier
+ * @param {string} customDetails - Additional prompt details
+ * @returns {string} Complete prompt for Gemini
+ */
+function buildAssetPrompt(category, assetKey, customDetails = '') {
+    switch (category) {
+        // === REFERENCE SHEETS (generate first, approve, then make sprites) ===
+        case 'building_ref':
+            return buildBuildingRefPrompt(assetKey, customDetails);
+
+        case 'character_ref':
+            return buildCharacterRefPrompt(assetKey, customDetails);
+
+        case 'vehicle_ref':
+            return buildVehicleRefPrompt(assetKey, customDetails);
+
+        case 'effect_ref':
+            return buildEffectRefPrompt(assetKey, customDetails);
+
+        // === SPRITES (generated from approved reference sheets) ===
+        case 'building_sprite':
+            return buildBuildingSpritePrompt(assetKey, customDetails);
+
+        case 'terrain':
+            return buildTerrainPrompt(assetKey, customDetails);
+
+        case 'effect':
+            return buildEffectPrompt(assetKey, customDetails);
+
+        case 'scene':
+            return buildScenePrompt(assetKey, customDetails);
+
+        case 'npc':
+            return buildNPCPrompt(assetKey, customDetails);
+
+        case 'avatar':
+            return buildAvatarPrompt(assetKey, customDetails);
+
+        case 'ui':
+            return buildUIPrompt(assetKey, customDetails);
+
+        case 'overlay':
+            return buildOverlayPrompt(assetKey, customDetails);
+
+        default:
+            // For unknown categories, require a custom prompt
+            if (!customDetails) {
+                throw new Error(`Unknown category "${category}". Provide a custom prompt.`);
+            }
+            // Wrap custom prompt with style guide
+            return `${customDetails}
+
+${STYLE_GUIDE}
+
+${STYLE_REFERENCE_ANCHOR}`;
+    }
+}
+
 // Gemini API helper - Uses Nano Banana Pro (gemini-3-pro-image-preview)
-async function generateWithGemini(env, prompt) {
+// referenceImage: optional { buffer: Uint8Array, mimeType: string } for image-to-image generation
+async function generateWithGemini(env, prompt, referenceImage = null) {
     try {
+        // Build the parts array - text prompt first, then optional reference image
+        const parts = [{ text: prompt }];
+
+        // If a reference image is provided, include it for Gemini to use as context
+        if (referenceImage) {
+            // Convert buffer to base64 (chunked to avoid stack overflow on large images)
+            let base64Data = '';
+            const bytes = referenceImage.buffer;
+            const chunkSize = 8192;
+            for (let i = 0; i < bytes.length; i += chunkSize) {
+                const chunk = bytes.slice(i, i + chunkSize);
+                base64Data += String.fromCharCode.apply(null, chunk);
+            }
+            base64Data = btoa(base64Data);
+
+            parts.push({
+                inlineData: {
+                    mimeType: referenceImage.mimeType || 'image/png',
+                    data: base64Data
+                }
+            });
+        }
+
         const response = await fetch(
             `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image-preview:generateContent?key=${env.GEMINI_API_KEY}`,
             {
@@ -38,11 +1294,10 @@ async function generateWithGemini(env, prompt) {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     contents: [{
-                        parts: [{ text: prompt }]
+                        parts: parts
                     }],
                     generationConfig: {
-                        responseModalities: ['IMAGE', 'TEXT'],
-                        responseMimeType: 'image/png'
+                        responseModalities: ['IMAGE', 'TEXT']
                     }
                 })
             }
@@ -67,6 +1322,36 @@ async function generateWithGemini(env, prompt) {
     } catch (error) {
         return { success: false, error: error.message };
     }
+}
+
+// Map sprite categories to their corresponding reference sheet categories
+const SPRITE_TO_REF_CATEGORY = {
+    'building_sprite': 'building_ref',
+    'npc': 'character_ref',      // pedestrians use character_ref
+    'effect': 'effect_ref',
+    'avatar': 'character_ref'    // avatars use character_ref (avatar_base)
+};
+
+// Get the reference sheet asset_key for a sprite
+// For most, it's the same key. For NPCs/avatars, we need to map to the correct ref
+function getRefAssetKey(category, assetKey) {
+    if (category === 'npc') {
+        // Pedestrians map to their character ref
+        if (assetKey.startsWith('pedestrian_')) {
+            return assetKey.includes('business') || assetKey.includes('suit')
+                ? 'pedestrian_business'
+                : 'pedestrian_casual';
+        }
+        // Vehicles map to their vehicle ref
+        if (assetKey.startsWith('car_')) {
+            return assetKey; // car_sedan, car_sports, etc.
+        }
+    }
+    if (category === 'avatar') {
+        return 'avatar_base'; // All avatar items use the avatar_base character ref
+    }
+    // For building_sprite and effect, the asset_key is the same
+    return assetKey;
 }
 
 // Route handler for asset management
@@ -113,16 +1398,86 @@ export async function handleAssetRoutes(request, env, path, method, user) {
 
         // POST /api/admin/assets/generate - Generate a new asset
         if (action === 'generate' && method === 'POST') {
-            const { category, asset_key, prompt, variant = 1 } = await request.json();
+            const { category, asset_key, prompt, variant = 1, custom_details } = await request.json();
+
+            // Build the full prompt based on category using the master prompt builder
+            let fullPrompt = prompt;
+
+            // If no custom prompt provided, auto-build from category templates
+            if (!prompt) {
+                try {
+                    fullPrompt = buildAssetPrompt(category, asset_key, custom_details || '');
+                } catch (err) {
+                    return Response.json({
+                        error: err.message,
+                        hint: `Provide a known asset_key for category "${category}" or include a custom prompt`,
+                        supported_categories: {
+                            reference_sheets: ['building_ref', 'character_ref', 'vehicle_ref', 'effect_ref'],
+                            sprites: ['building_sprite', 'terrain', 'effect', 'scene', 'npc', 'avatar', 'ui', 'overlay']
+                        }
+                    }, { status: 400 });
+                }
+            } else {
+                // If custom prompt provided, wrap it with style guide for consistency
+                try {
+                    fullPrompt = buildAssetPrompt(category, asset_key, prompt);
+                } catch {
+                    // If category doesn't have a builder, use prompt with style guide wrapper
+                    fullPrompt = `${prompt}\n\n${STYLE_GUIDE}\n\n${STYLE_REFERENCE_ANCHOR}`;
+                }
+            }
+
+            if (!fullPrompt) {
+                return Response.json({ error: 'Could not build prompt. Provide asset_key or custom prompt.' }, { status: 400 });
+            }
+
+            // For sprite categories, fetch the approved reference sheet image
+            let referenceImage = null;
+            let parentAssetId = null;
+            const refCategory = SPRITE_TO_REF_CATEGORY[category];
+
+            if (refCategory) {
+                // This is a sprite category that needs a reference sheet
+                const refAssetKey = getRefAssetKey(category, asset_key);
+
+                // Look for an approved reference sheet
+                const refAsset = await env.DB.prepare(`
+                    SELECT id, r2_key_private FROM generated_assets
+                    WHERE category = ? AND asset_key = ? AND status = 'approved'
+                    ORDER BY variant DESC
+                    LIMIT 1
+                `).bind(refCategory, refAssetKey).first();
+
+                if (refAsset && refAsset.r2_key_private) {
+                    // Fetch the reference image from R2
+                    const refObject = await env.R2_PRIVATE.get(refAsset.r2_key_private);
+                    if (refObject) {
+                        const buffer = await refObject.arrayBuffer();
+                        referenceImage = {
+                            buffer: new Uint8Array(buffer),
+                            mimeType: 'image/png'
+                        };
+                        parentAssetId = refAsset.id;
+
+                        // Prepend instruction to use the reference image
+                        fullPrompt = `REFERENCE IMAGE ATTACHED: Use the attached reference sheet image as your style guide. The sprite you generate MUST match the exact design, colors, and details shown in this reference sheet. Extract and render only the 45-degree isometric view as a standalone sprite.\n\n${fullPrompt}`;
+                    }
+                }
+
+                // Warn if no approved ref exists (but don't block - allow generation anyway)
+                if (!referenceImage) {
+                    console.log(`Warning: No approved reference sheet found for ${refCategory}/${refAssetKey}. Generating sprite from text prompt only.`);
+                }
+            }
 
             // Create asset record
             const result = await env.DB.prepare(`
-                INSERT INTO generated_assets (category, asset_key, variant, base_prompt, current_prompt, status, generation_model)
-                VALUES (?, ?, ?, ?, ?, 'pending', 'gemini-3-pro-image-preview')
+                INSERT INTO generated_assets (category, asset_key, variant, base_prompt, current_prompt, status, generation_model, parent_asset_id)
+                VALUES (?, ?, ?, ?, ?, 'pending', 'gemini-3-pro-image-preview', ?)
                 ON CONFLICT(category, asset_key, variant)
-                DO UPDATE SET base_prompt = excluded.base_prompt, current_prompt = excluded.current_prompt, status = 'pending', updated_at = CURRENT_TIMESTAMP
+                DO UPDATE SET base_prompt = excluded.base_prompt, current_prompt = excluded.current_prompt, status = 'pending', parent_asset_id = excluded.parent_asset_id, updated_at = CURRENT_TIMESTAMP
                 RETURNING id
-            `).bind(category, asset_key, variant, prompt, prompt).first();
+            `).bind(category, asset_key, variant, fullPrompt, fullPrompt, parentAssetId).first();
 
             // Add to queue
             await env.DB.prepare(`
@@ -130,8 +1485,8 @@ export async function handleAssetRoutes(request, env, path, method, user) {
                 VALUES (?, 5)
             `).bind(result.id).run();
 
-            // Trigger generation (could be async/queued)
-            const generated = await generateWithGemini(env, prompt);
+            // Trigger generation with optional reference image
+            const generated = await generateWithGemini(env, fullPrompt, referenceImage);
 
             if (generated.success) {
                 // Determine storage path based on category
@@ -167,14 +1522,18 @@ export async function handleAssetRoutes(request, env, path, method, user) {
                     WHERE asset_id = ?
                 `).bind(result.id).run();
 
-                await logAudit(env, 'generate', result.id, user?.username, { category, asset_key, variant });
+                await logAudit(env, 'generate', result.id, user?.username, { category, asset_key, variant, used_reference: !!referenceImage });
 
                 return Response.json({
                     success: true,
                     asset_id: result.id,
                     r2_key: r2Key,
                     bucket: 'private',
-                    note: 'Original stored in private bucket. Use POST /process/:id to create game-ready WebP in public bucket.'
+                    parent_asset_id: parentAssetId,
+                    used_reference_image: !!referenceImage,
+                    note: referenceImage
+                        ? 'Generated using approved reference sheet. Original stored in private bucket.'
+                        : 'Original stored in private bucket. Use POST /process/:id to create game-ready WebP in public bucket.'
                 });
             } else {
                 await env.DB.prepare(`
@@ -205,13 +1564,10 @@ export async function handleAssetRoutes(request, env, path, method, user) {
                 return Response.json({ error: 'Original image not found in R2' }, { status: 404 });
             }
 
-            // Convert to base64 for Removal.ai API
+            // Call Removal.ai API with image file
             const arrayBuffer = await originalObj.arrayBuffer();
-            const base64Image = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
-
-            // Call Removal.ai API with base64 image
             const formData = new FormData();
-            formData.append('image_base64', base64Image);
+            formData.append('image_file', new Blob([arrayBuffer], { type: 'image/png' }), 'image.png');
 
             const removalResponse = await fetch('https://api.removal.ai/3.0/remove', {
                 method: 'POST',

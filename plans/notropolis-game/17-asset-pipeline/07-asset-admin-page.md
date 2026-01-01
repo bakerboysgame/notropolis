@@ -145,7 +145,12 @@ Build a comprehensive admin interface for the **staged asset generation workflow
 ### API Client: `src/services/assetApi.ts`
 
 ```typescript
+import { apiHelpers } from './api'; // Import existing auth helper
+
 const API_BASE = '/api/admin/assets';
+
+// Helper to get auth token from existing auth system
+const getToken = () => apiHelpers.getToken();
 
 export interface Asset {
     id: number;
@@ -336,11 +341,23 @@ import GenerateModal from '../components/assets/GenerateModal';
 import QueueStatus from '../components/assets/QueueStatus';
 
 const CATEGORIES = [
-    { id: 'building_ref', name: 'Building Refs', icon: '🏢' },
-    { id: 'building_sprite', name: 'Building Sprites', icon: '🎮' },
-    { id: 'dirty_trick_ref', name: 'Effect Refs', icon: '💥' },
-    { id: 'dirty_trick_sprite', name: 'Effect Sprites', icon: '✨' },
-    { id: 'scene', name: 'Scenes', icon: '🖼️' }
+    // Reference sheets (generate first, approve, then make sprites)
+    { id: 'building_ref', name: 'Building Refs', icon: '🏢', isRef: true },
+    { id: 'character_ref', name: 'Character Refs', icon: '🧑', isRef: true },
+    { id: 'vehicle_ref', name: 'Vehicle Refs', icon: '🚗', isRef: true },
+    { id: 'effect_ref', name: 'Effect Refs', icon: '💥', isRef: true },
+
+    // Sprites (generated from approved refs)
+    { id: 'building_sprite', name: 'Building Sprites', icon: '🏠', parentRef: 'building_ref' },
+    { id: 'npc', name: 'NPC Sprites', icon: '🚶', parentRef: 'character_ref' },
+    { id: 'effect', name: 'Effect Overlays', icon: '✨', parentRef: 'effect_ref' },
+    { id: 'avatar', name: 'Avatar Layers', icon: '👤', parentRef: 'character_ref' },
+
+    // Standalone (no ref needed)
+    { id: 'terrain', name: 'Terrain Tiles', icon: '🌿' },
+    { id: 'scene', name: 'Scenes', icon: '🖼️' },
+    { id: 'ui', name: 'UI Elements', icon: '🎯' },
+    { id: 'overlay', name: 'Overlays', icon: '🔲' },
 ];
 
 export default function AssetAdminPage() {
@@ -428,7 +445,8 @@ export default function AssetAdminPage() {
                 >
                     <option value="all">All Status</option>
                     <option value="pending">Pending</option>
-                    <option value="completed">Completed</option>
+                    <option value="generating">Generating</option>
+                    <option value="review">Ready for Review</option>
                     <option value="approved">Approved</option>
                     <option value="rejected">Rejected</option>
                 </select>
@@ -551,7 +569,7 @@ interface Props {
 const STATUS_ICONS: Record<string, string> = {
     pending: '⏳',
     generating: '🔄',
-    completed: '✅',
+    review: '👁',
     approved: '✓',
     rejected: '❌'
 };
@@ -559,7 +577,7 @@ const STATUS_ICONS: Record<string, string> = {
 const STATUS_COLORS: Record<string, string> = {
     pending: 'bg-yellow-100 text-yellow-800',
     generating: 'bg-blue-100 text-blue-800',
-    completed: 'bg-green-100 text-green-800',
+    review: 'bg-purple-100 text-purple-800',
     approved: 'bg-green-200 text-green-900',
     rejected: 'bg-red-100 text-red-800'
 };
@@ -898,21 +916,29 @@ export default function AssetPreviewModal({
 Add to `src/components/Sidebar.tsx`:
 
 ```tsx
-// In admin menu items
-{
-    name: 'Assets',
-    href: '/admin/assets',
-    icon: ImageIcon, // or appropriate icon
-}
+// 1. Add to imports at top of file:
+import { Image } from 'lucide-react'
+
+// 2. In the master_admin section (around line 183), add:
+items.push({ name: 'Assets', href: '/admin/assets', icon: Image, pageKey: 'admin_assets', requiresMasterAdmin: true })
 ```
 
 Add to `src/App.tsx`:
 
 ```tsx
+// 1. Add import at top:
 import AssetAdminPage from './pages/AssetAdminPage';
 
-// In routes
-<Route path="/admin/assets" element={<AssetAdminPage />} />
+// 2. Add route after other admin routes (after /admin/moderation, around line 313):
+<Route path="/admin/assets" element={
+  <ProtectedRoute>
+    <ProtectedPageRoute pageKey="admin_assets">
+      <Layout>
+        <AssetAdminPage />
+      </Layout>
+    </ProtectedPageRoute>
+  </ProtectedRoute>
+} />
 ```
 
 ---

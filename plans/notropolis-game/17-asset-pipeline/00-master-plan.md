@@ -2,61 +2,133 @@
 
 ## Feature Overview
 
-Automated asset generation pipeline using Google Gemini API to create all game visual assets with a staged review workflow. Assets include building reference sheets, building sprites, dirty trick effects, and scene illustrations.
+Automated asset generation pipeline using Google Gemini API to create all game visual assets with a staged review workflow. Every main asset category has a **reference sheet** that establishes the style before game sprites are generated.
 
 **Why:** Manual asset creation is time-consuming and inconsistent. An automated pipeline with review checkpoints ensures consistent 90s CGI aesthetic while allowing human oversight at each stage.
 
 **What:**
-- API-driven image generation via Gemini
-- Automatic background removal for sprites
+- API-driven image generation via Gemini (Nano Banana Pro)
+- Automatic background removal for sprites (Removal.ai)
+- Reference sheet → sprite workflow for style consistency
 - Admin interface for reviewing, approving, and regenerating assets
-- Staged workflow: Reference Sheets → Sprites → Effects → Scenes
 
 ---
 
-## Success Criteria
+## Asset Inventory (Reference → Sprite Workflow)
 
-| Category | Count | Format |
-|----------|-------|--------|
-| Terrain tiles | 38 | PNG 64×32 (with variants) |
-| Building reference sheets | 13 | PNG |
-| Building sprites (transparent) | 13 | PNG |
-| Ownership overlays | 2 | PNG 64×32 |
-| Status effect overlays | 6 | PNG |
-| Dirty trick effect overlays | 6 | PNG (transparent) |
-| UI elements | 3 | PNG |
-| Scene templates (bg + fg) | 12 | PNG 1920×1080 (8 bg + 4 fg) |
-| Ambient NPC sprites | 8 | PNG (4 ped strips + 4 cars) |
-| Avatar assets | 34 | PNG 512×512 (transparent) |
-| **Total Assets** | **135** | |
+### Buildings (13 types)
+| Building | Ref Sheet | Sprite | Size Class |
+|----------|-----------|--------|------------|
+| market_stall | `building_ref` | `building_sprite` | 128×128 (SHORT) |
+| hot_dog_stand | `building_ref` | `building_sprite` | 128×128 (SHORT) |
+| campsite | `building_ref` | `building_sprite` | 128×128 (SHORT) |
+| shop | `building_ref` | `building_sprite` | 192×192 (MEDIUM) |
+| burger_bar | `building_ref` | `building_sprite` | 192×192 (MEDIUM) |
+| motel | `building_ref` | `building_sprite` | 192×192 (MEDIUM) |
+| high_street_store | `building_ref` | `building_sprite` | 256×256 (TALL) |
+| restaurant | `building_ref` | `building_sprite` | 256×256 (TALL) |
+| manor | `building_ref` | `building_sprite` | 256×256 (TALL) |
+| police_station | `building_ref` | `building_sprite` | 256×256 (TALL) |
+| casino | `building_ref` | `building_sprite` | 320×320 (VERY_TALL) |
+| temple | `building_ref` | `building_sprite` | 320×320 (VERY_TALL) |
+| bank | `building_ref` | `building_sprite` | 320×320 (VERY_TALL) |
 
-**Avatar Asset Breakdown:**
-- 2 base bodies
-- 6 hair styles
-- 8 outfits
-- 6 headwear items
-- 6 accessories
-- 4 backgrounds
-- (Skin tones are CSS filters, not images)
+### Characters & NPCs
+| Character | Ref Sheet | Sprites Generated |
+|-----------|-----------|-------------------|
+| pedestrian_business | `character_ref` | `npc`: pedestrian_walk, pedestrian_suit |
+| pedestrian_casual | `character_ref` | `npc`: pedestrian_stand, pedestrian_casual |
+| avatar_base | `character_ref` | `avatar`: all 34 avatar layers |
 
-**Image Format:** PNG with transparency where needed. WebP could be used for non-transparent assets for smaller file size (future optimization).
+### Vehicles (4 types)
+| Vehicle | Ref Sheet | Sprite |
+|---------|-----------|--------|
+| car_sedan | `vehicle_ref` | `npc`: car_sedan (64×32) |
+| car_sports | `vehicle_ref` | `npc`: car_sports (64×32) |
+| car_van | `vehicle_ref` | `npc`: car_van (64×32) |
+| car_taxi | `vehicle_ref` | `npc`: car_taxi (64×32) |
 
-**Definition of Done:**
-- [ ] All 38 terrain tiles generated and approved (including road/water/dirt variants)
-- [ ] All 13 building reference sheets generated and approved
-- [ ] All 13 building sprites generated with transparent backgrounds
-- [ ] All 2 ownership overlays created
-- [ ] All 6 status effect overlays generated
-- [ ] All 6 dirty trick overlays generated with transparent backgrounds
-- [ ] All 3 UI elements created
-- [ ] All 8 scene template backgrounds generated
-- [ ] All 4 scene template foregrounds generated (arrest, prison, hero, dirty_trick)
-- [ ] All 8 ambient NPC sprites generated (4 pedestrian + 4 car)
-- [ ] All 34 avatar assets generated with transparent backgrounds
-- [ ] Admin page allows upload, regenerate, preview for all asset types
-- [ ] Avatar composite caching system working
-- [ ] Scene compositing with avatar slots working
-- [ ] Assets deployed to R2 and accessible in game
+### Effects (6 dirty tricks)
+| Effect | Ref Sheet | Sprite |
+|--------|-----------|--------|
+| fire | `effect_ref` | `effect`: fire (64×64) |
+| cluster_bomb | `effect_ref` | `effect`: cluster_bomb (64×64) |
+| vandalism | `effect_ref` | `effect`: vandalism (64×64) |
+| robbery | `effect_ref` | `effect`: robbery (64×64) |
+| poisoning | `effect_ref` | `effect`: poisoning (64×64) |
+| blackout | `effect_ref` | `effect`: blackout (64×64) |
+
+### Damage & Status Overlays (no ref needed - simple)
+| Overlay | Category | Size |
+|---------|----------|------|
+| damage_25 | `effect` | 64×64 |
+| damage_50 | `effect` | 64×64 |
+| damage_75 | `effect` | 64×64 |
+| for_sale | `effect` | 24×24 |
+| security | `effect` | 24×24 |
+| owned_self | `overlay` | 64×32 |
+| owned_other | `overlay` | 64×32 |
+
+### Terrain Tiles (38 total - no ref needed)
+| Type | Variants | Category |
+|------|----------|----------|
+| grass | 1 | `terrain` |
+| trees | 1 | `terrain` |
+| mountain | 1 | `terrain` |
+| sand | 1 | `terrain` |
+| water | 1 + edge variants | `terrain` |
+| road_* | 15 connection variants | `terrain` |
+| dirt_* | 15 connection variants | `terrain` |
+
+### Scene Illustrations (12 total - no ref needed)
+| Scene | Type | Size |
+|-------|------|------|
+| arrest_bg | Background | 1920×1080 |
+| court_bg | Background | 1920×1080 |
+| prison_bg | Background | 1920×1080 |
+| hero_bg | Background | 1920×1080 |
+| bank_interior_bg | Background | 1920×1080 |
+| temple_interior_bg | Background | 1920×1080 |
+| offshore_bg | Background | 1920×1080 |
+| dirty_trick_bg | Background | 1920×1080 |
+| arrest_fg | Foreground (transparent) | 1920×1080 |
+| prison_fg | Foreground (transparent) | 1920×1080 |
+| hero_fg | Foreground (transparent) | 1920×1080 |
+| dirty_trick_fg | Foreground (transparent) | 1920×1080 |
+
+### UI Elements (3 total - no ref needed)
+| Element | Category | Size |
+|---------|----------|------|
+| minimap_player | `ui` | 8×8 |
+| minimap_enemy | `ui` | 8×8 |
+| cursor_select | `ui` | 68×36 |
+
+### Avatar Assets (34 total - use character_ref)
+| Category | Items | Size |
+|----------|-------|------|
+| base bodies | base_standard, base_athletic | 512×512 |
+| hair styles | short, long, mohawk, bald, slicked, curly | 512×512 |
+| outfits | suit, casual, flashy, street, gold_legendary, prison, tropical, formal | 512×512 |
+| headwear | tophat, cap, fedora, crown_legendary, hardhat, beanie | 512×512 |
+| accessories | sunglasses, watch, cigar, briefcase, chain, earring | 512×512 |
+| backgrounds | city, office, mansion, prison | 512×512 |
+
+---
+
+## Success Criteria Summary
+
+| Category | Ref Sheets | Sprites | Total |
+|----------|------------|---------|-------|
+| Buildings | 13 | 13 | 26 |
+| Characters | 3 | 8 (4 ped + 4 car) | 11 |
+| Vehicles | 4 | 4 | 8 |
+| Effects | 6 | 11 (6 dirty + 5 status) | 17 |
+| Terrain | - | 38 | 38 |
+| Scenes | - | 12 | 12 |
+| UI | - | 3 | 3 |
+| Overlays | - | 2 | 2 |
+| Avatars | (uses character_ref) | 34 | 34 |
+| **TOTAL** | **26** | **125** | **151** |
 
 ---
 
@@ -64,320 +136,254 @@ Automated asset generation pipeline using Google Gemini API to create all game v
 
 | Dependency | Status | Notes |
 |------------|--------|-------|
-| Google AI API Key | ✅ Added | Worker secret `GEMINI_API_KEY` (for Imagen 3) |
-| Removal.ai API Key | ✅ Added | Worker secret `REMOVAL_AI_API_KEY` (buildings only) |
-| R2 Bucket | Exists | `pub-874867b18f8b4b4882277d8a2b7dfe80.r2.dev` |
-| Worker environment | Exists | Cloudflare Worker with D1/R2 bindings |
-| Asset prompts | Ready | Defined in `16a-asset-requirements.md` |
-| Building types table | Exists | `building_types` table in D1 |
+| Google AI API Key | ✅ Added | Worker secret `GEMINI_API_KEY` |
+| Removal.ai API Key | ✅ Added | Worker secret `REMOVAL_AI_API_KEY` |
+| R2 Buckets | ✅ Exists | Private + Public buckets |
+| Worker environment | ✅ Exists | Cloudflare Worker with D1/R2 |
+| Asset prompts | ✅ Ready | All prompt builders in assets.js |
 
 ---
 
-## Risk Assessment
+## API Categories
 
-| Risk | Likelihood | Impact | Mitigation |
-|------|------------|--------|------------|
-| Gemini rate limits | Medium | Medium | Implement queue with delays, batch processing |
-| Inconsistent style output | High | Medium | Reference sheets as anchors, detailed prompts, regenerate option |
-| Background removal artifacts | Medium | Low | Manual touch-up option, quality threshold checks |
-| API costs exceed budget | Low | Medium | Track usage, set limits, use cheaper models where possible |
-| Generated images too small | Medium | Medium | Upscale post-processing if needed |
-| Gemini content filtering | Low | High | Adjust prompts if blocked, manual fallback |
-
----
-
-## Architecture
+All prompt builders are implemented in `worker/src/routes/admin/assets.js`:
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                      Admin Dashboard                         │
-│  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐           │
-│  │Buildings│ │ Dirty   │ │ Scenes  │ │ Queue   │           │
-│  │   Tab   │ │ Tricks  │ │   Tab   │ │ Status  │           │
-│  └────┬────┘ └────┬────┘ └────┬────┘ └────┬────┘           │
-└───────┼──────────┼──────────┼──────────┼───────────────────┘
-        │          │          │          │
-        ▼          ▼          ▼          ▼
-┌─────────────────────────────────────────────────────────────┐
-│                    Worker API Routes                         │
-│  POST /api/admin/assets/generate                            │
-│  POST /api/admin/assets/remove-background  (all sprites)    │
-│  GET  /api/admin/assets/queue                               │
-│  PUT  /api/admin/assets/:id/approve                         │
-└─────────────────────────────────────────────────────────────┘
-        │                              │
-        ▼                              ▼
-┌───────────────┐              ┌───────────────┐
-│ Nano Banana   │              │ Removal.ai    │
-│     Pro       │              │ (All Sprites) │
-└───────────────┘              └───────────────┘
-        │                              │
-        └──────────────┬───────────────┘
-                       ▼
-        ┌───────────────────────────────┐
-        │         R2 Storage            │
-        │  ┌─────────┐  ┌─────────────┐ │
-        │  │ PRIVATE │  │   PUBLIC    │ │
-        │  │ /refs/  │  │ /sprites/   │ │
-        │  │ /raw/   │  │ /scenes/    │ │
-        │  └─────────┘  └─────────────┘ │
-        └───────────────────────────────┘
+POST /api/admin/assets/generate
+{
+  "category": "<category>",
+  "asset_key": "<key>",
+  "custom_details": "<optional>"
+}
 ```
 
----
+### Reference Sheet Categories
+| Category | Asset Keys |
+|----------|------------|
+| `building_ref` | restaurant, bank, temple, casino, manor, police_station, high_street_store, shop, burger_bar, motel, market_stall, hot_dog_stand, campsite |
+| `character_ref` | pedestrian_business, pedestrian_casual, avatar_base |
+| `vehicle_ref` | car_sedan, car_sports, car_van, car_taxi |
+| `effect_ref` | fire, cluster_bomb, vandalism, robbery, poisoning, blackout |
 
-## Quality & Resolution Strategy
-
-### Image Generation Model: Nano Banana Pro (Gemini 3)
-
-Using **Nano Banana Pro** (`gemini-3-pro-image-preview`) via Google AI API - the latest and highest quality image generation model from Google.
-
-**Model:** `gemini-3-pro-image-preview`
-**API Method:** `generateContent` with `responseModalities: ["IMAGE", "TEXT"]`
-**Max resolution:** Up to 3840×2160 pixels (4K)
-
-Strategy:
-- **Reference sheets**: Generate at **3840×2160 (4K)** for maximum detail/quality
-- **Game sprites**: Generate at **exact target size** (no downscaling needed)
-- **Scene illustrations**: Generate at 1920×1080 (16:9)
-
-### Image Format: WebP
-
-All game-ready assets use **WebP** format:
-- 25-35% smaller than PNG
-- Supports transparency (lossless WebP with alpha)
-- All modern browsers support it
-- Originals kept as PNG for editing compatibility
-
-### Two-Bucket Architecture
-
-```
-PRIVATE BUCKET: notropolis-assets-private (not public)
-├── refs/                         # Reference sheets (3840×2160 PNG, 4K)
-│   └── building_restaurant_ref_v1.png
-└── raw/                          # Pre-background-removal sprites (PNG)
-    └── building_restaurant_raw_v1.png
-
-PUBLIC BUCKET: notropolis-game-assets (game loads from here)
-├── sprites/
-│   ├── buildings/                # WebP, transparent, exact size (128-320px)
-│   ├── terrain/                  # WebP, 64×32
-│   ├── effects/                  # WebP, 64×64
-│   ├── overlays/                 # WebP, 64×32
-│   ├── ui/                       # WebP, 8-68px
-│   └── npc/                      # WebP, 32-64px
-└── scenes/                       # WebP, 1280×720
-```
-
-### Generation Strategy: Target Size
-
-Generate sprites at **exact target dimensions** for optimal quality and file size:
-
-| Asset Type | Generate At | Format | Notes |
-|------------|-------------|--------|-------|
-| Reference Sheets | 3840×2160 (4K) | PNG | High-res masters, private bucket |
-| Building Sprites | 128-320px | WebP | Exact size per building class |
-| Terrain Tiles | 64×32 | WebP | Diamond isometric |
-| Effects | 64×64 | WebP | Overlay size |
-| Scene Illustrations | 1920×1080 → 1280×720 | WebP | Generate large, optimize down |
-| UI Elements | Exact size (8-68px) | WebP | Per element |
-| NPC Sprites | 64×32 / 32×32 | WebP | Sprite strips |
-
-### Processing Pipeline
-
-```
-1. REFERENCE SHEETS (Private) - NO background removal
-   └─→ Generate at 3840×2160 PNG (4K resolution)
-   └─→ Store in private bucket /refs/
-   └─→ Keep original backgrounds for reference/promo use
-
-2. BUILDING SPRITES (Public) - WITH background removal
-   └─→ Generate at EXACT target size (128-320px)
-   └─→ Background removal via Removal.ai
-   └─→ Convert PNG → WebP (lossless with alpha)
-   └─→ Store in public bucket /sprites/buildings/
-
-3. OTHER GAME SPRITES (Public) - WITH background removal
-   └─→ Effects, overlays, UI, NPCs
-   └─→ Generate at EXACT target size
-   └─→ Background removal via Removal.ai
-   └─→ Convert PNG → WebP (lossless with alpha)
-   └─→ Store in public bucket /sprites/{category}/
-
-4. TERRAIN TILES (Public) - WITH background removal
-   └─→ Generate at 64×32 (38 variants for auto-tiling)
-   └─→ Background removal via Removal.ai
-   └─→ Seamless tiling (roads connect, water edges align)
-   └─→ Convert PNG → WebP (lossless with alpha)
-   └─→ Store in public bucket /sprites/terrain/
-
-5. SCENE ILLUSTRATIONS (Public) - NO transparency needed
-   └─→ Generate at 1920×1080
-   └─→ Resize to 1280×720
-   └─→ Convert to WebP (lossy, ~85% quality)
-   └─→ Store in public bucket /scenes/
-```
-
-**Background Removal:** All game sprites need Removal.ai processing except scene illustrations (which have full backgrounds). Terrain tiles also need removal for clean edges on variants with overlapping elements (trees, water edges).
-
-### Why This Architecture?
-
-1. **Lightweight** - No unnecessary resolution, WebP compression
-2. **Secure** - High-res originals not publicly accessible
-3. **Efficient** - Generate at target size, no processing waste
-4. **Future-proof** - Originals preserved for re-generation if needed
+### Sprite Categories (generated from refs)
+| Category | Asset Keys |
+|----------|------------|
+| `building_sprite` | (same as building_ref) |
+| `npc` | pedestrian_walk, pedestrian_stand, pedestrian_suit, pedestrian_casual, car_sedan, car_sports, car_van, car_taxi |
+| `effect` | fire, cluster_bomb, vandalism, robbery, poisoning, blackout, damage_25, damage_50, damage_75, for_sale, security |
+| `avatar` | base_standard, base_athletic, hair_short, hair_long, ... (34 total) |
+| `terrain` | grass, trees, mountain, sand, water, road_*, dirt_* |
+| `scene` | arrest_bg, court_bg, prison_bg, hero_bg, bank_interior_bg, temple_interior_bg, offshore_bg, dirty_trick_bg, arrest_fg, prison_fg, hero_fg, dirty_trick_fg |
+| `ui` | minimap_player, minimap_enemy, cursor_select |
+| `overlay` | owned_self, owned_other |
 
 ---
 
 ## Stage Index
 
-| Stage | Name | Description | Complexity |
-|-------|------|-------------|------------|
-| ✅ 01 | Infrastructure | Database schema, API routes, secrets setup | Medium |
-| 02 | Building Reference Sheets | Generate 13 building multi-view references | Medium |
-| 03 | Building Sprites | Generate sprites from refs, remove backgrounds | Medium |
-| 04 | Effect Assets | 6 dirty trick effects + 6 status effect overlays | Medium |
-| 05 | Scene Templates | Generate layered scene backgrounds + foregrounds | Medium |
-| 06 | Terrain, UI & NPC Assets | 38 terrain, 2 overlays, 3 UI, 8 NPC sprites | Medium |
-| 07 | Asset Admin Page | Full management UI with preview and regenerate | High |
-| 08 | Avatar Assets | Generate 34 avatar components (body, outfits, etc.) | High |
+**Workflow:** All API infrastructure is complete. Stage 07 builds the Admin UI for asset generation.
+
+| Stage | Name | Status | Description |
+|-------|------|--------|-------------|
+| 01 | Infrastructure | ✅ Done | Database schema, API routes, secrets |
+| 02 | Building Refs & Sprites | ✅ Done | Prompt builders for 13 buildings |
+| 03 | Character & Vehicle Refs | ✅ Done | Prompt builders for NPCs |
+| 04 | Effect Refs & Sprites | ✅ Done | Prompt builders for dirty tricks |
+| 05 | Scene Templates | ✅ Done | Prompt builders for 12 scenes |
+| 06 | Terrain, UI & Overlays | ✅ Done | Prompt builders for remaining assets |
+| 07 | Asset Admin Page | **TODO** | Full management UI |
+| 08 | Avatar Assets | ✅ Done | Prompt builders for 34 avatar items |
 
 ---
 
-## Workflow
+## Admin Page Requirements (Stage 07)
+
+### UI Wireframe
 
 ```
-Stage 1: Infrastructure
-    │
-    ▼
-Stage 2: Building Reference Sheets ──────┐
-    │                                     │
-    ├── Generate 13 refs                  │ Manual
-    ├── Upload to R2/refs/                │ Review
-    └── Admin review ◄────────────────────┘ Checkpoint
-    │
-    ▼
-Stage 3: Building Sprites ───────────────┐
-    │                                     │
-    ├── Generate from refs                │ Manual
-    ├── Remove backgrounds                │ Review
-    ├── Upload to R2/sprites/             │ Checkpoint
-    └── Admin review ◄────────────────────┘
-    │
-    ▼
-Stage 4: Dirty Trick Assets ─────────────┐
-    │                                     │
-    ├── Generate effect refs              │ Manual
-    ├── Generate overlay sprites          │ Review
-    └── Admin review ◄────────────────────┘ Checkpoint
-    │
-    ▼
-Stage 5: Scene Templates ────────────────┐
-    │                                     │
-    ├── Generate 8 backgrounds            │ Manual
-    ├── Generate 4 foregrounds            │ Review
-    ├── Configure avatar slots            │ Checkpoint
-    └── Admin review ◄────────────────────┘
-    │
-    ▼
-Stage 6: Terrain, UI & NPC Assets
-    │
-    ▼
-Stage 7: Asset Admin Page
-    │
-    ├── Full CRUD UI
-    ├── Preview on map tile
-    ├── Scene compositing preview
-    ├── Regenerate buttons
-    └── Batch operations
-    │
-    ▼
-Stage 8: Avatar Assets ──────────────────┐
-    │                                     │
-    ├── Generate 2 base bodies            │ Manual
-    ├── Generate 6 hair styles            │ Review
-    ├── Generate 8 outfits                │ Checkpoint
-    ├── Generate 6 headwear               │
-    ├── Generate 6 accessories            │
-    ├── Generate 4 backgrounds            │
-    ├── Remove backgrounds                │
-    └── Admin review ◄────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│  Asset Admin                                                 │
+├─────────────────────────────────────────────────────────────┤
+│  [Buildings] [Characters] [Vehicles] [Effects] [Scenes] ... │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│  BUILDINGS (13)                     [Generate All Refs]      │
+│  ┌──────────────────────────────────────────────────────┐   │
+│  │ Restaurant                                            │   │
+│  │ ┌─────────────┐  ┌─────────────┐                     │   │
+│  │ │ REF SHEET   │  │ SPRITE      │                     │   │
+│  │ │ [preview]   │  │ [preview]   │                     │   │
+│  │ │ ✅ Approved │  │ ⏳ Pending  │                     │   │
+│  │ │ [Regenerate]│  │ [Generate]  │ [Remove BG]         │   │
+│  │ └─────────────┘  └─────────────┘                     │   │
+│  └──────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Database Schema
+
+**Tables in D1:** (see `migrations/0023_create_asset_tables.sql`)
+
+```sql
+-- Categories with background removal flag
+asset_categories (
+    id TEXT PRIMARY KEY,               -- 'building_ref', 'building_sprite', etc.
+    requires_background_removal BOOL   -- TRUE for sprites, FALSE for refs/scenes
+)
+
+-- Main asset registry
+generated_assets (
+    id INTEGER PRIMARY KEY,
+    category TEXT,                     -- FK to asset_categories
+    asset_key TEXT,                    -- 'restaurant', 'fire', etc.
+    variant INTEGER DEFAULT 1,
+    status TEXT,                       -- 'pending'|'generating'|'review'|'approved'|'rejected'
+    r2_key_private TEXT,               -- Private bucket key
+    r2_key_public TEXT,                -- Public bucket key (after processing)
+    r2_url TEXT,                       -- Public URL for game loading
+    background_removed BOOLEAN,
+    parent_asset_id INTEGER            -- Links sprite to its ref sheet
+)
+```
+
+### R2 Bucket Structure
+
+```
+PRIVATE: notropolis-assets-private (env.R2_PRIVATE)
+├── refs/                              # Reference sheets
+│   └── {asset_key}_ref_v{variant}.png
+└── raw/                               # Unprocessed sprites (before bg removal)
+    └── {category}_{asset_key}_raw_v{variant}.png
+
+PUBLIC: notropolis-game-assets (env.R2_PUBLIC)
+├── sprites/
+│   ├── buildings/{asset_key}_v{variant}.webp
+│   ├── terrain/{asset_key}_v{variant}.webp
+│   ├── effects/{asset_key}_v{variant}.webp
+│   ├── npc/{asset_key}_v{variant}.webp
+│   └── ui/{asset_key}_v{variant}.webp
+├── scenes/{asset_key}_v{variant}.webp
+└── avatars/{asset_key}_v{variant}.webp
+```
+
+**Public bucket URL:** `https://pub-874867b18f8b4b4882277d8a2b7dfe80.r2.dev/`
+
+### Background Removal Requirements
+
+| Category | Needs BG Removal | Notes |
+|----------|------------------|-------|
+| `building_ref` | ❌ No | Keep backgrounds for reference |
+| `character_ref` | ❌ No | Keep backgrounds for reference |
+| `vehicle_ref` | ❌ No | Keep backgrounds for reference |
+| `effect_ref` | ❌ No | Keep backgrounds for reference |
+| `building_sprite` | ✅ Yes | Transparent for game |
+| `npc` | ✅ Yes | Transparent pedestrians/cars |
+| `effect` | ✅ Yes | Transparent overlays |
+| `terrain` | ✅ Yes | Transparent edges |
+| `ui` | ✅ Yes | Transparent icons |
+| `avatar` | ✅ Yes | Transparent layers for compositing |
+| `overlay` | ❌ No | Semi-transparent by design |
+| `scene` | ❌ No | Full backgrounds |
+
+### API Endpoints
+
+```
+POST /api/admin/assets/generate
+  Body: { category, asset_key, variant?, custom_details? }
+  Returns: { asset, message }
+
+POST /api/admin/assets/remove-background/{id}
+  Calls Removal.ai, stores result in R2_PRIVATE
+  Returns: { success, r2Key }
+
+PUT /api/admin/assets/{id}/approve
+  Sets status='approved', approved_at, approved_by
+
+PUT /api/admin/assets/{id}/reject
+  Body: { reason }
+  Sets status='rejected', creates rejection record
+
+POST /api/admin/assets/{id}/publish
+  Moves from R2_PRIVATE to R2_PUBLIC, converts to WebP
+  Returns: { r2_url }
+
+GET /api/admin/assets/queue
+  Returns pending/generating assets
+
+GET /api/admin/assets?category={cat}&status={status}
+  List assets with filters
+```
+
+### Features Required
+
+1. **Tab navigation** - Buildings, Characters, Vehicles, Effects, Scenes, Terrain, Avatars, UI
+2. **For each asset:**
+   - Preview thumbnail (from `r2_key_private` or `r2_url`)
+   - Status badge (pending/generating/review/approved/rejected)
+   - Generate button → `POST /generate`
+   - Regenerate with feedback textarea
+   - Approve/Reject buttons
+3. **Reference → Sprite flow:**
+   - Show ref first, sprite disabled until ref approved
+   - `parent_asset_id` links sprite to its ref
+4. **Background removal:**
+   - Button visible for categories where `requires_background_removal=TRUE`
+   - Calls `POST /remove-background/{id}`
+   - Shows `background_removed` status
+5. **Publish to game:**
+   - After approved + bg removed (if needed)
+   - Calls `POST /publish`, sets `r2_url`
+6. **Batch operations:**
+   - "Generate All Refs" per category
+   - "Generate All Sprites" (only for approved refs)
+
+---
+
+## Two-Bucket Architecture
+
+```
+PRIVATE BUCKET: notropolis-assets-private
+├── refs/                         # Reference sheets (high-res PNG)
+│   ├── building_restaurant_ref_v1.png
+│   ├── character_pedestrian_business_ref_v1.png
+│   ├── vehicle_car_sedan_ref_v1.png
+│   └── effect_fire_ref_v1.png
+└── raw/                          # Pre-background-removal sprites
+    └── building_restaurant_raw_v1.png
+
+PUBLIC BUCKET: notropolis-game-assets
+├── sprites/
+│   ├── buildings/                # Transparent WebP
+│   ├── terrain/                  # 64×32 WebP
+│   ├── effects/                  # 64×64 WebP
+│   ├── overlays/                 # 64×32 WebP
+│   ├── ui/                       # Various sizes WebP
+│   └── npc/                      # 32-64px WebP
+├── scenes/                       # 1280×720 WebP
+└── avatars/                      # 512×512 WebP
 ```
 
 ---
 
-## Out of Scope
+## Style Guide (Embedded in All Prompts)
 
-This plan does NOT cover:
+All prompts automatically include:
 
-- **Animated sprites** - Static images only (pedestrians have 2-frame walk cycle but no full animation)
-- **Sound effects** - Audio is separate system
-- **3D model generation** - 2D sprites only
-- **AI upscaling** - Gemini outputs at sufficient resolution; we downscale for game use
-- **Version control for assets** - Single approved version per asset (originals kept for reference)
+- **90s CGI aesthetic** with modern rendering quality
+- **Pixar's The Incredibles / Two Point Hospital** visual reference
+- **Top-left lighting at 45 degrees** (consistent across all assets)
+- **No external shadows** (for background removal compatibility)
+- **Chunky, slightly exaggerated proportions**
+- **Muted but vibrant colors**
+- **Clean, anti-aliased edges**
 
-**Note:** Avatar assets are NOW included in Stage 08, integrating with the avatar system defined in Stage 15.
-
----
-
-## API Keys (Production Secrets)
-
-Secrets are stored in Cloudflare Worker:
-
-| Secret | Purpose | Status |
-|--------|---------|--------|
-| `GEMINI_API_KEY` | Nano Banana Pro image generation via Google AI API | ✅ Added |
-| `REMOVAL_AI_API_KEY` | Background removal for all game sprites | ✅ Added |
-
-**API Documentation:**
-- Gemini Image Generation: https://ai.google.dev/gemini-api/docs/image-generation
-- Removal.ai: https://removal.ai/api-documentation/
-
----
-
-## Cost Estimate
-
-| Service | Usage | Est. Cost |
-|---------|-------|-----------|
-| Nano Banana Pro | ~120 images (refs + sprites + terrain + scenes × 2 variants) | ~$3-5 |
-| Removal.ai | ~79 images (all game sprites including terrain) | Paid credits available |
-| R2 Storage | ~50MB images | Free tier |
-| **Total** | | **~$2-3** |
-
-*Note: Costs assume 2 variants per asset for selection, some regenerations. Removal.ai needed for all game sprites (~79 assets including 38 terrain tiles).*
-
----
-
-## File Structure
-
-```
-authentication-dashboard-system/
-├── src/
-│   ├── pages/
-│   │   └── AssetAdminPage.tsx          # New admin page
-│   ├── components/
-│   │   └── assets/
-│   │       ├── AssetGrid.tsx           # Grid display
-│   │       ├── AssetPreview.tsx        # Preview modal
-│   │       ├── GenerationQueue.tsx     # Queue status
-│   │       └── BuildingPreview.tsx     # Isometric preview
-│   └── services/
-│       └── assetApi.ts                 # API client
-├── worker/
-│   └── src/
-│       └── routes/
-│           └── admin/
-│               └── assets.js           # Asset generation routes
-├── migrations/
-│   └── 0022_create_asset_tables.sql    # Asset management tables
-```
+Reference sheets establish the "source of truth" - all sprites must match their reference.
 
 ---
 
 ## References
 
-- [Ref: plans/notropolis-game/16a-asset-requirements.md] - All prompts and specifications
-- [Ref: plans/notropolis-game/15-avatar-system.md] - Avatar layer system (integration)
-- [Ref: plans/notropolis-game/16-visual-polish.md] - Visual requirements
-- [Ref: 17-asset-pipeline/08-avatar-assets.md] - Avatar asset generation specs
+- [Ref: plans/notropolis-game/16a-asset-requirements.md] - Original asset specifications
+- [Ref: plans/notropolis-game/15-avatar-system.md] - Avatar layer system
 - [Ref: 17-asset-pipeline/character sheet template.jpg] - Character style reference
+- [Ref: worker/src/routes/admin/assets.js] - All prompt builders
