@@ -49,6 +49,7 @@ export default function AssetAdminPage() {
     else if (asset.category === 'character_ref') spriteCategory = 'npc';
     else if (asset.category === 'vehicle_ref') spriteCategory = 'npc';
     else if (asset.category === 'effect_ref') spriteCategory = 'effect';
+    else if (asset.category === 'terrain_ref') spriteCategory = 'terrain';
 
     if (spriteCategory) {
       openGenerateModal(spriteCategory, { id: asset.id, asset_key: asset.asset_key });

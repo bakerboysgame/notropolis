@@ -34,7 +34,8 @@ const CATEGORY_LABELS: Record<AssetCategory, string> = {
   effect_ref: 'Effect Reference Sheet',
   effect: 'Effect Sprite',
   avatar: 'Avatar',
-  terrain: 'Terrain',
+  terrain_ref: 'Terrain Reference Sheet',  // Shows all variations in grid
+  terrain: 'Terrain Tile',  // Simple single tiles
   scene: 'Scene Background',
   ui: 'UI Element',
   overlay: 'Overlay',

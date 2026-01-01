@@ -14,7 +14,8 @@ export type AssetCategory =
   | 'effect_ref'
   | 'effect'
   | 'avatar'
-  | 'terrain'
+  | 'terrain_ref'  // Reference sheets for terrain with variations (road, dirt, water)
+  | 'terrain'      // Simple terrain tiles (grass, trees, mountain, sand)
   | 'scene'
   | 'ui'
   | 'overlay';
@@ -25,6 +26,7 @@ export const REF_CATEGORIES: AssetCategory[] = [
   'character_ref',
   'vehicle_ref',
   'effect_ref',
+  'terrain_ref',  // Terrain reference sheets (road, dirt, water)
 ];
 
 // Sprite categories (generated from approved refs)
@@ -37,7 +39,7 @@ export const SPRITE_CATEGORIES: AssetCategory[] = [
 
 // Standalone categories (no ref needed)
 export const STANDALONE_CATEGORIES: AssetCategory[] = [
-  'terrain',
+  'terrain',  // Simple terrain (grass, trees, mountain, sand)
   'scene',
   'ui',
   'overlay',
@@ -63,10 +65,16 @@ export const ASSET_KEYS: Record<string, string[]> = {
     'pedestrian_walk', 'pedestrian_stand', 'pedestrian_suit', 'pedestrian_casual',
     'car_sedan', 'car_sports', 'car_van', 'car_taxi'
   ],
+  // Terrain reference sheets - for terrain with multiple variations
+  // When approved, all variation sprites auto-generate
+  terrain_ref: [
+    'road',   // Generates 15 road tiles (straights, corners, T-junctions, 4-way, dead-ends)
+    'dirt',   // Generates 6 dirt tiles (straights, corners)
+    'water',  // Generates 12 water tiles (edges, outer/inner corners)
+  ],
+  // Simple terrain - single tiles with no variations
   terrain: [
-    // Base terrain types ONLY - variations auto-generate when base is approved
-    // User selects base type (road, dirt, water), approves it, then all variations generate automatically
-    'grass', 'trees', 'mountain', 'sand', 'water', 'road', 'dirt',
+    'grass', 'trees', 'mountain', 'sand',
   ],
   scene: [
     'arrest_bg', 'court_bg', 'prison_bg', 'hero_bg', 'bank_bg',
@@ -91,7 +99,7 @@ export const TABS: TabConfig[] = [
   { key: 'vehicles', label: 'Vehicles', refCategory: 'vehicle_ref', spriteCategory: 'npc' },
   { key: 'effects', label: 'Effects', refCategory: 'effect_ref', spriteCategory: 'effect' },
   { key: 'scenes', label: 'Scenes', standaloneCategory: 'scene' },
-  { key: 'terrain', label: 'Terrain', standaloneCategory: 'terrain' },
+  { key: 'terrain', label: 'Terrain', refCategory: 'terrain_ref', spriteCategory: 'terrain' },
   { key: 'avatars', label: 'Avatars', refCategory: 'character_ref', spriteCategory: 'avatar' },
   { key: 'ui', label: 'UI', standaloneCategory: 'ui' },
   { key: 'overlays', label: 'Overlays', standaloneCategory: 'overlay' },

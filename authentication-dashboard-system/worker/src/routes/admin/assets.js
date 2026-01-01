@@ -29,131 +29,19 @@ async function hashString(str) {
 }
 
 // ============================================================================
-// STYLE GUIDE AND PROMPT BUILDER
-// Art direction: Retro 90s CGI aesthetic with modern render quality
-// Think: Modern HD remaster of a 90s game - Pixar 1995 style with 2024 rendering
+// STYLE GUIDE - Shared across all asset types
 // ============================================================================
 
 const STYLE_GUIDE = `
-VISUAL STYLE - NOTROPOLIS GAME:
+STYLE: 90s CGI aesthetic with modern rendering.
+- Chunky, geometric shapes (like early Pixar/SimCity)
+- Photorealistic textures and PBR materials
+- Soft ambient occlusion, professional lighting
+- NOT cartoon, NOT flat, NOT cel-shaded
+`;
 
-CRITICAL: This is NOT cartoon style. NOT cel-shaded. NOT flat.
-The art direction is RETRO 90s CGI with HYPER-REALISTIC MODERN RENDERING.
-Think: Pixar's Toy Story 1 SHAPES with Pixar's modern RENDERING QUALITY.
-Think: SimCity 3000 / RollerCoaster Tycoon building DESIGN with Unreal Engine 5 surface quality.
-
-DESIGN AESTHETIC (the 90s part - SHAPES AND GEOMETRY):
-- Chunky, geometric 3D forms with slightly simplified shapes for BUILDINGS
-- For BUILDINGS: Stocky, blocky proportions that fit isometric diamond tiles
-- For CHARACTERS/PEOPLE: REALISTIC human proportions (7-8 heads tall), NOT blocky/Roblox
-- Think Toy Story or Incredibles humans - normal adult proportions, stylized rendering
-- Clean, readable silhouettes designed for small display sizes
-- No unnecessary complexity - functional design
-
-RENDERING QUALITY (the modern part - THIS IS CRITICAL):
-- PHOTOREALISTIC surface rendering with realistic material properties
-- Rich, detailed textures (actual brick texture, wood grain, metal reflections)
-- Soft ambient occlusion creating depth in every corner and crevice
-- Subsurface scattering on appropriate materials (skin, wax, marble)
-- Realistic specular highlights and fresnel effects on glass/metal
-- PBR (Physically Based Rendering) material appearance
-- Global illumination with natural light bounce
-- Crisp, clean anti-aliasing (4K quality downscaled)
-- Professional product photography lighting
-- "Hero shot" or "box art" level polish - every surface finished perfectly
-- NOT flat, NOT cartoon, NOT cel-shaded, NOT stylized lighting
-
-COLOR PALETTE:
-- Slightly muted, vintage color grading (like early 2000s 3D renders)
-- Rich, saturated colors but not oversaturated
-- Natural color variation and weathering on surfaces
-
-LIGHTING DIRECTION: Consistent TOP-LEFT soft studio lighting. Shadows fall BOTTOM-RIGHT but are soft, not harsh.
-
-SQUARE CANVAS WITH DIAMOND FOOTPRINT (CRITICAL):
-ALL building sprites must be rendered on a SQUARE canvas. The building sits on a diamond-shaped footprint within this square. The diamond footprint touches the middle of each edge of the square.
-
-Diagram:
-┌─────────────┐
-│      ▲      │
-│     /·\\     │
-│    / · \\    │
-│   /  ·  \\   │
-│  ◄───·───►  │  ← Diamond footprint inside square
-│   \\  ·  /   │
-│    \\ · /    │
-│     \\·/     │
-│      ▼      │
-└─────────────┘
-
-Buildings extend UPWARD from this diamond base. The square canvas must be tall enough to contain the full building height.
-
-CENTERING (ABSOLUTELY CRITICAL):
-- The diamond footprint must be PERFECTLY CENTERED horizontally within the canvas
-- The building's center of mass must align with the canvas center horizontally
-- When the tile is placed on the isometric map, the building must appear centered on the tile
-- NO horizontal offset or lean - the building sits DEAD CENTER on the tile
-- The vertical center of the diamond base should be at the BOTTOM THIRD of the canvas
-
-BUILDING ORIENTATION (ABSOLUTELY CRITICAL - READ CAREFULLY):
-The building is viewed from a 45-degree isometric angle. Imagine looking down at the building from above and to the right.
-
-DOOR/ENTRANCE PLACEMENT:
-- The FRONT DOOR faces the VIEWER (bottom-left corner of the diamond footprint)
-- Looking at the rendered image, the door should be on the LEFT side of the building
-- The building's back corner points AWAY from the viewer (top-right of the diamond)
-
-VISUAL REFERENCE:
-┌─────────────────┐
-│        ▲        │  ← Back corner (far from viewer)
-│       / \       │
-│      /   \      │
-│     /     \     │
-│    /       \    │
-│   ◄─────────►   │  ← Left and right sides
-│    \ DOOR  /    │  ← DOOR IS HERE (bottom-left, facing viewer)
-│     \  ↓  /     │
-│      \   /      │
-│       \ /       │
-│        ▼        │  ← Front corner (closest to viewer)
-└─────────────────┘
-
-The viewer is looking from the BOTTOM-RIGHT toward the TOP-LEFT.
-The door/entrance MUST be on the LEFT FACE of the building (not the right face).
-
-NO BASE/PLATFORM (ABSOLUTELY FORBIDDEN):
-=== THIS IS THE MOST IMPORTANT RULE - VIOLATING THIS RUINS THE ASSET ===
-- NEVER EVER include a concrete base, platform, foundation, or ground plane under the building
-- NEVER show sidewalks, paths, or paving around the building
-- NEVER show grass, soil, or any terrain under the building
-- The building must appear to FLOAT in space like a product render
-- The building's walls go straight down and END - there is NOTHING below
-- Think: 3D model isolated on transparent background, like an online store product image
-- If the bottom edge of the building shows ANY ground element, the asset is REJECTED
-- Building should look like it was cut out with scissors - clean edges, no environment
-
-NO EXTERNAL SHADOWS (CRITICAL):
-- NO cast shadows outside the building footprint
-- Shadows ONLY exist as ambient occlusion WITHIN the building (under overhangs, corners, window recesses)
-- Building appears lit by soft diffused studio lighting with no ground shadow
-
-COUNTRY-NEUTRAL:
-All assets must be COUNTRY-NEUTRAL. Do not include:
-- National flags of any country
-- Country-specific signage, text, or symbols
-- Currency symbols (no $, £, €, etc.)
-- Nationality-specific architectural elements
-- Keep text generic (e.g., "POLICE", "BANK", "RESTAURANT")
-
-CLEAN BUILDINGS:
-Building assets must show ONLY the building itself. Do not include:
-- Vehicles, people, or animals
-- Street furniture (benches, lamp posts, trash cans)
-- Other buildings or structures
-- Trees, bushes, or landscaping
-- Ground shadows extending beyond the diamond footprint`;
-
-const REFERENCE_SHEET_TEMPLATE = `
+// Unused - keeping for reference
+const REFERENCE_SHEET_TEMPLATE_UNUSED = `
 REFERENCE SHEET TEMPLATE LAYOUT (CRITICAL - FOLLOW EXACTLY):
 
 Canvas: 16:9 landscape, neutral gray background (#808080)
@@ -346,20 +234,25 @@ function buildBuildingRefPrompt(buildingType, customDetails = '') {
         throw new Error(`No features defined for building type: ${buildingType}. Provide customDetails.`);
     }
 
-    return `Create a building reference sheet for a ${buildingName}.
+    return `Create a REFERENCE SHEET for a ${buildingName}.
 
-${REFERENCE_SHEET_TEMPLATE}
+LAYOUT: 6 views in a 3x2 grid on gray background
+- Top row: FRONT, LEFT SIDE, BACK
+- Bottom row: RIGHT SIDE, ISOMETRIC (45-degree), DETAIL CLOSEUPS
 
-Title: "BUILDING REFERENCE SHEET: 90s CGI ${buildingName}"
+Each view in its own labeled box. Show the COMPLETE building in each view.
 
 THE ${buildingName}:
 ${features}
 
-${STYLE_GUIDE}
+STYLE: 90s CGI aesthetic (chunky, geometric shapes) with modern photorealistic textures.
+Think SimCity 3000 building designs rendered with Unreal Engine 5 quality.
 
-${customDetails ? `ADDITIONAL NOTES:\n${customDetails}` : ''}
+ISOMETRIC VIEW ORIENTATION:
+- Door/entrance faces TOWARD the viewer (bottom-left of the image)
+- Back of building at top-right
 
-Remember: All views must show the exact same building. This is a professional reference sheet for game asset development. The quality should be like promotional concept art - clean, polished, and production-ready.`;
+${customDetails ? `NOTES: ${customDetails}` : ''}`;
 }
 
 // ============================================================================
@@ -763,6 +656,116 @@ const TERRAIN_VARIATIONS = {
     ]
 };
 
+// Terrain reference sheet layouts - defines grid positions for all variations
+const TERRAIN_REF_LAYOUTS = {
+    road: {
+        grid: '4x4', // 4 columns, 4 rows = 16 slots (15 tiles + 1 empty)
+        tiles: [
+            // Row 1: Straights and 4-way
+            { key: 'road_ns', label: 'N-S Straight', pos: 'top-left' },
+            { key: 'road_ew', label: 'E-W Straight', pos: 'top-2nd' },
+            { key: 'road_nesw', label: '4-Way', pos: 'top-3rd' },
+            { key: 'empty', label: '', pos: 'top-right' },
+            // Row 2: Corners
+            { key: 'road_ne', label: 'NE Corner', pos: '2nd-left' },
+            { key: 'road_nw', label: 'NW Corner', pos: '2nd-2nd' },
+            { key: 'road_se', label: 'SE Corner', pos: '2nd-3rd' },
+            { key: 'road_sw', label: 'SW Corner', pos: '2nd-right' },
+            // Row 3: T-junctions
+            { key: 'road_nes', label: 'T (NES)', pos: '3rd-left' },
+            { key: 'road_new', label: 'T (NEW)', pos: '3rd-2nd' },
+            { key: 'road_nsw', label: 'T (NSW)', pos: '3rd-3rd' },
+            { key: 'road_esw', label: 'T (ESW)', pos: '3rd-right' },
+            // Row 4: Dead ends
+            { key: 'road_n', label: 'Dead End N', pos: 'bottom-left' },
+            { key: 'road_e', label: 'Dead End E', pos: 'bottom-2nd' },
+            { key: 'road_s', label: 'Dead End S', pos: 'bottom-3rd' },
+            { key: 'road_w', label: 'Dead End W', pos: 'bottom-right' },
+        ]
+    },
+    dirt: {
+        grid: '3x2', // 3 columns, 2 rows = 6 tiles
+        tiles: [
+            // Row 1: Straights and corners
+            { key: 'dirt_ns', label: 'N-S Straight', pos: 'top-left' },
+            { key: 'dirt_ew', label: 'E-W Straight', pos: 'top-center' },
+            { key: 'dirt_ne', label: 'NE Corner', pos: 'top-right' },
+            // Row 2: More corners
+            { key: 'dirt_nw', label: 'NW Corner', pos: 'bottom-left' },
+            { key: 'dirt_se', label: 'SE Corner', pos: 'bottom-center' },
+            { key: 'dirt_sw', label: 'SW Corner', pos: 'bottom-right' },
+        ]
+    },
+    water: {
+        grid: '4x3', // 4 columns, 3 rows = 12 tiles
+        tiles: [
+            // Row 1: Edges
+            { key: 'water_edge_n', label: 'Edge N', pos: 'top-left' },
+            { key: 'water_edge_e', label: 'Edge E', pos: 'top-2nd' },
+            { key: 'water_edge_s', label: 'Edge S', pos: 'top-3rd' },
+            { key: 'water_edge_w', label: 'Edge W', pos: 'top-right' },
+            // Row 2: Outer corners
+            { key: 'water_corner_ne', label: 'Corner NE', pos: '2nd-left' },
+            { key: 'water_corner_nw', label: 'Corner NW', pos: '2nd-2nd' },
+            { key: 'water_corner_se', label: 'Corner SE', pos: '2nd-3rd' },
+            { key: 'water_corner_sw', label: 'Corner SW', pos: '2nd-right' },
+            // Row 3: Inner corners
+            { key: 'water_inner_ne', label: 'Inner NE', pos: 'bottom-left' },
+            { key: 'water_inner_nw', label: 'Inner NW', pos: 'bottom-2nd' },
+            { key: 'water_inner_se', label: 'Inner SE', pos: 'bottom-3rd' },
+            { key: 'water_inner_sw', label: 'Inner SW', pos: 'bottom-right' },
+        ]
+    }
+};
+
+/**
+ * Build prompt for terrain REFERENCE SHEET (shows ALL variations in a grid)
+ */
+function buildTerrainRefPrompt(terrainType, customDetails = '') {
+    const layout = TERRAIN_REF_LAYOUTS[terrainType];
+    if (!layout) {
+        throw new Error(`No reference layout defined for terrain type: ${terrainType}`);
+    }
+
+    const baseFeatures = TERRAIN_FEATURES[terrainType];
+    if (!baseFeatures) {
+        throw new Error(`No features defined for terrain type: ${terrainType}`);
+    }
+
+    // Build tile descriptions for the grid
+    const tileDescriptions = layout.tiles
+        .filter(t => t.key !== 'empty')
+        .map(t => `- ${t.label} (${t.key}): Shows ${t.key.replace(terrainType + '_', '').toUpperCase()} connection`)
+        .join('\n');
+
+    return `Create a TERRAIN REFERENCE SHEET showing ALL ${terrainType.toUpperCase()} tile variations in a ${layout.grid} grid.
+
+=== THIS IS A REFERENCE SHEET, NOT A SINGLE TILE ===
+This sheet shows ALL possible connection types for ${terrainType} terrain.
+Each tile in the grid is a separate variation that will be extracted as an individual sprite.
+
+GRID LAYOUT: ${layout.grid} (${layout.tiles.length} tiles total)
+Each tile in the grid is a diamond/rhombus isometric tile (64x32 pixel ratio).
+Tiles should be arranged in a clean grid with small gaps between them.
+
+BASE STYLE FOR ALL TILES:
+${baseFeatures}
+
+TILE VARIATIONS TO INCLUDE:
+${tileDescriptions}
+
+CRITICAL REQUIREMENTS:
+1. ALL tiles must share IDENTICAL texture, color, and material properties
+2. Tiles differ ONLY in their connection directions (where the path/water extends)
+3. Use consistent lighting and perspective across all tiles
+4. Each tile fits a diamond footprint (isometric 2:1 ratio)
+5. Background: Light gray or white (for easy extraction)
+
+STYLE: Retro 90s CGI shapes with modern photorealistic rendering.
+
+${customDetails ? `ADDITIONAL NOTES:\n${customDetails}` : ''}`;
+}
+
 // NPC/Vehicle directional sprite mappings
 // When base character/vehicle reference is approved, auto-generate all direction variants
 const DIRECTIONAL_SPRITE_VARIANTS = {
@@ -861,37 +864,30 @@ function buildBuildingSpritePrompt(buildingType, customDetails = '') {
         throw new Error(`No size class defined for building type: ${buildingType}`);
     }
 
-    return `Create a single isometric game sprite for a ${buildingName}.
+    return `Create a ${buildingName} isometric game sprite.
 
-CRITICAL: Use the approved ${buildingName} REFERENCE SHEET as your style guide.
-Extract the 45-degree isometric view from that reference and render it as a standalone sprite.
+=== ABSOLUTE REQUIREMENTS ===
 
-FORMAT REQUIREMENTS:
-- 45-degree isometric view, single image
-- Canvas: ${sizeInfo.canvas} px SQUARE
-- Background: TRANSPARENT (PNG-ready)
-- Size class: ${sizeInfo.class}
-- Orientation: Door/entrance on the LEFT FACE of the building (the face visible to the viewer)
+NO FLOOR/BASE/GROUND:
+- The building FLOATS on transparent background
+- NO floor tile, NO concrete pad, NO platform underneath
+- Building walls go straight down to nothing - just transparency below
+- The building fills the canvas edge-to-edge with NO ground visible
 
-BUILDING FOOTPRINT:
-- Building sits on a DIAMOND-shaped footprint at the BOTTOM of the square canvas
-- The structure extends UPWARD from the diamond base to fill the canvas vertically
-- Building must fill the isometric diamond tile, not be rectangular
+DOOR/ENTRY ORIENTATION:
+- Isometric 45-degree view looking DOWN at the building
+- The door/entrance MUST be on the LEFT-FACING wall of the building
+- When looking at the final image: door is on the LEFT side, back wall on the RIGHT
+- Think: you're standing SOUTH-EAST of the building, looking at its WEST and NORTH walls
+
+SIZE: ${sizeInfo.canvas}px square canvas, building fills it edge-to-edge
 
 THE ${buildingName}:
-${features || customDetails || 'Match the approved reference sheet exactly.'}
+${features || customDetails || 'A distinctive building of this type.'}
 
-${STYLE_GUIDE}
+STYLE: 90s CGI (chunky geometric shapes) with photorealistic textures.
 
-${STYLE_REFERENCE_ANCHOR}
-
-CRITICAL:
-- NO external cast shadows outside the building footprint
-- NO base/platform/ground - building floats on transparent background
-- Building ONLY - no vehicles, people, surrounding objects
-- Match the approved reference sheet EXACTLY in style and detail
-
-${customDetails ? `ADDITIONAL NOTES:\n${customDetails}` : ''}`;
+${customDetails ? `NOTES: ${customDetails}` : ''}`;
 }
 
 // ============================================================================
@@ -1478,6 +1474,9 @@ function buildAssetPrompt(category, assetKey, customDetails = '') {
         case 'effect_ref':
             return buildEffectRefPrompt(assetKey, customDetails);
 
+        case 'terrain_ref':
+            return buildTerrainRefPrompt(assetKey, customDetails);
+
         // === SPRITES (generated from approved reference sheets) ===
         case 'building_sprite':
             return buildBuildingSpritePrompt(assetKey, customDetails);
@@ -1583,17 +1582,17 @@ async function checkSpriteReferenceDependency(env, category, assetKey) {
         }
 
         if (isPedDirection) {
-            // Pedestrian directional sprites need approved character_ref for pedestrian
+            // Pedestrian directional sprites need any approved character_ref starting with 'pedestrian'
             const ref = await env.DB.prepare(`
                 SELECT id, status FROM generated_assets
-                WHERE category = 'character_ref' AND asset_key = 'pedestrian' AND status = 'approved'
+                WHERE category = 'character_ref' AND asset_key LIKE 'pedestrian%' AND status = 'approved'
                 ORDER BY created_at DESC LIMIT 1
             `).first();
 
             if (!ref) {
                 return {
                     canGenerate: false,
-                    message: `No approved character reference found for pedestrians. Generate and approve a character_ref for "pedestrian" first.`
+                    message: `No approved character reference found for pedestrians. Generate and approve a character_ref (pedestrian, pedestrian_business, or pedestrian_casual) first.`
                 };
             }
             return { canGenerate: true, referenceId: ref.id };
@@ -2146,13 +2145,13 @@ ${fullPrompt}`;
 
             await logAudit(env, 'approve', parseInt(id), user?.username, { set_active: true });
 
-            // Check if this is a base terrain type that should auto-generate variations
+            // Check if this is a terrain_ref that should auto-generate terrain sprite variations
             let autoGeneratedVariations = [];
-            if (asset.category === 'terrain' && TERRAIN_VARIATIONS[asset.asset_key]) {
+            if (asset.category === 'terrain_ref' && TERRAIN_VARIATIONS[asset.asset_key]) {
                 const variations = TERRAIN_VARIATIONS[asset.asset_key];
                 for (const variantKey of variations) {
-                    // Build prompt for this terrain variation
-                    const prompt = buildTerrainPrompt(variantKey, '');
+                    // Build prompt for this terrain variation - will use the terrain_ref as visual reference
+                    const prompt = buildTerrainPrompt(variantKey, `Extract from the approved ${asset.asset_key} reference sheet.`);
 
                     // Create asset record with prompt (required - base_prompt NOT NULL)
                     const insertResult = await env.DB.prepare(`
@@ -2171,14 +2170,15 @@ ${fullPrompt}`;
                         autoGeneratedVariations.push({ variant: variantKey, id: newId });
                     }
                 }
-                await logAudit(env, 'auto_queue_variations', parseInt(id), user?.username, {
+                await logAudit(env, 'auto_queue_terrain_sprites', parseInt(id), user?.username, {
                     base_type: asset.asset_key,
-                    queued_variations: autoGeneratedVariations.map(v => v.variant)
+                    queued_tiles: autoGeneratedVariations.map(v => v.variant)
                 });
             }
 
             // Check if this is an NPC/vehicle reference that should auto-generate directional sprites
-            if (asset.category === 'character_ref' && asset.asset_key === 'pedestrian') {
+            // Any pedestrian type (pedestrian, pedestrian_business, pedestrian_casual) triggers directional sprite generation
+            if (asset.category === 'character_ref' && asset.asset_key.startsWith('pedestrian')) {
                 const directions = DIRECTIONAL_SPRITE_VARIANTS.pedestrian;
                 for (const dir of directions) {
                     // Build prompt for this pedestrian direction
