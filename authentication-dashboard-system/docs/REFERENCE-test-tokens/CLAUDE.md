@@ -29,14 +29,14 @@ Check expiry dates below. Only generate new tokens if these are expired.
 
 | Field | Value |
 |-------|-------|
-| **Last Updated** | 2026-01-01 13:56 UTC |
-| **Expires** | 2026-01-02 13:56 UTC |
+| **Last Updated** | 2026-01-01 20:24 UTC |
+| **Expires** | 2026-01-02 20:24 UTC |
 | **User** | rikibaker+notro@gmail.com |
 | **Role** | master_admin |
 | **Status** | VALID - Use this token for all testing |
 
 ```
-eyJhbGciOiJIUzI1NiJ9.eyJ1c2VySWQiOiJtYXN0ZXItYWRtaW4tMDAxIiwiY29tcGFueUlkIjoic3lzdGVtIiwicm9sZSI6Im1hc3Rlcl9hZG1pbiIsInBoaUFjY2Vzc0xldmVsIjoibm9uZSIsImlzTW9iaWxlIjpmYWxzZSwiaXNzdWVkQXQiOjE3NjcyNzU3NDksImRhdGFDbGFzc2lmaWNhdGlvbiI6InB1YmxpYyIsInNlc3Npb25JZCI6IjMwNGU1MGJlLWRlMmQtNGE4YS1hMjRlLTcyNjI5YTc3ZGU4ZiIsImNvbXBhbnlDb250ZXh0Ijp7ImlkIjoic3lzdGVtIiwicm9sZSI6Im1hc3Rlcl9hZG1pbiIsInBlcm1pc3Npb25zIjpbXX0sImlhdCI6MTc2NzI3NTc0OSwiZXhwIjoxNzY3MzYyMTQ5LCJpc3MiOiJodHRwczovL2FwaS5ub3Ryb3BvbGlzLm5ldCIsImF1ZCI6Imh0dHBzOi8vYm9zcy5ub3Ryb3BvbGlzLm5ldCIsImp0aSI6Ijg4NjQ5MThlLTJjNzQtNDg3NS05OWZiLWIxNjBhZTUxZTNkMSJ9.jLfCZDja5Qn56_AcjZBp-SKoeTu96rsOk-0hfbLMRB0
+eyJhbGciOiJIUzI1NiJ9.eyJ1c2VySWQiOiJtYXN0ZXItYWRtaW4tMDAxIiwiY29tcGFueUlkIjoic3lzdGVtIiwicm9sZSI6Im1hc3Rlcl9hZG1pbiIsInBoaUFjY2Vzc0xldmVsIjoibm9uZSIsImlzTW9iaWxlIjpmYWxzZSwiaXNzdWVkQXQiOjE3NjcyODg2NzYsImRhdGFDbGFzc2lmaWNhdGlvbiI6InB1YmxpYyIsInNlc3Npb25JZCI6ImJjNDIzNjQ1LTQxMzEtNDkxMy05NmU5LTFkNDdmM2U0NTg3YyIsImNvbXBhbnlDb250ZXh0Ijp7ImlkIjoic3lzdGVtIiwicm9sZSI6Im1hc3Rlcl9hZG1pbiIsInBlcm1pc3Npb25zIjpbXX0sImlhdCI6MTc2NzI4ODY3NiwiZXhwIjoxNzY3Mzc1MDc2LCJpc3MiOiJodHRwczovL2FwaS5ub3Ryb3BvbGlzLm5ldCIsImF1ZCI6Imh0dHBzOi8vYm9zcy5ub3Ryb3BvbGlzLm5ldCIsImp0aSI6IjhjMGRlMjk1LTg3NzMtNDhlZC1iMjI5LTNlMjcwM2M3NWNjNCJ9.Y88-5KxmGq0haFnsjEqQboh6UvY9M9NU6ToYwr2Jy0Y
 ```
 
 > **REMINDER**: If you generate a new token, you MUST update this file with the new token, timestamps, and role. See "Rule 1: Token Management" at the top of this file.
@@ -57,21 +57,55 @@ Notropolis is a multi-tenant SaaS authentication dashboard for game management.
 
 ## How to Use the Token for API Testing
 
-**CRITICAL**: When using curl, paste the token DIRECTLY into the command. Do NOT use shell variables - they don't work reliably with long JWT tokens.
+**CRITICAL**: Shell command substitution like `$(cat file)` often FAILS SILENTLY in some environments, sending literal text instead of the file contents. Use Python for reliable testing.
 
-### Correct Way (paste token directly)
+### RECOMMENDED: Python Method (Always Works)
+
+Save the token to a file first, then use Python:
 
 ```bash
-curl -s "https://api.notropolis.net/api/auth/me" \
-  -H "Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJ1c2VySWQiOi..." | jq
+# Save token (copy from above, no trailing newline)
+echo -n 'eyJhbGciOiJIUzI1NiJ9...' > /tmp/token.txt
+
+# Test any endpoint with Python
+python3 -c "
+import urllib.request
+import json
+
+with open('/tmp/token.txt', 'r') as f:
+    token = f.read().strip()
+
+req = urllib.request.Request('https://api.notropolis.net/api/admin/assets/queue')
+req.add_header('Authorization', f'Bearer {token}')
+
+try:
+    with urllib.request.urlopen(req) as resp:
+        print(json.dumps(json.loads(resp.read()), indent=2))
+except urllib.error.HTTPError as e:
+    print(f'HTTP Error {e.code}: {e.read().decode()}')"
 ```
 
-### Wrong Way (shell variables fail silently)
+### Alternative: Get Token from Database Directly
+
+If you need a fresh working token, get it directly from the sessions table:
 
 ```bash
-# DO NOT DO THIS - the token gets truncated/lost
+CLOUDFLARE_API_TOKEN="RQeVAceZ3VT-McbFF9DnYem0ZDc8YXbnHPH8wbg_" \
+CLOUDFLARE_ACCOUNT_ID="329dc0e016dd5cd512d6566d64d8aa0c" \
+npx wrangler d1 execute notropolis-database --remote --json \
+--command "SELECT token FROM sessions WHERE user_id = 'master-admin-001' ORDER BY created_at DESC LIMIT 1" \
+2>/dev/null | jq -r '.[0].results[0].token' | tr -d '\n' > /tmp/token.txt
+```
+
+### AVOID: These Methods Often Fail
+
+```bash
+# DO NOT USE - command substitution fails silently in some shells
+curl -H "Authorization: Bearer $(cat /tmp/token.txt)" ...
+
+# DO NOT USE - shell variables get truncated
 TOKEN="eyJhbGciOiJIUzI1NiJ9..."
-curl -s "https://api.notropolis.net/api/endpoint" -H "Authorization: Bearer $TOKEN"
+curl -H "Authorization: Bearer $TOKEN" ...
 ```
 
 ---
