@@ -16,6 +16,7 @@ import {
   Map,
   Briefcase,
   Shield,
+  Image,
   LucideIcon
 } from 'lucide-react'
 import { clsx } from 'clsx'
@@ -181,6 +182,7 @@ export default function Sidebar() {
       // Master admin gets map builder
       items.push({ name: 'Map Builder', href: '/admin/maps', icon: Map, pageKey: 'admin_maps', requiresMasterAdmin: true })
       items.push({ name: 'Chat Moderation', href: '/admin/moderation', icon: Shield, pageKey: 'admin_moderation', requiresMasterAdmin: true })
+      items.push({ name: 'Assets', href: '/admin/assets', icon: Image, pageKey: 'admin_assets', requiresMasterAdmin: true })
     } else if (user?.role === 'admin') {
       // Admin gets company users if company management is enabled (built-in page)
       if (companyManagementEnabled) {

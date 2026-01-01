@@ -16,6 +16,7 @@ import CompanyUserManagement from './pages/CompanyUserManagement';
 import AuditLogsPage from './pages/AuditLogsPage';
 import { MapBuilder } from './pages/admin/MapBuilder';
 import ModerationAdminPage from './pages/ModerationAdminPage';
+import AssetAdminPage from './pages/AssetAdminPage';
 import { Companies } from './pages/Companies';
 import { CompanyCreate } from './pages/CompanyCreate';
 import { CompanyDashboard } from './pages/CompanyDashboard';
@@ -307,6 +308,15 @@ function App() {
                   <ProtectedPageRoute pageKey="admin_moderation">
                     <Layout>
                       <ModerationAdminPage />
+                    </Layout>
+                  </ProtectedPageRoute>
+                </ProtectedRoute>
+              } />
+              <Route path="/admin/assets" element={
+                <ProtectedRoute>
+                  <ProtectedPageRoute pageKey="admin_assets">
+                    <Layout>
+                      <AssetAdminPage />
                     </Layout>
                   </ProtectedPageRoute>
                 </ProtectedRoute>
