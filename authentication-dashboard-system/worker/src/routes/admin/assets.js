@@ -42,9 +42,11 @@ The art direction is RETRO 90s CGI with HYPER-REALISTIC MODERN RENDERING.
 Think: Pixar's Toy Story 1 SHAPES with Pixar's modern RENDERING QUALITY.
 Think: SimCity 3000 / RollerCoaster Tycoon building DESIGN with Unreal Engine 5 surface quality.
 
-DESIGN AESTHETIC (the 90s part - SHAPES AND PROPORTIONS ONLY):
-- Chunky, geometric 3D forms with slightly simplified shapes
-- Stocky, blocky proportions (not realistic human ratios)
+DESIGN AESTHETIC (the 90s part - SHAPES AND GEOMETRY):
+- Chunky, geometric 3D forms with slightly simplified shapes for BUILDINGS
+- For BUILDINGS: Stocky, blocky proportions that fit isometric diamond tiles
+- For CHARACTERS/PEOPLE: REALISTIC human proportions (7-8 heads tall), NOT blocky/Roblox
+- Think Toy Story or Incredibles humans - normal adult proportions, stylized rendering
 - Clean, readable silhouettes designed for small display sizes
 - No unnecessary complexity - functional design
 
@@ -93,8 +95,31 @@ CENTERING (ABSOLUTELY CRITICAL):
 - NO horizontal offset or lean - the building sits DEAD CENTER on the tile
 - The vertical center of the diamond base should be at the BOTTOM THIRD of the canvas
 
-BUILDING ORIENTATION (CRITICAL):
-For ALL building sprites, the 45-degree isometric view must have the entry point/door positioned on the BOTTOM LEFT side of the building. The front facade should face bottom-left, with the building extending toward the top-right.
+BUILDING ORIENTATION (ABSOLUTELY CRITICAL - READ CAREFULLY):
+The building is viewed from a 45-degree isometric angle. Imagine looking down at the building from above and to the right.
+
+DOOR/ENTRANCE PLACEMENT:
+- The FRONT DOOR faces the VIEWER (bottom-left corner of the diamond footprint)
+- Looking at the rendered image, the door should be on the LEFT side of the building
+- The building's back corner points AWAY from the viewer (top-right of the diamond)
+
+VISUAL REFERENCE:
+┌─────────────────┐
+│        ▲        │  ← Back corner (far from viewer)
+│       / \       │
+│      /   \      │
+│     /     \     │
+│    /       \    │
+│   ◄─────────►   │  ← Left and right sides
+│    \ DOOR  /    │  ← DOOR IS HERE (bottom-left, facing viewer)
+│     \  ↓  /     │
+│      \   /      │
+│       \ /       │
+│        ▼        │  ← Front corner (closest to viewer)
+└─────────────────┘
+
+The viewer is looking from the BOTTOM-RIGHT toward the TOP-LEFT.
+The door/entrance MUST be on the LEFT FACE of the building (not the right face).
 
 NO BASE/PLATFORM (ABSOLUTELY FORBIDDEN):
 === THIS IS THE MOST IMPORTANT RULE - VIOLATING THIS RUINS THE ASSET ===
@@ -141,7 +166,7 @@ ROW 1 (top):
 
 ROW 2 (bottom):
   [RIGHT SIDE VIEW] - Building viewed from the right side (90 degrees from front)
-  [ISOMETRIC VIEW] - 45-degree angle view with entrance on BOTTOM-LEFT
+  [ISOMETRIC VIEW] - 45-degree angle view, entrance/door on LEFT FACE (facing the viewer)
   [DETAIL CLOSEUPS] - 3-4 material/texture detail shots
 
 CRITICAL LAYOUT RULES:
@@ -437,10 +462,20 @@ CRITICAL LAYOUT RULES:
 
 // Character reference features (for pedestrians and avatar base)
 const CHARACTER_REF_FEATURES = {
+    pedestrian: `PEDESTRIAN CHARACTER - generic city walker for ambient animation:
+- REALISTIC human proportions (7-8 heads tall like a real adult), NOT blocky/Roblox
+- Think Toy Story or Incredibles humans - normal proportions, stylized 90s CGI rendering
+- Simple but well-defined geometry - proper arms, legs, torso proportions
+- Business casual attire (polo shirt, trousers, sensible shoes)
+- Neutral expression, casual walking demeanor
+- Generic adult that blends into city background
+- NO specific ethnicity - neutral skin tone placeholder
+When approved, this generates directional walk sprites (N/S/E/W) automatically.
+This establishes the character style for ALL ambient pedestrian NPCs.`,
+
     pedestrian_business: `BUSINESS PEDESTRIAN - adult in professional attire:
-- Chunky, stocky 90s CGI proportions (slightly exaggerated)
-- Head is large relative to body (stylized, not realistic)
-- Simple geometric shapes - cylindrical limbs, blocky torso
+- REALISTIC human proportions (7-8 heads tall), NOT blocky/Roblox
+- Think Toy Story or Incredibles humans - normal proportions, stylized rendering
 - Business suit or smart casual (shirt, trousers, shoes)
 - Neutral expression, professional demeanor
 - Generic adult, gender-neutral or male
@@ -448,7 +483,8 @@ const CHARACTER_REF_FEATURES = {
 This establishes the character style for all business NPCs.`,
 
     pedestrian_casual: `CASUAL PEDESTRIAN - everyday citizen:
-- Same chunky 90s CGI proportions as business pedestrian
+- REALISTIC human proportions (7-8 heads tall), NOT blocky/Roblox
+- Think Toy Story or Incredibles humans - normal proportions, stylized rendering
 - Relaxed posture, casual clothing (t-shirt, jeans, sneakers)
 - Slightly less formal stance
 - Could carry shopping bag or nothing
@@ -456,7 +492,8 @@ This establishes the character style for all business NPCs.`,
 This establishes the style for casual NPC citizens.`,
 
     avatar_base: `AVATAR BASE CHARACTER - player character foundation:
-- Chunky, stocky 90s CGI proportions matching pedestrians
+- REALISTIC human proportions (7-8 heads tall), NOT blocky/Roblox
+- Think Toy Story or Incredibles humans - normal proportions, stylized rendering
 - Neutral standing pose, arms slightly away from body
 - PLACEHOLDER appearance - gray silhouette body
 - This is the BASE that outfits, hair, accessories layer onto
@@ -468,33 +505,39 @@ This is the master reference for all avatar assets.`
 // Vehicle reference features
 const VEHICLE_REF_FEATURES = {
     car_sedan: `SEDAN CAR - generic city vehicle:
-- Chunky, toy-like proportions (not realistic)
-- Rounded edges, simplified details
-- 4-door sedan shape, compact
-- Neutral color (gray/silver) - shows the form
+- 90s CGI SHAPES with PHOTOREALISTIC MODERN RENDERING
+- Stocky, geometric proportions (90s game aesthetic) but rendered with PBR materials
+- 4-door sedan shape, compact and readable silhouette
+- PHOTOREALISTIC paint finish with clear coat reflections and metallic flake
+- Realistic chrome trim, door handles, mirrors with proper specular
+- Glass windows with accurate refraction and reflection
+- Detailed headlights with realistic lens materials
+- Visible tire treads, realistic rubber texture, chrome/alloy wheel details
+- Neutral color (gray/silver/dark blue) to show material quality
 - NO brand logos, badges, or text
-- Visible wheels with simple hub design
-- Glass windows with subtle tint
-- Headlights and taillights as simple shapes
-This establishes the car style for all vehicles.`,
+This establishes the car style for all vehicles - 90s SHAPES, MODERN RENDERING.`,
 
     car_sports: `SPORTS CAR - flashy vehicle:
-- Same chunky toy-like proportions as sedan
-- Lower, sleeker profile but still stylized
-- 2-door coupe shape
-- Bold color (red or yellow suggested)
-- Spoiler optional, simple design
+- Same 90s CGI proportions as sedan but lower, sportier profile
+- 2-door coupe shape with aerodynamic lines
+- PHOTOREALISTIC paint with candy apple red or metallic gold finish
+- Real specular highlights, clear coat depth, metallic flake visible
+- Carbon fiber texture on spoiler/accents with realistic weave pattern
+- Chrome exhaust tips with heat discoloration
+- Aggressive alloy wheels with realistic metallic finish
 - NO brand logos
-This is the sporty variant of the car style.`,
+Sporty variant - same 90s SHAPES, MODERN PBR RENDERING.`,
 
     car_van: `VAN/DELIVERY VEHICLE:
-- Chunky, boxy proportions
+- Stocky, boxy 90s proportions with photorealistic surfaces
 - Taller than sedan, utility shape
+- PHOTOREALISTIC white paint with realistic dust/dirt accumulation
+- Metal panel seams, realistic rivets and hardware
+- Rubber door seals, textured grip handles
 - Side panel (could have generic "DELIVERY" text)
-- White or neutral color
-- Sliding door suggestion
+- Realistic tire treads, steel wheels with road wear
 - NO specific company branding
-Work/utility vehicle variant.`,
+Work/utility vehicle - 90s SHAPES, MODERN RENDERING.`,
 
     car_taxi: `TAXI CAB:
 - Same proportions as sedan
@@ -672,16 +715,23 @@ const TERRAIN_FEATURES = {
 
     sand: `Golden/beige sand with subtle ripple texture suggesting wind patterns. Small variation in tone. Beach/desert sand appearance.`,
 
-    water: `Blue water with subtle ripple texture. Gentle reflective quality suggesting calm water surface. Light caustic patterns optional.`,
+    // Water base - when approved, edge variants auto-generate
+    water: `Blue water with subtle ripple texture. Gentle reflective quality suggesting calm water surface. Light caustic patterns optional. This establishes the water style - edge/corner variants will auto-generate when approved.`,
 
-    // Road tiles - all share base description
-    road_base: `Dark gray asphalt road running through the center. Light gray/beige sidewalks on edges. Clear visual distinction between road surface (vehicles) and sidewalk (pedestrians).`,
+    // Road base - when approved, all 15 variants auto-generate (straights, corners, T-junctions, 4-way, dead-ends)
+    road: `STYLE REFERENCE FOR ALL ROAD TILES. Dark gray asphalt road with photorealistic surface texture. Light gray/beige sidewalks on edges. Clear visual distinction between road surface (vehicles) and sidewalk (pedestrians). Show as North-South road through center. When this is approved, all road variants (corners, intersections, dead-ends) auto-generate.`,
 
-    // Dirt tiles
-    dirt_base: `Brown/tan compacted dirt path. Visible texture suggesting worn earth - small pebbles, subtle tire/foot track impressions. Earthy, natural appearance.`,
+    // Internal: Road variant base description (used for auto-generated variants)
+    road_base: `Dark gray asphalt road with photorealistic surface texture. Light gray/beige sidewalks on edges. Clear visual distinction between road surface (vehicles) and sidewalk (pedestrians). Must match the approved "road" base tile style exactly.`,
 
-    // Water edge tiles share this base
-    water_edge_base: `Water tile with land transition. The water should blend naturally into grass/land on the specified edge(s). Gentle shore/beach effect at the transition.`
+    // Dirt base - when approved, 6 variants auto-generate
+    dirt: `STYLE REFERENCE FOR ALL DIRT TILES. Brown/tan compacted dirt path. Visible texture suggesting worn earth - small pebbles, subtle tire/foot track impressions. Earthy, natural appearance. Show as North-South path. When this is approved, all dirt variants (corners, straights) auto-generate.`,
+
+    // Internal: Dirt variant base description
+    dirt_base: `Brown/tan compacted dirt path. Visible texture suggesting worn earth - small pebbles, subtle tire/foot track impressions. Earthy, natural appearance. Must match the approved "dirt" base tile style exactly.`,
+
+    // Internal: Water edge tiles base description
+    water_edge_base: `Water tile with land transition. The water should blend naturally into grass/land on the specified edge(s). Gentle shore/beach effect at the transition. Must match the approved "water" base tile style exactly.`
 };
 
 // ============================================================================
@@ -821,7 +871,7 @@ FORMAT REQUIREMENTS:
 - Canvas: ${sizeInfo.canvas} px SQUARE
 - Background: TRANSPARENT (PNG-ready)
 - Size class: ${sizeInfo.class}
-- Orientation: Entry/front on BOTTOM LEFT, building extends toward top-right
+- Orientation: Door/entrance on the LEFT FACE of the building (the face visible to the viewer)
 
 BUILDING FOOTPRINT:
 - Building sits on a DIAMOND-shaped footprint at the BOTTOM of the square canvas
@@ -888,33 +938,59 @@ function buildEffectPrompt(effectType, customDetails = '') {
         throw new Error(`No features defined for effect type: ${effectType}. Provide customDetails.`);
     }
 
-    const sizeSpec = isSmallIcon
-        ? `Size: Small icon, approximately 24x24 pixels worth of detail.`
-        : `Size: Effect sized to overlay a standard building footprint at 45-degree isometric angle (64x64 px canvas).`;
-
-    return `Create a ${isSmallIcon ? 'status indicator icon' : 'dirty trick/damage effect overlay'} for ${effectName}.
+    if (isSmallIcon) {
+        return `Create a small status indicator icon: ${effectName}.
 
 FORMAT REQUIREMENTS:
-- ${isSmallIcon ? 'Small icon with slight 3D perspective' : '45-degree isometric view matching building perspective'}
-- Background: TRANSPARENT (PNG-ready)
-- ${sizeSpec}
-- Purpose: ${isSmallIcon ? 'Positioned at top-right of building' : 'Overlaid on ANY building to show this effect'}
+- Small icon with slight 3D perspective
+- Background: TRANSPARENT (PNG with alpha channel)
+- Size: Small icon, approximately 24x24 pixels worth of detail
+- Purpose: Positioned at corner of building tile
 
-THE EFFECT:
+THE ICON:
 ${features}
 
-CRITICAL - UNIVERSAL COMPATIBILITY:
-${isSmallIcon ? '' : `- Show ONLY the effect elements - NO BUILDING VISIBLE
-- Use only universal elements (smoke, fire, sparks, generic debris, dust)
-- NO specific building materials (no bricks, wood planks, concrete chunks)
-- The effect MUST work whether overlaid on a canvas tent, wooden shack, or stone temple
+${STYLE_GUIDE}
 
-CENTERING (ABSOLUTELY CRITICAL):
-- The effect must be PERFECTLY CENTERED on the canvas both horizontally and vertically
-- The effect's center of mass must align with the building's center point
-- When overlaid on a building, the effect should appear centered on the building tile
-- NO horizontal or vertical offset - the effect sits DEAD CENTER
-- This ensures fire appears centered on the building, not off to one side`}
+${STYLE_REFERENCE_ANCHOR}
+
+${customDetails ? `ADDITIONAL NOTES:\n${customDetails}` : ''}`;
+    }
+
+    // Dirty trick / damage effect overlay
+    return `Create a TRANSPARENT OVERLAY for a building: ${effectName} EFFECT.
+
+=== THIS IS AN OVERLAY IMAGE WITH TRANSPARENT BACKGROUND ===
+This image will be placed ON TOP OF any building sprite to show the effect is happening to that building.
+Think: A layer in Photoshop that sits above the building layer.
+
+FORMAT REQUIREMENTS:
+- 45-degree isometric view matching the building sprite angle
+- Background: COMPLETELY TRANSPARENT (PNG with alpha channel, NO solid color background)
+- Canvas: Square canvas, same size as building sprites (e.g., 256x256 or 320x320)
+- Output: PNG with transparency - only the effect elements visible, background is see-through
+
+PURPOSE:
+- This overlay is placed directly ON TOP of a building
+- The building shows through the transparent areas
+- The effect (fire, smoke, etc.) appears to be happening TO the building
+- Same overlay works on restaurants, banks, temples, shacks - any building
+
+THE EFFECT ELEMENTS (floating on transparent background, NO BUILDING):
+${features}
+
+CRITICAL RULES:
+- ABSOLUTELY NO BUILDING in this image
+- NO ground, NO base, NO platform, NO background color
+- Background must be TRANSPARENT (alpha channel = 0), not any solid color
+- ONLY show fire, smoke, sparks, debris, effects floating on transparency
+- Effects should fill the canvas appropriately to cover a building when overlaid
+- Effects must be universal - work on wooden shack OR stone temple
+- NO building materials (no bricks, no wood, no concrete)
+
+CENTERING:
+- Center the effect on the canvas
+- When overlaid on a centered building, the effect should align
 
 ${STYLE_GUIDE}
 
@@ -1002,14 +1078,49 @@ ${customDetails ? `ADDITIONAL NOTES:\n${customDetails}` : ''}`;
 
 const NPC_FEATURES = {
     // === PEDESTRIAN DIRECTIONAL WALK CYCLES ===
-    // Each direction gets a 2-frame sprite strip (64x32 = 2 frames of 32x32)
-    ped_walk_n: `2-frame walk cycle sprite strip. Pedestrian walking AWAY from camera (NORTH direction in isometric). Back of character visible. Chunky 90s CGI style. Business casual clothing. Each frame shows alternating leg positions.`,
+    // Each direction gets a 2-frame sprite strip (64x32 = 2 frames of 32x32 side by side)
+    // Frame 1: Left foot forward, right foot back
+    // Frame 2: Right foot forward, left foot back
+    // Game alternates between frames to create walking animation
+    //
+    // CHARACTER PROPORTIONS (CRITICAL - NOT ROBLOX/CHIBI):
+    // - Normal human proportions (7-8 heads tall), NOT blocky or stubby
+    // - 90s CGI means slightly simplified geometry, NOT deformed proportions
+    // - Think Toy Story humans, Incredibles civilians - realistic proportions with stylized rendering
+    // - Arms and legs are normal length, NOT short stumpy limbs
+    // - Head is normal size relative to body, NOT oversized
 
-    ped_walk_s: `2-frame walk cycle sprite strip. Pedestrian walking TOWARD camera (SOUTH direction in isometric). Front of character visible. Chunky 90s CGI style. Business casual clothing. Each frame shows alternating leg positions.`,
+    ped_walk_n: `SPRITE STRIP: Two 32x32 frames placed SIDE BY SIDE (total image: 64 wide x 32 tall).
+Pedestrian walking AWAY from camera (NORTH direction in isometric). Back of character visible.
+- FRAME 1 (LEFT HALF of image, pixels 0-31): Left leg forward, right leg back - mid-stride pose
+- FRAME 2 (RIGHT HALF of image, pixels 32-63): Right leg forward, left leg back - opposite mid-stride pose
+Both frames show the EXACT SAME character from the EXACT SAME angle - ONLY the leg positions differ.
+REALISTIC human proportions (7-8 heads tall like a real person). Business casual clothing. Arms swing naturally opposite to legs.
+NOT blocky, NOT stubby, NOT Roblox-style. Normal adult human body proportions with 90s CGI stylized rendering.`,
 
-    ped_walk_e: `2-frame walk cycle sprite strip. Pedestrian walking RIGHT (EAST direction in isometric). Side profile, facing right. Chunky 90s CGI style. Business casual clothing. Each frame shows alternating leg positions.`,
+    ped_walk_s: `SPRITE STRIP: Two 32x32 frames placed SIDE BY SIDE (total image: 64 wide x 32 tall).
+Pedestrian walking TOWARD camera (SOUTH direction in isometric). Front of character visible.
+- FRAME 1 (LEFT HALF of image, pixels 0-31): Left leg forward, right leg back - mid-stride pose
+- FRAME 2 (RIGHT HALF of image, pixels 32-63): Right leg forward, left leg back - opposite mid-stride pose
+Both frames show the EXACT SAME character from the EXACT SAME angle - ONLY the leg positions differ.
+REALISTIC human proportions (7-8 heads tall like a real person). Business casual clothing. Arms swing naturally opposite to legs.
+NOT blocky, NOT stubby, NOT Roblox-style. Normal adult human body proportions with 90s CGI stylized rendering.`,
 
-    ped_walk_w: `2-frame walk cycle sprite strip. Pedestrian walking LEFT (WEST direction in isometric). Side profile, facing left. Chunky 90s CGI style. Business casual clothing. Each frame shows alternating leg positions.`,
+    ped_walk_e: `SPRITE STRIP: Two 32x32 frames placed SIDE BY SIDE (total image: 64 wide x 32 tall).
+Pedestrian walking RIGHT (EAST direction in isometric). Side profile, character facing right.
+- FRAME 1 (LEFT HALF of image, pixels 0-31): Left leg forward, right leg back - mid-stride pose
+- FRAME 2 (RIGHT HALF of image, pixels 32-63): Right leg forward, left leg back - opposite mid-stride pose
+Both frames show the EXACT SAME character from the EXACT SAME angle - ONLY the leg positions differ.
+REALISTIC human proportions (7-8 heads tall like a real person). Business casual clothing. Arms swing naturally opposite to legs.
+NOT blocky, NOT stubby, NOT Roblox-style. Normal adult human body proportions with 90s CGI stylized rendering.`,
+
+    ped_walk_w: `SPRITE STRIP: Two 32x32 frames placed SIDE BY SIDE (total image: 64 wide x 32 tall).
+Pedestrian walking LEFT (WEST direction in isometric). Side profile, character facing left.
+- FRAME 1 (LEFT HALF of image, pixels 0-31): Left leg forward, right leg back - mid-stride pose
+- FRAME 2 (RIGHT HALF of image, pixels 32-63): Right leg forward, left foot back - opposite mid-stride pose
+Both frames show the EXACT SAME character from the EXACT SAME angle - ONLY the leg positions differ.
+REALISTIC human proportions (7-8 heads tall like a real person). Business casual clothing. Arms swing naturally opposite to legs.
+NOT blocky, NOT stubby, NOT Roblox-style. Normal adult human body proportions with 90s CGI stylized rendering.`,
 
     // === CAR DIRECTIONAL SPRITES ===
     // Each direction is a single sprite showing the car facing that direction
@@ -1021,14 +1132,25 @@ const NPC_FEATURES = {
 
     car_w: `Car viewed from isometric angle, pointing LEFT (WEST). Side profile, car facing left. Chunky, toy-like 90s proportions. Generic sedan. No brand markings.`,
 
-    // === LEGACY (for backwards compatibility) ===
-    pedestrian_walk: `4-frame walk cycle sprite strip. Chunky 90s CGI character. Business casual clothing. Walking pose from side view. Each frame shows different leg position. Generic adult pedestrian.`,
+    // === LEGACY AND ADDITIONAL PEDESTRIAN TYPES ===
+    // All pedestrians use REALISTIC human proportions (7-8 heads tall), NOT blocky/Roblox style
+    pedestrian_walk: `4-frame walk cycle sprite strip. REALISTIC human proportions (7-8 heads tall). Business casual clothing. Walking pose from side view. Each frame shows different leg position. Generic adult pedestrian. NOT blocky, NOT Roblox-style.`,
 
-    pedestrian_stand: `Standing idle pose. Chunky 90s CGI character. Business casual clothing. Neutral standing position. Could have subtle idle animation frames.`,
+    pedestrian_stand: `Standing idle pose. REALISTIC human proportions (7-8 heads tall). Business casual clothing. Neutral standing position. Could have subtle idle animation frames. NOT blocky, NOT Roblox-style.`,
 
-    pedestrian_suit: `4-frame walk cycle. Character in business suit. Professional appearance. Briefcase optional. Corporate worker type.`,
+    pedestrian_suit: `4-frame walk cycle. REALISTIC human proportions (7-8 heads tall). Character in business suit. Professional appearance. Briefcase optional. Corporate worker type. NOT blocky, NOT Roblox-style.`,
 
-    pedestrian_casual: `4-frame walk cycle. Character in casual clothes. Relaxed appearance. Everyday citizen type.`,
+    pedestrian_casual: `4-frame walk cycle. REALISTIC human proportions (7-8 heads tall). Character in casual clothes. Relaxed appearance. Everyday citizen type. NOT blocky, NOT Roblox-style.`,
+
+    pedestrian_business: `4-frame walk cycle sprite strip (128x32 = 4 frames of 32x32 side by side).
+REALISTIC human proportions (7-8 heads tall like a real adult). Professional business attire - suit, tie, polished shoes.
+Walking pose from isometric 45-degree view. Each frame shows different leg position in the walk cycle.
+Frame 1: Right foot forward, left foot back
+Frame 2: Feet together, upright
+Frame 3: Left foot forward, right foot back
+Frame 4: Feet together, upright
+Corporate businessman/businesswoman type. Briefcase optional.
+NOT blocky, NOT stubby, NOT Roblox-style. Normal adult human body with 90s CGI stylized rendering.`,
 
     car_sedan: `Generic sedan car from isometric 45-degree view. Chunky, slightly toy-like proportions. Solid neutral color (gray, blue, or silver). No brand markings.`,
 
@@ -1438,9 +1560,51 @@ async function checkSceneDependencies(env) {
  * Building sprites need building_ref, NPC sprites need character_ref, etc.
  */
 async function checkSpriteReferenceDependency(env, category, assetKey) {
+    // Special handling for NPC category - cars use vehicle_ref, pedestrians use character_ref
+    if (category === 'npc') {
+        const isCarDirection = ['car_n', 'car_s', 'car_e', 'car_w'].includes(assetKey);
+        const isPedDirection = assetKey.startsWith('ped_walk_');
+
+        if (isCarDirection) {
+            // Car directional sprites need any approved vehicle_ref starting with 'car'
+            const ref = await env.DB.prepare(`
+                SELECT id, status FROM generated_assets
+                WHERE category = 'vehicle_ref' AND asset_key LIKE 'car%' AND status = 'approved'
+                ORDER BY created_at DESC LIMIT 1
+            `).first();
+
+            if (!ref) {
+                return {
+                    canGenerate: false,
+                    message: `No approved vehicle reference found for cars. Generate and approve a car vehicle_ref first (e.g., car_sedan).`
+                };
+            }
+            return { canGenerate: true, referenceId: ref.id };
+        }
+
+        if (isPedDirection) {
+            // Pedestrian directional sprites need approved character_ref for pedestrian
+            const ref = await env.DB.prepare(`
+                SELECT id, status FROM generated_assets
+                WHERE category = 'character_ref' AND asset_key = 'pedestrian' AND status = 'approved'
+                ORDER BY created_at DESC LIMIT 1
+            `).first();
+
+            if (!ref) {
+                return {
+                    canGenerate: false,
+                    message: `No approved character reference found for pedestrians. Generate and approve a character_ref for "pedestrian" first.`
+                };
+            }
+            return { canGenerate: true, referenceId: ref.id };
+        }
+
+        // Legacy NPC types - no reference required
+        return { canGenerate: true };
+    }
+
     const refCategoryMap = {
         'building_sprite': 'building_ref',
-        'npc': 'character_ref',
         'effect': 'effect_ref'
     };
 
@@ -1467,17 +1631,24 @@ async function checkSpriteReferenceDependency(env, category, assetKey) {
 }
 
 // Gemini API helper - Uses Nano Banana Pro (gemini-3-pro-image-preview)
-// referenceImage: optional { buffer: Uint8Array, mimeType: string } for image-to-image generation
-async function generateWithGemini(env, prompt, referenceImage = null) {
+// referenceImages: optional array of { buffer: Uint8Array, mimeType: string } or single object for image-to-image generation
+async function generateWithGemini(env, prompt, referenceImages = null) {
     try {
-        // Build the parts array - text prompt first, then optional reference image
+        // Build the parts array - text prompt first, then optional reference images
         const parts = [{ text: prompt }];
 
-        // If a reference image is provided, include it for Gemini to use as context
-        if (referenceImage) {
+        // Normalize to array
+        const images = referenceImages
+            ? (Array.isArray(referenceImages) ? referenceImages : [referenceImages])
+            : [];
+
+        // Add each reference image for Gemini to use as context
+        for (const refImage of images) {
+            if (!refImage || !refImage.buffer) continue;
+
             // Convert buffer to base64 (chunked to avoid stack overflow on large images)
             let base64Data = '';
-            const bytes = referenceImage.buffer;
+            const bytes = refImage.buffer;
             const chunkSize = 8192;
             for (let i = 0; i < bytes.length; i += chunkSize) {
                 const chunk = bytes.slice(i, i + chunkSize);
@@ -1487,7 +1658,7 @@ async function generateWithGemini(env, prompt, referenceImage = null) {
 
             parts.push({
                 inlineData: {
-                    mimeType: referenceImage.mimeType || 'image/png',
+                    mimeType: refImage.mimeType || 'image/png',
                     data: base64Data
                 }
             });
@@ -1762,14 +1933,57 @@ export async function handleAssetRoutes(request, env, path, method, user) {
                 }
             }
 
-            // Create asset record
+            // For effect sprites, include building references so the AI knows the size/style
+            let buildingReferenceImages = [];
+            if (category === 'effect') {
+                // Fetch up to 3 approved building sprites as size references
+                const buildingSprites = await env.DB.prepare(`
+                    SELECT id, r2_key_private, asset_key FROM generated_assets
+                    WHERE category = 'building_sprite' AND status = 'approved' AND r2_key_private IS NOT NULL
+                    ORDER BY RANDOM()
+                    LIMIT 3
+                `).all();
+
+                for (const sprite of buildingSprites.results || []) {
+                    if (sprite.r2_key_private) {
+                        const spriteObject = await env.R2_PRIVATE.get(sprite.r2_key_private);
+                        if (spriteObject) {
+                            const buffer = await spriteObject.arrayBuffer();
+                            buildingReferenceImages.push({
+                                buffer: new Uint8Array(buffer),
+                                mimeType: 'image/png',
+                                name: sprite.asset_key
+                            });
+                        }
+                    }
+                }
+
+                if (buildingReferenceImages.length > 0) {
+                    fullPrompt = `BUILDING REFERENCE IMAGES ATTACHED: These are example building sprites that your effect overlay will be placed ON TOP OF. Study their size, angle, and style. Your effect overlay must:
+1. Match the same 45-degree isometric angle
+2. Be sized to cover/overlay these buildings appropriately
+3. Have the same center point so when overlaid, the effect appears centered on the building
+
+The buildings show you the target size - your effect should fill a similar canvas area.
+
+${fullPrompt}`;
+                }
+            }
+
+            // Find the next available variant number for this asset (never overwrite existing)
+            const maxVariant = await env.DB.prepare(`
+                SELECT COALESCE(MAX(variant), 0) as max_variant FROM generated_assets
+                WHERE category = ? AND asset_key = ?
+            `).bind(category, asset_key).first();
+
+            const nextVariant = (maxVariant?.max_variant || 0) + 1;
+
+            // Create new asset record (always creates new, never overwrites)
             const result = await env.DB.prepare(`
                 INSERT INTO generated_assets (category, asset_key, variant, base_prompt, current_prompt, status, generation_model, parent_asset_id)
                 VALUES (?, ?, ?, ?, ?, 'pending', 'gemini-3-pro-image-preview', ?)
-                ON CONFLICT(category, asset_key, variant)
-                DO UPDATE SET base_prompt = excluded.base_prompt, current_prompt = excluded.current_prompt, status = 'pending', parent_asset_id = excluded.parent_asset_id, updated_at = CURRENT_TIMESTAMP
                 RETURNING id
-            `).bind(category, asset_key, variant, fullPrompt, fullPrompt, parentAssetId).first();
+            `).bind(category, asset_key, nextVariant, fullPrompt, fullPrompt, parentAssetId).first();
 
             // Add to queue
             await env.DB.prepare(`
@@ -1777,8 +1991,10 @@ export async function handleAssetRoutes(request, env, path, method, user) {
                 VALUES (?, 5)
             `).bind(result.id).run();
 
-            // Trigger generation with optional reference image
-            const generated = await generateWithGemini(env, fullPrompt, referenceImage);
+            // Trigger generation with optional reference image(s)
+            // Combine primary reference with building references for effect sprites
+            const allReferenceImages = referenceImage ? [referenceImage, ...buildingReferenceImages] : buildingReferenceImages;
+            const generated = await generateWithGemini(env, fullPrompt, allReferenceImages.length > 0 ? allReferenceImages : null);
 
             if (generated.success) {
                 // Determine storage path based on category
@@ -1786,13 +2002,13 @@ export async function handleAssetRoutes(request, env, path, method, user) {
                 let r2Key;
                 if (category.endsWith('_ref')) {
                     // Reference sheets go to refs/
-                    r2Key = `refs/${asset_key}_ref_v${variant}.png`;
+                    r2Key = `refs/${asset_key}_ref_v${nextVariant}.png`;
                 } else if (category === 'scene') {
                     // Scene originals go to scenes/
-                    r2Key = `scenes/${asset_key}_v${variant}.png`;
+                    r2Key = `scenes/${asset_key}_v${nextVariant}.png`;
                 } else {
                     // Sprites go to raw/ (will be processed later)
-                    r2Key = `raw/${category}_${asset_key}_raw_v${variant}.png`;
+                    r2Key = `raw/${category}_${asset_key}_raw_v${nextVariant}.png`;
                 }
 
                 // Store in PRIVATE bucket (originals not publicly accessible)
@@ -1814,7 +2030,7 @@ export async function handleAssetRoutes(request, env, path, method, user) {
                     WHERE asset_id = ?
                 `).bind(result.id).run();
 
-                await logAudit(env, 'generate', result.id, user?.username, { category, asset_key, variant, used_reference: !!referenceImage });
+                await logAudit(env, 'generate', result.id, user?.username, { category, asset_key, variant: nextVariant, used_reference: !!referenceImage });
 
                 return Response.json({
                     success: true,
@@ -1934,13 +2150,16 @@ export async function handleAssetRoutes(request, env, path, method, user) {
             let autoGeneratedVariations = [];
             if (asset.category === 'terrain' && TERRAIN_VARIATIONS[asset.asset_key]) {
                 const variations = TERRAIN_VARIATIONS[asset.asset_key];
-                for (const variant of variations) {
-                    // Create placeholder asset record with 'pending' status
+                for (const variantKey of variations) {
+                    // Build prompt for this terrain variation
+                    const prompt = buildTerrainPrompt(variantKey, '');
+
+                    // Create asset record with prompt (required - base_prompt NOT NULL)
                     const insertResult = await env.DB.prepare(`
-                        INSERT INTO generated_assets (category, asset_key, variant, status, parent_asset_id)
-                        VALUES (?, ?, 1, 'pending', ?)
+                        INSERT INTO generated_assets (category, asset_key, variant, base_prompt, current_prompt, status, parent_asset_id)
+                        VALUES (?, ?, 1, ?, ?, 'pending', ?)
                         ON CONFLICT (category, asset_key, variant) DO NOTHING
-                    `).bind('terrain', variant, id).run();
+                    `).bind('terrain', variantKey, prompt, prompt, id).run();
 
                     if (insertResult.meta?.changes > 0) {
                         const newId = insertResult.meta?.last_row_id;
@@ -1949,7 +2168,7 @@ export async function handleAssetRoutes(request, env, path, method, user) {
                             INSERT INTO asset_generation_queue (asset_id, priority)
                             VALUES (?, 1)
                         `).bind(newId).run();
-                        autoGeneratedVariations.push({ variant, id: newId });
+                        autoGeneratedVariations.push({ variant: variantKey, id: newId });
                     }
                 }
                 await logAudit(env, 'auto_queue_variations', parseInt(id), user?.username, {
@@ -1962,11 +2181,14 @@ export async function handleAssetRoutes(request, env, path, method, user) {
             if (asset.category === 'character_ref' && asset.asset_key === 'pedestrian') {
                 const directions = DIRECTIONAL_SPRITE_VARIANTS.pedestrian;
                 for (const dir of directions) {
+                    // Build prompt for this pedestrian direction
+                    const prompt = buildNPCPrompt(dir, '');
+
                     const insertResult = await env.DB.prepare(`
-                        INSERT INTO generated_assets (category, asset_key, variant, status, parent_asset_id)
-                        VALUES (?, ?, 1, 'pending', ?)
+                        INSERT INTO generated_assets (category, asset_key, variant, base_prompt, current_prompt, status, parent_asset_id)
+                        VALUES (?, ?, 1, ?, ?, 'pending', ?)
                         ON CONFLICT (category, asset_key, variant) DO NOTHING
-                    `).bind('npc', dir, id).run();
+                    `).bind('npc', dir, prompt, prompt, id).run();
 
                     if (insertResult.meta?.changes > 0) {
                         const newId = insertResult.meta?.last_row_id;
@@ -1987,11 +2209,14 @@ export async function handleAssetRoutes(request, env, path, method, user) {
             if (asset.category === 'vehicle_ref' && asset.asset_key.startsWith('car')) {
                 const directions = DIRECTIONAL_SPRITE_VARIANTS.car;
                 for (const dir of directions) {
+                    // Build prompt for this car direction
+                    const prompt = buildNPCPrompt(dir, '');
+
                     const insertResult = await env.DB.prepare(`
-                        INSERT INTO generated_assets (category, asset_key, variant, status, parent_asset_id)
-                        VALUES (?, ?, 1, 'pending', ?)
+                        INSERT INTO generated_assets (category, asset_key, variant, base_prompt, current_prompt, status, parent_asset_id)
+                        VALUES (?, ?, 1, ?, ?, 'pending', ?)
                         ON CONFLICT (category, asset_key, variant) DO NOTHING
-                    `).bind('npc', dir, id).run();
+                    `).bind('npc', dir, prompt, prompt, id).run();
 
                     if (insertResult.meta?.changes > 0) {
                         const newId = insertResult.meta?.last_row_id;

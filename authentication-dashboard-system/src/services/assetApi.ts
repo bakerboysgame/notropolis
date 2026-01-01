@@ -50,7 +50,7 @@ export const ASSET_KEYS: Record<string, string[]> = {
     'high_street_store', 'shop', 'burger_bar', 'motel', 'market_stall',
     'hot_dog_stand', 'campsite'
   ],
-  character_ref: ['pedestrian_business', 'pedestrian_casual', 'avatar_base'],
+  character_ref: ['pedestrian', 'pedestrian_business', 'pedestrian_casual', 'avatar_base'],
   vehicle_ref: ['car_sedan', 'car_sports', 'car_van', 'car_taxi'],
   effect_ref: ['fire', 'cluster_bomb', 'vandalism', 'robbery', 'poisoning', 'blackout'],
   // NPC sprites - directional walk cycles and car sprites
@@ -64,18 +64,9 @@ export const ASSET_KEYS: Record<string, string[]> = {
     'car_sedan', 'car_sports', 'car_van', 'car_taxi'
   ],
   terrain: [
-    // Base tiles (approve to auto-generate variations)
+    // Base terrain types ONLY - variations auto-generate when base is approved
+    // User selects base type (road, dirt, water), approves it, then all variations generate automatically
     'grass', 'trees', 'mountain', 'sand', 'water', 'road', 'dirt',
-    // Road variations (auto-generated)
-    'road_ns', 'road_ew', 'road_ne', 'road_nw', 'road_se', 'road_sw',
-    'road_nes', 'road_new', 'road_nsw', 'road_esw', 'road_nesw',
-    'road_n', 'road_e', 'road_s', 'road_w',
-    // Dirt variations (auto-generated)
-    'dirt_ns', 'dirt_ew', 'dirt_ne', 'dirt_nw', 'dirt_se', 'dirt_sw',
-    // Water edge variations (auto-generated)
-    'water_edge_n', 'water_edge_e', 'water_edge_s', 'water_edge_w',
-    'water_corner_ne', 'water_corner_nw', 'water_corner_se', 'water_corner_sw',
-    'water_inner_ne', 'water_inner_nw', 'water_inner_se', 'water_inner_sw'
   ],
   scene: [
     'arrest_bg', 'court_bg', 'prison_bg', 'hero_bg', 'bank_bg',
