@@ -6002,6 +6002,244 @@ Please address the above feedback in this generation.`;
             return Response.json({ success: true, assets: assets.results });
         }
 
+        // ============================================
+        // LLM SETTINGS ENDPOINTS
+        // View and edit all prompt templates with shared system_instructions tracking
+        // ============================================
+
+        // GET /api/admin/assets/llm-settings - List all templates with shared system_instructions grouping
+        if (action === 'llm-settings' && method === 'GET' && !param1) {
+            // Get all active templates
+            const templates = await env.DB.prepare(`
+                SELECT
+                    id, category, asset_key, template_name,
+                    base_prompt, style_guide, system_instructions,
+                    version, created_by, updated_at
+                FROM prompt_templates
+                WHERE is_active = TRUE
+                ORDER BY category, asset_key
+            `).all();
+
+            // Group templates by system_instructions hash for shared detection
+            const templateList = templates.results || [];
+            const sharedGroups = {};
+
+            for (const template of templateList) {
+                const sysInstructions = template.system_instructions || '';
+                // Create hash for grouping (use first 100 chars as key for comparison)
+                const groupKey = sysInstructions.substring(0, 100) || '_no_system_instructions';
+
+                if (!sharedGroups[groupKey]) {
+                    sharedGroups[groupKey] = {
+                        system_instructions: sysInstructions,
+                        templates: []
+                    };
+                }
+                sharedGroups[groupKey].templates.push({
+                    id: template.id,
+                    category: template.category,
+                    asset_key: template.asset_key,
+                    template_name: template.template_name,
+                    base_prompt: template.base_prompt,
+                    style_guide: template.style_guide,
+                    version: template.version,
+                    created_by: template.created_by,
+                    updated_at: template.updated_at
+                });
+            }
+
+            // Convert to array and mark shared
+            const groups = Object.values(sharedGroups).map((group, idx) => ({
+                group_id: `group_${idx}`,
+                system_instructions: group.system_instructions,
+                is_shared: group.templates.length > 1,
+                template_count: group.templates.length,
+                categories: [...new Set(group.templates.map(t => t.category))],
+                templates: group.templates
+            }));
+
+            // Sort: shared groups first, then by template count
+            groups.sort((a, b) => {
+                if (a.is_shared !== b.is_shared) return b.is_shared ? 1 : -1;
+                return b.template_count - a.template_count;
+            });
+
+            return Response.json({
+                success: true,
+                total_templates: templateList.length,
+                groups
+            });
+        }
+
+        // GET /api/admin/assets/llm-settings/template/:id - Get a single template
+        if (action === 'llm-settings' && method === 'GET' && param1 === 'template' && param2) {
+            const templateId = parseInt(param2);
+
+            const template = await env.DB.prepare(`
+                SELECT * FROM prompt_templates WHERE id = ?
+            `).bind(templateId).first();
+
+            if (!template) {
+                return Response.json({ error: 'Template not found' }, { status: 404 });
+            }
+
+            return Response.json({ success: true, template });
+        }
+
+        // PUT /api/admin/assets/llm-settings/template/:id - Update a single template (creates new version)
+        if (action === 'llm-settings' && method === 'PUT' && param1 === 'template' && param2) {
+            const templateId = parseInt(param2);
+            const body = await request.json();
+            const { base_prompt, system_instructions, style_guide, change_notes } = body;
+
+            // Get current template
+            const current = await env.DB.prepare(`
+                SELECT * FROM prompt_templates WHERE id = ?
+            `).bind(templateId).first();
+
+            if (!current) {
+                return Response.json({ error: 'Template not found' }, { status: 404 });
+            }
+
+            // Get max version for this category/asset_key
+            const versionResult = await env.DB.prepare(`
+                SELECT MAX(version) as maxVersion FROM prompt_templates
+                WHERE category = ? AND asset_key = ?
+            `).bind(current.category, current.asset_key).first();
+
+            const newVersion = (versionResult?.maxVersion || 0) + 1;
+
+            // Deactivate current active versions
+            await env.DB.prepare(`
+                UPDATE prompt_templates
+                SET is_active = FALSE
+                WHERE category = ? AND asset_key = ? AND is_active = TRUE
+            `).bind(current.category, current.asset_key).run();
+
+            // Insert new version
+            const result = await env.DB.prepare(`
+                INSERT INTO prompt_templates (
+                    category, asset_key, template_name,
+                    base_prompt, style_guide, system_instructions,
+                    version, is_active, created_by, change_notes
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, TRUE, ?, ?)
+            `).bind(
+                current.category,
+                current.asset_key,
+                current.template_name,
+                base_prompt ?? current.base_prompt,
+                style_guide ?? current.style_guide,
+                system_instructions ?? current.system_instructions,
+                newVersion,
+                user?.username || 'admin',
+                change_notes || 'Updated via LLM Settings'
+            ).run();
+
+            await logAudit(env, 'update_llm_settings', null, user?.username, {
+                template_id: templateId,
+                category: current.category,
+                asset_key: current.asset_key,
+                version: newVersion
+            });
+
+            return Response.json({
+                success: true,
+                new_template_id: result.meta.last_row_id,
+                version: newVersion,
+                message: 'Template updated successfully'
+            });
+        }
+
+        // PUT /api/admin/assets/llm-settings/shared - Update all templates with matching system_instructions
+        if (action === 'llm-settings' && method === 'PUT' && param1 === 'shared') {
+            const body = await request.json();
+            const { new_system_instructions, change_notes, template_ids } = body;
+
+            if (!template_ids || !Array.isArray(template_ids) || template_ids.length === 0) {
+                return Response.json({ error: 'template_ids array is required' }, { status: 400 });
+            }
+
+            if (new_system_instructions === undefined) {
+                return Response.json({ error: 'new_system_instructions is required' }, { status: 400 });
+            }
+
+            const updatedTemplates = [];
+            const errors = [];
+
+            // Process each template
+            for (const templateId of template_ids) {
+                try {
+                    // Get current template
+                    const current = await env.DB.prepare(`
+                        SELECT * FROM prompt_templates WHERE id = ? AND is_active = TRUE
+                    `).bind(templateId).first();
+
+                    if (!current) {
+                        errors.push({ id: templateId, error: 'Not found or not active' });
+                        continue;
+                    }
+
+                    // Get max version
+                    const versionResult = await env.DB.prepare(`
+                        SELECT MAX(version) as maxVersion FROM prompt_templates
+                        WHERE category = ? AND asset_key = ?
+                    `).bind(current.category, current.asset_key).first();
+
+                    const newVersion = (versionResult?.maxVersion || 0) + 1;
+
+                    // Deactivate current
+                    await env.DB.prepare(`
+                        UPDATE prompt_templates
+                        SET is_active = FALSE
+                        WHERE category = ? AND asset_key = ? AND is_active = TRUE
+                    `).bind(current.category, current.asset_key).run();
+
+                    // Insert new version with updated system_instructions
+                    const result = await env.DB.prepare(`
+                        INSERT INTO prompt_templates (
+                            category, asset_key, template_name,
+                            base_prompt, style_guide, system_instructions,
+                            version, is_active, created_by, change_notes
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, TRUE, ?, ?)
+                    `).bind(
+                        current.category,
+                        current.asset_key,
+                        current.template_name,
+                        current.base_prompt,
+                        current.style_guide,
+                        new_system_instructions,
+                        newVersion,
+                        user?.username || 'admin',
+                        change_notes || 'Bulk update via LLM Settings'
+                    ).run();
+
+                    updatedTemplates.push({
+                        original_id: templateId,
+                        new_id: result.meta.last_row_id,
+                        category: current.category,
+                        asset_key: current.asset_key,
+                        version: newVersion
+                    });
+                } catch (err) {
+                    errors.push({ id: templateId, error: err.message });
+                }
+            }
+
+            await logAudit(env, 'bulk_update_llm_settings', null, user?.username, {
+                updated_count: updatedTemplates.length,
+                error_count: errors.length,
+                template_ids
+            });
+
+            return Response.json({
+                success: true,
+                updated_count: updatedTemplates.length,
+                updated_templates: updatedTemplates,
+                errors: errors.length > 0 ? errors : undefined,
+                message: `Updated ${updatedTemplates.length} template(s)${errors.length > 0 ? `, ${errors.length} error(s)` : ''}`
+            });
+        }
+
         // Default: route not found
         return Response.json({ error: 'Asset route not found', path, method }, { status: 404 });
 

@@ -962,3 +962,124 @@ export const ASSET_MANAGER_CATEGORIES = [
 ] as const;
 
 export type AssetManagerCategory = typeof ASSET_MANAGER_CATEGORIES[number]['key'];
+
+// ============================================
+// LLM SETTINGS TYPES AND API
+// View and edit all prompt templates with shared system_instructions
+// ============================================
+
+// Individual template in LLM settings
+export interface LlmSettingsTemplate {
+  id: number;
+  category: string;
+  asset_key: string;
+  template_name?: string;
+  base_prompt: string;
+  style_guide?: string;
+  version: number;
+  created_by?: string;
+  updated_at?: string;
+}
+
+// Group of templates sharing the same system_instructions
+export interface LlmSettingsGroup {
+  group_id: string;
+  system_instructions: string;
+  is_shared: boolean;
+  template_count: number;
+  categories: string[];
+  templates: LlmSettingsTemplate[];
+}
+
+// Response from GET /llm-settings
+export interface LlmSettingsResponse {
+  success: boolean;
+  total_templates: number;
+  groups: LlmSettingsGroup[];
+}
+
+// Update single template response
+export interface LlmSettingsUpdateResponse {
+  success: boolean;
+  new_template_id: number;
+  version: number;
+  message: string;
+}
+
+// Bulk update response
+export interface LlmSettingsBulkUpdateResponse {
+  success: boolean;
+  updated_count: number;
+  updated_templates: Array<{
+    original_id: number;
+    new_id: number;
+    category: string;
+    asset_key: string;
+    version: number;
+  }>;
+  errors?: Array<{ id: number; error: string }>;
+  message: string;
+}
+
+class LlmSettingsApi {
+  private baseUrl = `${config.API_BASE_URL}/api/admin/assets/llm-settings`;
+
+  private async fetch<T>(path: string, options?: RequestInit): Promise<T> {
+    const token = localStorage.getItem('token');
+    const response = await fetch(`${this.baseUrl}${path}`, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+        ...options?.headers,
+      },
+    });
+    const data = await response.json();
+    if (!data.success) throw new Error(data.error || 'Request failed');
+    return data;
+  }
+
+  // Get all templates grouped by shared system_instructions
+  async getAll(): Promise<LlmSettingsResponse> {
+    return this.fetch<LlmSettingsResponse>('');
+  }
+
+  // Get a single template by ID
+  async getTemplate(id: number): Promise<{ template: LlmSettingsTemplate & { system_instructions: string } }> {
+    return this.fetch(`/template/${id}`);
+  }
+
+  // Update a single template (creates new version)
+  async updateTemplate(
+    id: number,
+    updates: {
+      base_prompt?: string;
+      system_instructions?: string;
+      style_guide?: string;
+      change_notes?: string;
+    }
+  ): Promise<LlmSettingsUpdateResponse> {
+    return this.fetch(`/template/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(updates),
+    });
+  }
+
+  // Update all templates with shared system_instructions
+  async updateShared(
+    templateIds: number[],
+    newSystemInstructions: string,
+    changeNotes?: string
+  ): Promise<LlmSettingsBulkUpdateResponse> {
+    return this.fetch('/shared', {
+      method: 'PUT',
+      body: JSON.stringify({
+        template_ids: templateIds,
+        new_system_instructions: newSystemInstructions,
+        change_notes: changeNotes,
+      }),
+    });
+  }
+}
+
+export const llmSettingsApi = new LlmSettingsApi();

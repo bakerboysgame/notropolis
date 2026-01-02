@@ -369,6 +369,16 @@ export default {
           return handleUpdateTiles(request, authService, env, corsHeaders);
 
         // ==================== ADMIN ASSET PIPELINE ENDPOINTS ====================
+        // PUBLIC: Reference library serve endpoint (no auth required for displaying images)
+        case path.startsWith('/api/admin/assets/reference-library/serve/'):
+          const publicServeResponse = await handleAssetRoutes(request, env, path, method, null, ctx);
+          const publicServeHeaders = new Headers(publicServeResponse.headers);
+          Object.entries(corsHeaders).forEach(([key, value]) => publicServeHeaders.set(key, value));
+          return new Response(publicServeResponse.body, {
+            status: publicServeResponse.status,
+            headers: publicServeHeaders
+          });
+
         case path.startsWith('/api/admin/assets'):
           // Get user from token for audit logging
           const assetAuthHeader = request.headers.get('Authorization');
