@@ -135,19 +135,139 @@ export interface QueueItem {
   created_at: string;
 }
 
+// ============================================
+// STAGE 4: GENERATION SETTINGS AND REFERENCES
+// ============================================
+
+// Gemini generation settings
+export interface GenerationSettings {
+  temperature?: number;  // 0.0 - 2.0, default 0.7
+  topK?: number;         // 1 - 100, default 40
+  topP?: number;         // 0.0 - 1.0, default 0.95
+  maxOutputTokens?: number;
+}
+
+// Reference image specification for generation
+export interface ReferenceImageSpec {
+  type: 'library' | 'approved_asset';
+  id: number;
+}
+
+// Stage 4: Enhanced generate parameters
+// Stage 5a: Added parent_asset_id and sprite_variant for explicit sprite-reference linking
+export interface GenerateParams {
+  category: AssetCategory;
+  asset_key: string;
+  variant?: number;
+  prompt?: string;                          // Custom prompt (optional, overrides template)
+  custom_details?: string;                  // Additional details to append
+  reference_images?: ReferenceImageSpec[];  // Reference images to include
+  generation_settings?: GenerationSettings; // Gemini settings
+  parent_asset_id?: number;                 // Stage 5a: Link to parent reference
+  sprite_variant?: string;                  // Stage 5a: Which variant (e.g., 'main', 'n', 'corner')
+}
+
 // Generation response
+// Stage 5a: Added sprite_variant to response
 export interface GenerateResponse {
   success: boolean;
   asset_id: string;
+  assetId?: number;  // Stage 4: camelCase alias
+  variant?: number;
   r2_key: string;
   used_reference_image: boolean;
+  user_references_count?: number;
   parent_asset_id?: string;
+  sprite_variant?: string;  // Stage 5a: Which variant was generated
+  generation_settings?: GenerationSettings & { model: string };
+  message?: string;
+  error?: string;
+}
+
+// ============================================
+// STAGE 6: REGENERATE FLOW TYPES
+// ============================================
+
+// Stage 6: Regenerate parameters
+export interface RegenerateParams {
+  prompt?: string;                          // Override prompt
+  custom_details?: string;                  // Additional details to append
+  reference_images?: ReferenceImageSpec[];  // New references (replaces original links)
+  generation_settings?: GenerationSettings; // Override settings (merged with original)
+  preserve_old?: boolean;                   // Keep old version (default: true)
+}
+
+// Stage 6: Regenerate response
+export interface RegenerateResponse {
+  success: boolean;
+  originalId?: number;
+  originalVariant?: number;
+  newAssetId?: number;
+  newVariant?: number;
+  r2_key?: string;
+  generation_settings?: GenerationSettings & { model: string };
+  message?: string;
+  error?: string;
 }
 
 // Preview URL response
 export interface PreviewUrlResponse {
   url: string;
   expires_at: string;
+}
+
+// ============================================
+// STAGE 5a: SPRITE REQUIREMENTS AND STATUS
+// ============================================
+
+// Sprite requirement definition
+export interface SpriteRequirement {
+  spriteCategory: string;
+  variant: string;
+  displayName: string;
+  required: boolean;
+}
+
+// Individual sprite status in a reference's sprite set
+export interface SpriteStatus {
+  variant: string;
+  displayName: string;
+  required: boolean;
+  spriteCategory: string;
+  spriteAssetKey: string;
+  spriteId: number | null;
+  status: string | null;
+  pipelineStatus: string | null;
+  publicUrl: string | null;
+  generationSettings: GenerationSettings | null;
+}
+
+// Response from sprite-status endpoint
+export interface SpriteStatusResponse {
+  success: boolean;
+  reference: {
+    id: number;
+    category: string;
+    asset_key: string;
+    status: string;
+  };
+  sprites: SpriteStatus[];
+  summary: {
+    total: number;
+    completed: number;
+    inProgress: number;
+    notStarted: number;
+    percentComplete: number;
+  };
+  message?: string;
+}
+
+// Response from sprite-requirements endpoint
+export interface SpriteRequirementsResponse {
+  success: boolean;
+  refCategory: string;
+  requirements: SpriteRequirement[];
+  message?: string;
 }
 
 class AssetAdminApi {
@@ -184,16 +304,34 @@ class AssetAdminApi {
   }
 
   // Generate new asset
-  async generate(params: {
-    category: AssetCategory;
-    asset_key: string;
-    variant?: number;
-    custom_details?: string;
-  }): Promise<GenerateResponse> {
+  // Stage 4: Enhanced with custom prompts, reference images, and Gemini settings
+  // Stage 5a: Added parent_asset_id and sprite_variant for sprite-reference linking
+  async generate(params: GenerateParams): Promise<GenerateResponse> {
     return this.fetch('/generate', {
       method: 'POST',
-      body: JSON.stringify(params),
+      body: JSON.stringify({
+        category: params.category,
+        asset_key: params.asset_key,
+        variant: params.variant,
+        prompt: params.prompt,
+        custom_details: params.custom_details,
+        reference_images: params.reference_images,
+        generation_settings: params.generation_settings,
+        parent_asset_id: params.parent_asset_id,
+        sprite_variant: params.sprite_variant
+      }),
     });
+  }
+
+  // Stage 5a: Get sprite requirements for a reference type
+  async getSpriteRequirements(refCategory: string): Promise<SpriteRequirement[]> {
+    const response = await this.fetch<SpriteRequirementsResponse>(`/sprite-requirements/${refCategory}`);
+    return response.requirements || [];
+  }
+
+  // Stage 5a: Get sprite status for a specific reference
+  async getSpriteStatus(refId: number): Promise<SpriteStatusResponse> {
+    return this.fetch<SpriteStatusResponse>(`/sprite-status/${refId}`);
   }
 
   // Remove background (Removal.ai)
@@ -226,10 +364,12 @@ class AssetAdminApi {
     });
   }
 
-  // Regenerate asset (uses updated prompt)
-  async regenerate(assetId: string): Promise<GenerateResponse> {
+  // Regenerate asset (creates new version, preserves old)
+  // Stage 6: Enhanced with optional params for prompt/reference/settings overrides
+  async regenerate(assetId: string, params?: RegenerateParams): Promise<RegenerateResponse> {
     return this.fetch(`/regenerate/${assetId}`, {
       method: 'POST',
+      body: JSON.stringify(params || {}),
     });
   }
 
@@ -375,3 +515,277 @@ export const AVATAR_LAYER_TYPES = [
 ] as const;
 
 export const assetApi = new AssetAdminApi();
+
+// ============================================
+// REFERENCE LIBRARY TYPES AND API
+// ============================================
+
+export interface ReferenceImage {
+  id: number;
+  name: string;
+  description?: string;
+  category?: string;
+  tags?: string[];
+  thumbnailUrl?: string;
+  thumbnail_r2_key?: string;
+  r2_key?: string;
+  width?: number;
+  height?: number;
+  file_size?: number;
+  mime_type?: string;
+  usage_count?: number;
+  uploaded_by?: string;
+  created_at: string;
+  updated_at?: string;
+  is_archived?: boolean;
+}
+
+export interface UploadReferenceParams {
+  file: File;
+  name: string;
+  description?: string;
+  category?: string;
+  tags?: string[];
+}
+
+export interface ReferenceImageUploadResponse {
+  id: number;
+  name: string;
+  category: string;
+  r2Key: string;
+  thumbnailKey: string;
+  width: number;
+  height: number;
+  fileSize: number;
+}
+
+class ReferenceLibraryApi {
+  private baseUrl = `${config.API_BASE_URL}/api/admin/assets/reference-library`;
+
+  private getAuthHeaders(): HeadersInit {
+    const token = localStorage.getItem('token');
+    return {
+      'Authorization': `Bearer ${token}`,
+    };
+  }
+
+  // List all reference images
+  async list(params?: { category?: string; search?: string; archived?: boolean }): Promise<ReferenceImage[]> {
+    const queryParams = new URLSearchParams();
+    if (params?.category) queryParams.set('category', params.category);
+    if (params?.search) queryParams.set('search', params.search);
+    if (params?.archived) queryParams.set('archived', 'true');
+
+    const response = await fetch(`${this.baseUrl}?${queryParams}`, {
+      headers: this.getAuthHeaders()
+    });
+    const data = await response.json();
+    if (!data.success) throw new Error(data.error || 'Failed to list reference images');
+    return data.images;
+  }
+
+  // Get single reference image
+  async get(id: number): Promise<ReferenceImage> {
+    const response = await fetch(`${this.baseUrl}/${id}`, {
+      headers: this.getAuthHeaders()
+    });
+    const data = await response.json();
+    if (!data.success) throw new Error(data.error || 'Failed to get reference image');
+    return data.image;
+  }
+
+  // Get preview URL for full-size image
+  async getPreviewUrl(id: number): Promise<{ previewUrl: string; mimeType: string }> {
+    const response = await fetch(`${this.baseUrl}/${id}/preview`, {
+      headers: this.getAuthHeaders()
+    });
+    const data = await response.json();
+    if (!data.success) throw new Error(data.error || 'Failed to get preview URL');
+    return { previewUrl: data.previewUrl, mimeType: data.mimeType };
+  }
+
+  // Upload new reference image
+  async upload(params: UploadReferenceParams): Promise<ReferenceImageUploadResponse> {
+    const formData = new FormData();
+    formData.append('file', params.file);
+    formData.append('name', params.name);
+    if (params.description) formData.append('description', params.description);
+    if (params.category) formData.append('category', params.category);
+    if (params.tags) formData.append('tags', JSON.stringify(params.tags));
+
+    const response = await fetch(`${this.baseUrl}/upload`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(), // Don't set Content-Type for FormData
+      body: formData
+    });
+    const data = await response.json();
+    if (!data.success) throw new Error(data.error || 'Failed to upload reference image');
+    return data.image;
+  }
+
+  // Update metadata
+  async update(id: number, updates: Partial<Pick<ReferenceImage, 'name' | 'description' | 'category' | 'tags'>>): Promise<void> {
+    const response = await fetch(`${this.baseUrl}/${id}`, {
+      method: 'PUT',
+      headers: { ...this.getAuthHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates)
+    });
+    const data = await response.json();
+    if (!data.success) throw new Error(data.error || 'Failed to update reference image');
+  }
+
+  // Archive (soft delete)
+  async archive(id: number): Promise<{ archived: boolean; wasInUse: boolean }> {
+    const response = await fetch(`${this.baseUrl}/${id}`, {
+      method: 'DELETE',
+      headers: this.getAuthHeaders()
+    });
+    const data = await response.json();
+    if (!data.success) throw new Error(data.error || 'Failed to archive reference image');
+    return { archived: data.archived, wasInUse: data.wasInUse };
+  }
+}
+
+export const referenceLibraryApi = new ReferenceLibraryApi();
+
+// Reference library categories
+export const REFERENCE_CATEGORIES = [
+  'buildings',
+  'characters',
+  'vehicles',
+  'effects',
+  'general'
+] as const;
+
+export type ReferenceCategory = typeof REFERENCE_CATEGORIES[number];
+
+// ============================================
+// PROMPT TEMPLATE TYPES AND API
+// ============================================
+
+export interface PromptTemplate {
+  id?: number;
+  category: string;
+  assetKey: string;
+  templateName?: string;
+  basePrompt: string;
+  styleGuide?: string;
+  systemInstructions?: string;
+  version: number;
+  isActive?: boolean;
+  isHardcoded?: boolean;
+  createdBy?: string;
+  updatedAt?: string;
+  changeNotes?: string;
+}
+
+export interface PromptTemplateVersion {
+  id: number;
+  version: number;
+  isActive: boolean;
+  basePrompt: string;
+  styleGuide?: string;
+  createdBy?: string;
+  createdAt: string;
+  changeNotes?: string;
+}
+
+export interface PromptCategoryList {
+  [category: string]: Array<{ assetKey: string; templateName: string }>;
+}
+
+class PromptTemplateApi {
+  private baseUrl = `${config.API_BASE_URL}/api/admin/assets/prompts`;
+
+  private getAuthHeaders(): HeadersInit {
+    const token = localStorage.getItem('token');
+    return {
+      'Authorization': `Bearer ${token}`,
+    };
+  }
+
+  // List all categories and their templates
+  async listCategories(): Promise<PromptCategoryList> {
+    const response = await fetch(this.baseUrl, {
+      headers: this.getAuthHeaders()
+    });
+    const data = await response.json();
+    if (!data.success) throw new Error(data.error || 'Failed to list categories');
+    return data.categories;
+  }
+
+  // Get active template for category/assetKey
+  async get(category: string, assetKey: string): Promise<PromptTemplate> {
+    const response = await fetch(`${this.baseUrl}/${category}/${assetKey}`, {
+      headers: this.getAuthHeaders()
+    });
+    const data = await response.json();
+    if (!data.success) throw new Error(data.error || 'Template not found');
+    return data.template;
+  }
+
+  // Update template (creates new version)
+  async update(
+    category: string,
+    assetKey: string,
+    updates: {
+      basePrompt: string;
+      styleGuide?: string;
+      systemInstructions?: string;
+      templateName?: string;
+      changeNotes?: string;
+    }
+  ): Promise<{ templateId: number; version: number }> {
+    const response = await fetch(`${this.baseUrl}/${category}/${assetKey}`, {
+      method: 'PUT',
+      headers: { ...this.getAuthHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates)
+    });
+    const data = await response.json();
+    if (!data.success) throw new Error(data.error || 'Failed to update template');
+    return { templateId: data.templateId, version: data.version };
+  }
+
+  // Get version history
+  async getHistory(category: string, assetKey: string): Promise<PromptTemplateVersion[]> {
+    const response = await fetch(`${this.baseUrl}/${category}/${assetKey}/history`, {
+      headers: this.getAuthHeaders()
+    });
+    const data = await response.json();
+    if (!data.success) throw new Error(data.error || 'Failed to get history');
+    return data.versions;
+  }
+
+  // Reset to system default (creates new version with original content)
+  async reset(category: string, assetKey: string): Promise<{ templateId: number; version: number }> {
+    const response = await fetch(`${this.baseUrl}/${category}/${assetKey}/reset`, {
+      method: 'POST',
+      headers: this.getAuthHeaders()
+    });
+    const data = await response.json();
+    if (!data.success) throw new Error(data.error || 'Failed to reset template');
+    return { templateId: data.templateId, version: data.version };
+  }
+}
+
+export const promptTemplateApi = new PromptTemplateApi();
+
+// Prompt template categories (matches backend categories)
+export const PROMPT_CATEGORIES = [
+  '_global',
+  'building_ref',
+  'building_sprite',
+  'character_ref',
+  'vehicle_ref',
+  'effect_ref',
+  'terrain_ref',
+  'terrain',
+  'effect',
+  'scene',
+  'npc',
+  'avatar',
+  'ui',
+  'overlay'
+] as const;
+
+export type PromptCategory = typeof PROMPT_CATEGORIES[number];

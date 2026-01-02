@@ -5,12 +5,74 @@
 // - env.R2_PUBLIC (public R2 bucket for game-ready assets)
 // - env.GEMINI_API_KEY
 // - env.SLAZZER_API_KEY (for background removal)
-// Note: WebP conversion and resizing uses built-in OffscreenCanvas (no external API needed)
+// Note: Resize/WebP conversion uses Cloudflare Image Transformations (enabled on zone)
 
 // R2 Public URL Configuration:
 // Public bucket URL: https://pub-874867b18f8b4b4882277d8a2b7dfe80.r2.dev
 // Custom domain (if configured): https://assets.notropolis.net
 const R2_PUBLIC_URL = 'https://assets.notropolis.net';
+
+// Categories that go through post-approval pipeline (bg removal → trim → resize → publish)
+const SPRITE_CATEGORIES = [
+    'building_sprite',
+    'terrain',
+    'npc',
+    'effect',
+    'vehicle',
+    'avatar'
+];
+
+// Stage 5a: Sprite requirements per reference type
+// Defines what sprites need to be generated for each reference category
+const SPRITE_REQUIREMENTS = {
+    building_ref: [
+        { spriteCategory: 'building_sprite', variant: 'main', displayName: 'Building Sprite', required: true }
+    ],
+    terrain_ref: [
+        { spriteCategory: 'terrain', variant: 'straight', displayName: 'Straight', required: true },
+        { spriteCategory: 'terrain', variant: 'corner', displayName: 'Corner', required: true },
+        { spriteCategory: 'terrain', variant: 't_junction', displayName: 'T-Junction', required: true },
+        { spriteCategory: 'terrain', variant: 'crossroads', displayName: 'Crossroads', required: true },
+        { spriteCategory: 'terrain', variant: 'end', displayName: 'Dead End', required: true }
+    ],
+    character_ref: [
+        { spriteCategory: 'npc', variant: 'n', displayName: 'North', required: true },
+        { spriteCategory: 'npc', variant: 'ne', displayName: 'North-East', required: true },
+        { spriteCategory: 'npc', variant: 'e', displayName: 'East', required: true },
+        { spriteCategory: 'npc', variant: 'se', displayName: 'South-East', required: true },
+        { spriteCategory: 'npc', variant: 's', displayName: 'South', required: true },
+        { spriteCategory: 'npc', variant: 'sw', displayName: 'South-West', required: true },
+        { spriteCategory: 'npc', variant: 'w', displayName: 'West', required: true },
+        { spriteCategory: 'npc', variant: 'nw', displayName: 'North-West', required: true }
+    ],
+    vehicle_ref: [
+        { spriteCategory: 'vehicle', variant: 'n', displayName: 'North', required: true },
+        { spriteCategory: 'vehicle', variant: 'e', displayName: 'East', required: true },
+        { spriteCategory: 'vehicle', variant: 's', displayName: 'South', required: true },
+        { spriteCategory: 'vehicle', variant: 'w', displayName: 'West', required: true }
+    ],
+    effect_ref: [
+        { spriteCategory: 'effect', variant: 'main', displayName: 'Effect Sprite', required: true }
+    ]
+};
+
+// Stage 5a: Valid sprite-reference relationships
+// Maps sprite categories to the reference categories they can be created from
+const VALID_SPRITE_REF_RELATIONSHIPS = {
+    'building_sprite': ['building_ref'],
+    'terrain': ['terrain_ref'],
+    'npc': ['character_ref'],
+    'vehicle': ['vehicle_ref'],
+    'effect': ['effect_ref']
+};
+
+/**
+ * Stage 5a: Validate that a sprite category can be created from a reference category
+ */
+function validateSpriteRefRelationship(spriteCategory, refCategory) {
+    const allowedRefs = VALID_SPRITE_REF_RELATIONSHIPS[spriteCategory];
+    return allowedRefs && allowedRefs.includes(refCategory);
+}
 
 // Audit logging helper
 async function logAudit(env, action, assetId, actor, details = {}) {
@@ -30,35 +92,217 @@ async function hashString(str) {
 }
 
 /**
- * Convert PNG to WebP and resize using Workers built-in OffscreenCanvas (FREE!)
- * No external API needed - uses Cloudflare Workers runtime capabilities
- * @param {ArrayBuffer} pngBuffer - The PNG image buffer
- * @param {number} targetWidth - Target width in pixels
- * @param {number} targetHeight - Target height in pixels
- * @returns {Promise<ArrayBuffer>} - The resized WebP image buffer
+ * Resize image and convert to WebP using Cloudflare Image Transformations
+ * Requires Image Resizing to be enabled on the zone
+ * @param {Object} env - Worker environment with R2_PUBLIC binding
+ * @param {ArrayBuffer} imageBuffer - The source image buffer (PNG)
+ * @param {string} tempKey - Temporary R2 key for the source image
+ * @param {number} width - Target width
+ * @param {number} height - Target height
+ * @returns {Promise<ArrayBuffer>} - The resized WebP buffer
  */
-async function convertToWebPAndResize(pngBuffer, targetWidth, targetHeight) {
-    // Create a blob from the buffer
-    const blob = new Blob([pngBuffer], { type: 'image/png' });
-
-    // Decode the image using Workers built-in API
-    const imageBitmap = await createImageBitmap(blob);
-
-    // Create an OffscreenCanvas at target dimensions
-    const canvas = new OffscreenCanvas(targetWidth, targetHeight);
-    const ctx = canvas.getContext('2d');
-
-    // Draw the image scaled to target size (maintains transparency)
-    ctx.drawImage(imageBitmap, 0, 0, targetWidth, targetHeight);
-
-    // Convert to WebP blob (90% quality - good balance of size/quality)
-    const webpBlob = await canvas.convertToBlob({
-        type: 'image/webp',
-        quality: 0.9
+async function resizeViaCloudflare(env, imageBuffer, tempKey, width, height) {
+    // Step 1: Upload source image temporarily to public R2
+    await env.R2_PUBLIC.put(tempKey, imageBuffer, {
+        httpMetadata: { contentType: 'image/png' }
     });
 
-    // Return as ArrayBuffer
-    return await webpBlob.arrayBuffer();
+    try {
+        // Step 2: Fetch with Cloudflare Image Resizing
+        const imageUrl = `${R2_PUBLIC_URL}/${tempKey}`;
+        const response = await fetch(imageUrl, {
+            cf: {
+                image: {
+                    width: width,
+                    height: height,
+                    fit: 'contain',
+                    format: 'webp'
+                }
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`Image resize failed: ${response.status} ${response.statusText}`);
+        }
+
+        const resizedBuffer = await response.arrayBuffer();
+
+        // Step 3: Clean up temp file
+        await env.R2_PUBLIC.delete(tempKey);
+
+        return resizedBuffer;
+    } catch (err) {
+        // Clean up on error
+        await env.R2_PUBLIC.delete(tempKey).catch(() => {});
+        throw err;
+    }
+}
+
+/**
+ * Post-approval processing pipeline for sprites
+ * Runs asynchronously via executionCtx.waitUntil() after approval
+ *
+ * Steps:
+ * 1. Fetch original image from R2_PRIVATE
+ * 2. Background removal (Slazzer API)
+ * 3. Trim transparent pixels (placeholder)
+ * 4. Save processed PNG to R2_PRIVATE
+ * 5. Resize + WebP conversion (Cloudflare)
+ * 6. Save to R2_PUBLIC for game
+ * 7. Update database with public URL
+ *
+ * @param {Object} env - Worker environment
+ * @param {number} assetId - Asset ID
+ * @param {Object} asset - Full asset row from database
+ * @param {string} approvedBy - Username who approved
+ */
+async function postApprovalPipeline(env, assetId, asset, approvedBy) {
+    console.log(`[Pipeline] Starting for asset ${assetId} (${asset.category}/${asset.asset_key})`);
+
+    try {
+        // Update status to processing
+        await env.DB.prepare(`
+            UPDATE generated_assets
+            SET pipeline_status = 'processing',
+                pipeline_started_at = CURRENT_TIMESTAMP,
+                pipeline_error = NULL
+            WHERE id = ?
+        `).bind(assetId).run();
+
+        // Step 1: Fetch original image from private bucket
+        if (!asset.r2_key_private) {
+            throw new Error('No r2_key_private found for asset');
+        }
+
+        const originalObject = await env.R2_PRIVATE.get(asset.r2_key_private);
+        if (!originalObject) {
+            throw new Error(`Original image not found: ${asset.r2_key_private}`);
+        }
+        let imageBuffer = await originalObject.arrayBuffer();
+        console.log(`[Pipeline] Fetched original image: ${imageBuffer.byteLength} bytes`);
+
+        // Step 2: Background removal via Slazzer API
+        console.log('[Pipeline] Removing background via Slazzer...');
+        const formData = new FormData();
+        formData.append('source_image_file', new Blob([imageBuffer], { type: 'image/png' }), 'image.png');
+        formData.append('crop', 'true');
+
+        const slazzerResponse = await fetch('https://api.slazzer.com/v2.0/remove_image_background', {
+            method: 'POST',
+            headers: { 'API-KEY': env.SLAZZER_API_KEY },
+            body: formData
+        });
+
+        if (!slazzerResponse.ok) {
+            const errorText = await slazzerResponse.text();
+            throw new Error(`Slazzer API error: ${slazzerResponse.status} - ${errorText}`);
+        }
+
+        const bgRemovedBuffer = await slazzerResponse.arrayBuffer();
+        console.log(`[Pipeline] Background removed: ${bgRemovedBuffer.byteLength} bytes`);
+
+        // Step 3: Trim transparent pixels (placeholder - returns as-is for now)
+        // TODO: Implement actual trimming with WASM-based image library if needed
+        const trimmedBuffer = bgRemovedBuffer;
+        console.log('[Pipeline] Trim step (placeholder)');
+
+        // Step 4: Save processed PNG to private bucket
+        const processedKey = `processed/${asset.category}/${asset.asset_key}_v${asset.variant}_${Date.now()}.png`;
+        await env.R2_PRIVATE.put(processedKey, trimmedBuffer, {
+            httpMetadata: { contentType: 'image/png' }
+        });
+        console.log(`[Pipeline] Saved processed PNG: ${processedKey}`);
+
+        // Also update r2_key_private to point to the transparent version
+        const transparentKey = asset.r2_key_private.replace('.png', '_transparent.png');
+        await env.R2_PRIVATE.put(transparentKey, trimmedBuffer, {
+            httpMetadata: { contentType: 'image/png' }
+        });
+
+        // Step 5: Resize + WebP conversion via Cloudflare
+        const targetDims = getTargetDimensions(asset.category, asset.asset_key);
+        let finalBuffer = trimmedBuffer;
+        let resized = false;
+
+        if (targetDims) {
+            console.log(`[Pipeline] Resizing to ${targetDims.width}x${targetDims.height}...`);
+            try {
+                const tempKey = `_temp/${asset.category}_${asset.asset_key}_${Date.now()}.png`;
+                finalBuffer = await resizeViaCloudflare(
+                    env,
+                    trimmedBuffer,
+                    tempKey,
+                    targetDims.width,
+                    targetDims.height
+                );
+                resized = true;
+                console.log(`[Pipeline] Resized to WebP: ${finalBuffer.byteLength} bytes`);
+            } catch (resizeErr) {
+                console.error('[Pipeline] Cloudflare resize failed, using original PNG:', resizeErr.message);
+            }
+        }
+
+        // Step 6: Save to public bucket
+        const publicKey = `sprites/${asset.category}/${asset.asset_key}_v${asset.variant}.webp`;
+        await env.R2_PUBLIC.put(publicKey, finalBuffer, {
+            httpMetadata: { contentType: resized ? 'image/webp' : 'image/png' }
+        });
+        console.log(`[Pipeline] Saved to public bucket: ${publicKey}`);
+
+        // Step 7: Update database with all URLs and mark pipeline complete
+        const publicUrl = `${R2_PUBLIC_URL}/${publicKey}`;
+        await env.DB.prepare(`
+            UPDATE generated_assets
+            SET r2_key_private = ?,
+                r2_key_processed = ?,
+                r2_key_public = ?,
+                r2_url = ?,
+                background_removed = TRUE,
+                pipeline_status = 'completed',
+                pipeline_completed_at = CURRENT_TIMESTAMP,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+        `).bind(transparentKey, processedKey, publicKey, publicUrl, assetId).run();
+
+        console.log(`[Pipeline] Completed for asset ${assetId}. Public URL: ${publicUrl}`);
+
+        // Log audit for pipeline completion
+        await logAudit(env, 'pipeline_complete', assetId, 'system', {
+            processedKey,
+            publicKey,
+            publicUrl,
+            resized,
+            targetDimensions: targetDims
+        });
+
+    } catch (error) {
+        console.error(`[Pipeline] Failed for asset ${assetId}:`, error.message);
+
+        // Update status to failed with error message
+        await env.DB.prepare(`
+            UPDATE generated_assets
+            SET pipeline_status = 'failed',
+                pipeline_error = ?,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+        `).bind(error.message, assetId).run();
+
+        // Log audit for pipeline failure
+        await logAudit(env, 'pipeline_failed', assetId, 'system', {
+            error: error.message
+        });
+    }
+}
+
+/**
+ * Generate Cloudflare Image Transform URL for on-the-fly transforms
+ * Used as fallback if we can't resize at upload time
+ * @see https://developers.cloudflare.com/images/transform-images/
+ */
+function buildImageTransformUrl(originalUrl, width, height, format = 'webp') {
+    const baseUrl = 'https://assets.notropolis.net';
+    const path = originalUrl.replace(baseUrl, '');
+    return `${baseUrl}/cdn-cgi/image/width=${width},height=${height},format=${format},fit=contain/${path.startsWith('/') ? path.slice(1) : path}`;
 }
 
 /**
@@ -108,6 +352,70 @@ function getTargetDimensions(category, assetKey) {
 
     // No resize for other categories (scenes, avatars, refs)
     return null;
+}
+
+/**
+ * Get image dimensions from buffer by parsing image headers
+ * Supports PNG and JPEG formats
+ * @param {Uint8Array} buffer - Image buffer
+ * @returns {{ width: number, height: number }} - Image dimensions
+ */
+function getImageDimensions(buffer) {
+    // PNG: width at bytes 16-19, height at bytes 20-23 (big-endian)
+    if (buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4E && buffer[3] === 0x47) {
+        const width = (buffer[16] << 24) | (buffer[17] << 16) | (buffer[18] << 8) | buffer[19];
+        const height = (buffer[20] << 24) | (buffer[21] << 16) | (buffer[22] << 8) | buffer[23];
+        return { width, height };
+    }
+
+    // JPEG: Need to find SOF0 marker (0xFF 0xC0) or SOF2 (0xFF 0xC2)
+    if (buffer[0] === 0xFF && buffer[1] === 0xD8) {
+        let offset = 2;
+        while (offset < buffer.length - 8) {
+            if (buffer[offset] !== 0xFF) {
+                offset++;
+                continue;
+            }
+            const marker = buffer[offset + 1];
+            // SOF0, SOF1, SOF2 markers contain dimensions
+            if (marker === 0xC0 || marker === 0xC1 || marker === 0xC2) {
+                const height = (buffer[offset + 5] << 8) | buffer[offset + 6];
+                const width = (buffer[offset + 7] << 8) | buffer[offset + 8];
+                return { width, height };
+            }
+            // Skip to next marker
+            const length = (buffer[offset + 2] << 8) | buffer[offset + 3];
+            offset += 2 + length;
+        }
+    }
+
+    // GIF: width at bytes 6-7, height at bytes 8-9 (little-endian)
+    if (buffer[0] === 0x47 && buffer[1] === 0x49 && buffer[2] === 0x46) {
+        const width = buffer[6] | (buffer[7] << 8);
+        const height = buffer[8] | (buffer[9] << 8);
+        return { width, height };
+    }
+
+    // WebP: More complex, check for RIFF header
+    if (buffer[0] === 0x52 && buffer[1] === 0x49 && buffer[2] === 0x46 && buffer[3] === 0x46) {
+        // VP8 chunk starts at offset 12 for lossy WebP
+        if (buffer[12] === 0x56 && buffer[13] === 0x50 && buffer[14] === 0x38 && buffer[15] === 0x20) {
+            // VP8 lossy format - dimensions at offset 26-29
+            const width = (buffer[26] | (buffer[27] << 8)) & 0x3FFF;
+            const height = (buffer[28] | (buffer[29] << 8)) & 0x3FFF;
+            return { width, height };
+        }
+        // VP8L chunk for lossless WebP
+        if (buffer[12] === 0x56 && buffer[13] === 0x50 && buffer[14] === 0x38 && buffer[15] === 0x4C) {
+            const bits = buffer[21] | (buffer[22] << 8) | (buffer[23] << 16) | (buffer[24] << 24);
+            const width = (bits & 0x3FFF) + 1;
+            const height = ((bits >> 14) & 0x3FFF) + 1;
+            return { width, height };
+        }
+    }
+
+    // Default fallback
+    return { width: 0, height: 0 };
 }
 
 // ============================================================================
@@ -1805,6 +2113,78 @@ ${STYLE_REFERENCE_ANCHOR}`;
 }
 
 // ============================================================================
+// PROMPT TEMPLATE HELPERS
+// Functions to fetch prompts from DB - NO FALLBACKS (fail explicitly to avoid wasting tokens)
+// ============================================================================
+
+/**
+ * Get prompt for generation - checks DB ONLY, no hardcoded fallback
+ * FAILS EXPLICITLY if no template exists - prevents wasting Gemini tokens on incorrect prompts
+ * @param {Object} env - Worker environment
+ * @param {string} category - Asset category
+ * @param {string} assetKey - Asset key
+ * @param {string} customDetails - Optional custom details to inject
+ * @returns {Promise<string>} The complete prompt ready for generation
+ * @throws {Error} If no template found in database
+ */
+async function getPromptForGeneration(env, category, assetKey, customDetails = '') {
+    // 1. Try to get from database (specific asset key)
+    let template = await env.DB.prepare(`
+        SELECT base_prompt, style_guide, system_instructions
+        FROM prompt_templates
+        WHERE category = ? AND asset_key = ? AND is_active = TRUE
+    `).bind(category, assetKey).first();
+
+    // 2. Fall back to category default ONLY
+    if (!template) {
+        template = await env.DB.prepare(`
+            SELECT base_prompt, style_guide, system_instructions
+            FROM prompt_templates
+            WHERE category = ? AND asset_key = '_default' AND is_active = TRUE
+        `).bind(category).first();
+    }
+
+    // 3. NO HARDCODED FALLBACK - fail explicitly to avoid wasting Gemini tokens
+    if (!template) {
+        throw new Error(`No prompt template found for ${category}/${assetKey}. Run the seed migration (0027_seed_prompt_templates.sql) first.`);
+    }
+
+    // 4. Replace placeholders in template
+    let prompt = template.base_prompt;
+
+    // Replace common placeholders
+    const buildingFeatures = BUILDING_FEATURES[assetKey] || '';
+    prompt = prompt
+        .replace(/{BUILDING_TYPE}/g, assetKey.replace(/_/g, ' ').toUpperCase())
+        .replace(/{BUILDING_FEATURES}/g, buildingFeatures)
+        .replace(/{CHARACTER_TYPE}/g, assetKey.replace(/_/g, ' ').toUpperCase())
+        .replace(/{CHARACTER_FEATURES}/g, CHARACTER_REF_FEATURES[assetKey] || '')
+        .replace(/{VEHICLE_TYPE}/g, assetKey.replace(/_/g, ' ').toUpperCase())
+        .replace(/{VEHICLE_FEATURES}/g, VEHICLE_REF_FEATURES[assetKey] || '')
+        .replace(/{EFFECT_TYPE}/g, assetKey.replace(/_/g, ' ').toUpperCase())
+        .replace(/{EFFECT_FEATURES}/g, EFFECT_REF_FEATURES[assetKey] || EFFECT_FEATURES[assetKey] || '')
+        .replace(/{TERRAIN_TYPE}/g, assetKey.replace(/_/g, ' ').toUpperCase())
+        .replace(/{NPC_TYPE}/g, assetKey.replace(/_/g, ' ').toUpperCase())
+        .replace(/{NPC_FEATURES}/g, NPC_FEATURES[assetKey] || '')
+        .replace(/{AVATAR_TYPE}/g, assetKey.replace(/_/g, ' ').toUpperCase())
+        .replace(/{AVATAR_FEATURES}/g, AVATAR_FEATURES[assetKey] || '')
+        .replace(/{SCENE_TYPE}/g, assetKey.replace(/_/g, ' ').toUpperCase())
+        .replace(/{SCENE_FEATURES}/g, SCENE_FEATURES[assetKey] || '')
+        .replace(/{UI_TYPE}/g, assetKey.replace(/_/g, ' ').toUpperCase())
+        .replace(/{UI_FEATURES}/g, UI_FEATURES[assetKey] || '')
+        .replace(/{OVERLAY_TYPE}/g, assetKey.replace(/_/g, ' ').toUpperCase())
+        .replace(/{SIZE_CLASS}/g, BUILDING_SIZE_CLASSES[assetKey]?.canvas || '256x256')
+        .replace(/{CUSTOM_DETAILS}/g, customDetails || '');
+
+    // Append style guide if present
+    if (template.style_guide) {
+        prompt += `\n\nSTYLE GUIDE:\n${template.style_guide}`;
+    }
+
+    return prompt;
+}
+
+// ============================================================================
 // ASSET DEPENDENCY CHECKING
 // Some assets require other assets to be approved first
 // ============================================================================
@@ -1918,13 +2298,14 @@ async function checkSpriteReferenceDependency(env, category, assetKey) {
 }
 
 // Gemini API helper - Uses Nano Banana Pro (gemini-3-pro-image-preview)
-// referenceImages: optional array of { buffer: Uint8Array, mimeType: string } or single object for image-to-image generation
-async function generateWithGemini(env, prompt, referenceImages = null) {
+// referenceImages: array of { buffer: Uint8Array, mimeType: string, name: string }
+// settings: { temperature, topK, topP, maxOutputTokens } - optional, uses defaults if not provided
+async function generateWithGemini(env, prompt, referenceImages = [], settings = {}) {
     try {
         // Build the parts array - text prompt first, then optional reference images
         const parts = [{ text: prompt }];
 
-        // Normalize to array
+        // Normalize to array (for backwards compatibility)
         const images = referenceImages
             ? (Array.isArray(referenceImages) ? referenceImages : [referenceImages])
             : [];
@@ -1949,7 +2330,27 @@ async function generateWithGemini(env, prompt, referenceImages = null) {
                     data: base64Data
                 }
             });
+
+            if (refImage.name) {
+                console.log(`Added reference image: ${refImage.name} (${refImage.buffer.length} bytes)`);
+            }
         }
+
+        // Build generation config with configurable settings
+        const generationConfig = {
+            responseModalities: ['IMAGE', 'TEXT'],
+            temperature: settings.temperature ?? 0.7,
+            topK: settings.topK ?? 40,
+            topP: settings.topP ?? 0.95
+        };
+
+        // Add maxOutputTokens if specified
+        if (settings.maxOutputTokens) {
+            generationConfig.maxOutputTokens = settings.maxOutputTokens;
+        }
+
+        console.log(`Calling Gemini with settings:`, JSON.stringify(generationConfig));
+        console.log(`Prompt length: ${prompt.length}, Reference images: ${images.length}`);
 
         const response = await fetch(
             `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image-preview:generateContent?key=${env.GEMINI_API_KEY}`,
@@ -1960,16 +2361,15 @@ async function generateWithGemini(env, prompt, referenceImages = null) {
                     contents: [{
                         parts: parts
                     }],
-                    generationConfig: {
-                        responseModalities: ['IMAGE', 'TEXT']
-                    }
+                    generationConfig: generationConfig
                 })
             }
         );
 
         if (!response.ok) {
             const error = await response.text();
-            return { success: false, error };
+            console.error('Gemini API error:', error);
+            return { success: false, error: `Gemini API error: ${response.status} - ${error}` };
         }
 
         const data = await response.json();
@@ -1977,16 +2377,236 @@ async function generateWithGemini(env, prompt, referenceImages = null) {
         // Extract image from response
         const imagePart = data.candidates?.[0]?.content?.parts?.find(p => p.inlineData);
         if (!imagePart) {
-            return { success: false, error: 'No image in response' };
+            // Check for text response (might contain error or explanation)
+            const textPart = data.candidates?.[0]?.content?.parts?.find(p => p.text);
+            return {
+                success: false,
+                error: 'No image in response',
+                modelResponse: textPart?.text || null
+            };
         }
 
         const imageBuffer = Uint8Array.from(atob(imagePart.inlineData.data), c => c.charCodeAt(0));
-        return { success: true, imageBuffer };
+        return {
+            success: true,
+            imageBuffer,
+            mimeType: imagePart.inlineData.mimeType,
+            modelResponse: data.candidates?.[0]?.content?.parts?.find(p => p.text)?.text || null
+        };
 
     } catch (error) {
+        console.error('Gemini generation error:', error);
         return { success: false, error: error.message };
     }
 }
+
+// ============================================================================
+// STAGE 4: ENHANCED GENERATION HELPERS
+// ============================================================================
+
+/**
+ * Validate and sanitize generation settings
+ * Clamps values to valid ranges and records the model for reproducibility
+ * @param {Object} settings - Raw settings from request
+ * @returns {Object} Validated settings with model name
+ */
+function validateGenerationSettings(settings = {}) {
+    return {
+        model: 'gemini-3-pro-image-preview',  // Always record model used for reproducibility
+        temperature: Math.min(2.0, Math.max(0.0, settings.temperature ?? 0.7)),
+        topK: Math.min(100, Math.max(1, Math.round(settings.topK ?? 40))),
+        topP: Math.min(1.0, Math.max(0.0, settings.topP ?? 0.95)),
+        maxOutputTokens: settings.maxOutputTokens || null
+    };
+}
+
+/**
+ * Fetch reference images from library and approved assets
+ * @param {Object} env - Worker environment
+ * @param {Array} referenceSpecs - Array of { type: 'library' | 'approved_asset', id: number }
+ * @returns {Promise<Array>} Array of { buffer: Uint8Array, mimeType: string, name: string }
+ */
+async function fetchReferenceImages(env, referenceSpecs = []) {
+    const images = [];
+
+    for (const spec of referenceSpecs) {
+        try {
+            let r2Key, name;
+
+            if (spec.type === 'library') {
+                // Fetch from reference_images table
+                const refImage = await env.DB.prepare(`
+                    SELECT r2_key, name FROM reference_images WHERE id = ? AND is_archived = FALSE
+                `).bind(spec.id).first();
+
+                if (!refImage) {
+                    console.warn(`Reference image ${spec.id} not found or archived`);
+                    continue;
+                }
+                r2Key = refImage.r2_key;
+                name = refImage.name;
+
+            } else if (spec.type === 'approved_asset') {
+                // Fetch from generated_assets table
+                const asset = await env.DB.prepare(`
+                    SELECT r2_key_private, asset_key, category FROM generated_assets
+                    WHERE id = ? AND status = 'approved'
+                `).bind(spec.id).first();
+
+                if (!asset) {
+                    console.warn(`Approved asset ${spec.id} not found`);
+                    continue;
+                }
+                r2Key = asset.r2_key_private;
+                name = `${asset.category}/${asset.asset_key}`;
+            } else {
+                console.warn(`Unknown reference type: ${spec.type}`);
+                continue;
+            }
+
+            // Fetch image from R2
+            const object = await env.R2_PRIVATE.get(r2Key);
+            if (!object) {
+                console.warn(`R2 object not found: ${r2Key}`);
+                continue;
+            }
+
+            const buffer = new Uint8Array(await object.arrayBuffer());
+            images.push({
+                buffer,
+                mimeType: object.httpMetadata?.contentType || 'image/png',
+                name
+            });
+
+            console.log(`Fetched reference: ${name} (${buffer.length} bytes)`);
+
+        } catch (err) {
+            console.error(`Error fetching reference ${spec.type}/${spec.id}:`, err);
+        }
+    }
+
+    return images;
+}
+
+/**
+ * Fetch parent reference sheet for sprite categories
+ * Returns the approved reference sheet that should be used as context
+ * @param {Object} env - Worker environment
+ * @param {string} category - Asset category
+ * @param {string} assetKey - Asset key
+ * @returns {Promise<Object|null>} { buffer, mimeType, name } or null
+ */
+async function fetchParentReferenceForSprite(env, category, assetKey) {
+    // Map sprite categories to their reference categories
+    const SPRITE_TO_REF = {
+        'building_sprite': 'building_ref',
+        'npc': 'character_ref',
+        'effect': 'effect_ref',
+        'avatar': 'character_ref',
+        'terrain': 'terrain_ref'
+    };
+
+    const refCategory = SPRITE_TO_REF[category];
+    if (!refCategory) return null;
+
+    // Get the matching asset key for the reference
+    const refAssetKey = getRefAssetKeyForParent(category, assetKey);
+
+    // Find approved reference
+    const refAsset = await env.DB.prepare(`
+        SELECT r2_key_private, asset_key, variant FROM generated_assets
+        WHERE category = ? AND asset_key = ? AND status = 'approved'
+        ORDER BY is_active DESC, approved_at DESC
+        LIMIT 1
+    `).bind(refCategory, refAssetKey).first();
+
+    if (!refAsset || !refAsset.r2_key_private) {
+        console.log(`No approved parent reference found for ${refCategory}/${refAssetKey}`);
+        return null;
+    }
+
+    // Fetch from R2
+    const object = await env.R2_PRIVATE.get(refAsset.r2_key_private);
+    if (!object) {
+        console.warn(`Parent reference R2 object not found: ${refAsset.r2_key_private}`);
+        return null;
+    }
+
+    const buffer = new Uint8Array(await object.arrayBuffer());
+    console.log(`Fetched parent reference: ${refCategory}/${refAsset.asset_key} v${refAsset.variant} (${buffer.length} bytes)`);
+
+    return {
+        buffer,
+        mimeType: 'image/png',
+        name: `Parent: ${refCategory}/${refAsset.asset_key}`
+    };
+}
+
+/**
+ * Get the reference sheet asset_key for parent lookup
+ * Similar to getRefAssetKey but separated for clarity
+ */
+function getRefAssetKeyForParent(category, assetKey) {
+    if (category === 'npc') {
+        // Pedestrian directional sprites need any pedestrian character ref
+        if (assetKey.startsWith('ped_walk_')) {
+            return 'pedestrian'; // Use base pedestrian ref
+        }
+        // Car directional sprites need car vehicle ref
+        if (assetKey.startsWith('car_')) {
+            return assetKey.split('_').slice(0, 2).join('_'); // car_n -> car (but we want car_sedan etc)
+        }
+        if (assetKey.startsWith('pedestrian_')) {
+            return assetKey.includes('business') || assetKey.includes('suit')
+                ? 'pedestrian_business'
+                : 'pedestrian_casual';
+        }
+    }
+    if (category === 'avatar') {
+        return 'avatar_base';
+    }
+    if (category === 'terrain') {
+        return assetKey.split('_')[0]; // road_straight → road
+    }
+    // For building_sprite and effect, asset_key is the same
+    return assetKey;
+}
+
+/**
+ * Store reference image links in the database
+ * @param {Object} env - Worker environment
+ * @param {number} assetId - The generated asset ID
+ * @param {Array} referenceSpecs - Array of { type, id }
+ */
+async function storeReferenceLinks(env, assetId, referenceSpecs = []) {
+    for (let i = 0; i < referenceSpecs.length; i++) {
+        const ref = referenceSpecs[i];
+        await env.DB.prepare(`
+            INSERT INTO asset_reference_links (
+                asset_id, reference_image_id, approved_asset_id,
+                link_type, sort_order
+            )
+            VALUES (?, ?, ?, ?, ?)
+        `).bind(
+            assetId,
+            ref.type === 'library' ? ref.id : null,
+            ref.type === 'approved_asset' ? ref.id : null,
+            ref.type,
+            i
+        ).run();
+
+        // Increment usage count for library references
+        if (ref.type === 'library') {
+            await env.DB.prepare(`
+                UPDATE reference_images
+                SET usage_count = usage_count + 1
+                WHERE id = ?
+            `).bind(ref.id).run();
+        }
+    }
+}
+
+// ============================================================================
 
 // Map sprite categories to their corresponding reference sheet categories
 const SPRITE_TO_REF_CATEGORY = {
@@ -2024,7 +2644,7 @@ function getRefAssetKey(category, assetKey) {
 }
 
 // Route handler for asset management
-export async function handleAssetRoutes(request, env, path, method, user) {
+export async function handleAssetRoutes(request, env, path, method, user, ctx = null) {
     const url = new URL(request.url);
 
     // Parse route
@@ -2228,9 +2848,173 @@ export async function handleAssetRoutes(request, env, path, method, user) {
             });
         }
 
+        // GET /api/admin/assets/sprite-requirements/:refCategory - Get sprite requirements for a reference type
+        // Stage 5a: Returns what sprites are needed for a reference type
+        if (action === 'sprite-requirements' && method === 'GET' && param1) {
+            const refCategory = param1;
+            const requirements = SPRITE_REQUIREMENTS[refCategory];
+
+            return Response.json({
+                success: true,
+                refCategory,
+                requirements: requirements || [],
+                message: requirements ? undefined : 'No sprite requirements for this category'
+            });
+        }
+
+        // GET /api/admin/assets/sprite-status/:refId - Get sprite status for a specific reference
+        // Stage 5a: Shows which sprites exist/need generating for an approved reference
+        if (action === 'sprite-status' && method === 'GET' && param1) {
+            const refId = param1;
+
+            // Get the reference asset
+            const refAsset = await env.DB.prepare(`
+                SELECT id, category, asset_key, status
+                FROM generated_assets
+                WHERE id = ?
+            `).bind(refId).first();
+
+            if (!refAsset) {
+                return Response.json({ success: false, error: 'Reference not found' }, { status: 404 });
+            }
+
+            if (refAsset.status !== 'approved') {
+                return Response.json({
+                    success: false,
+                    error: 'Reference must be approved before generating sprites'
+                }, { status: 400 });
+            }
+
+            // Get requirements for this reference type
+            const requirements = SPRITE_REQUIREMENTS[refAsset.category];
+            if (!requirements) {
+                return Response.json({
+                    success: true,
+                    reference: refAsset,
+                    sprites: [],
+                    summary: { total: 0, completed: 0, inProgress: 0, notStarted: 0, percentComplete: 100 },
+                    message: 'No sprites needed for this reference type'
+                });
+            }
+
+            // Check which sprites exist
+            const sprites = [];
+            for (const req of requirements) {
+                // Build the expected asset_key for the sprite
+                // For terrain: road_straight, road_corner, etc.
+                // For buildings: restaurant (same as ref)
+                const spriteAssetKey = req.variant === 'main'
+                    ? refAsset.asset_key
+                    : `${refAsset.asset_key}_${req.variant}`;
+
+                // Find existing sprite linked to this parent
+                const existingSprite = await env.DB.prepare(`
+                    SELECT id, status, r2_url, pipeline_status, generation_settings
+                    FROM generated_assets
+                    WHERE category = ?
+                    AND asset_key = ?
+                    AND parent_asset_id = ?
+                    ORDER BY created_at DESC
+                    LIMIT 1
+                `).bind(req.spriteCategory, spriteAssetKey, refId).first();
+
+                sprites.push({
+                    variant: req.variant,
+                    displayName: req.displayName,
+                    required: req.required,
+                    spriteCategory: req.spriteCategory,
+                    spriteAssetKey: spriteAssetKey,
+                    // Existing sprite info (null if not created)
+                    spriteId: existingSprite?.id || null,
+                    status: existingSprite?.status || null,
+                    pipelineStatus: existingSprite?.pipeline_status || null,
+                    publicUrl: existingSprite?.r2_url || null,
+                    generationSettings: existingSprite?.generation_settings
+                        ? JSON.parse(existingSprite.generation_settings)
+                        : null
+                });
+            }
+
+            // Calculate completion status
+            const total = sprites.length;
+            const completed = sprites.filter(s => s.status === 'approved' && s.pipelineStatus === 'completed').length;
+            const inProgress = sprites.filter(s => s.status === 'generating' || s.status === 'review').length;
+            const notStarted = sprites.filter(s => s.status === null).length;
+
+            return Response.json({
+                success: true,
+                reference: {
+                    id: refAsset.id,
+                    category: refAsset.category,
+                    asset_key: refAsset.asset_key,
+                    status: refAsset.status
+                },
+                sprites,
+                summary: {
+                    total,
+                    completed,
+                    inProgress,
+                    notStarted,
+                    percentComplete: Math.round((completed / total) * 100)
+                }
+            });
+        }
+
         // POST /api/admin/assets/generate - Generate a new asset
+        // Stage 4: Enhanced with custom prompts, reference images, and Gemini settings
+        // Stage 5a: Added parent_asset_id and sprite_variant for explicit sprite-reference linking
         if (action === 'generate' && method === 'POST') {
-            const { category, asset_key, prompt, variant = 1, custom_details } = await request.json();
+            const {
+                category,
+                asset_key,
+                prompt: customPrompt,           // Stage 4: Custom prompt (optional, overrides template)
+                custom_details,                  // Additional details to append
+                reference_images = [],           // Stage 4: Array of { type: 'library' | 'approved_asset', id }
+                generation_settings = {},        // Stage 4: { temperature, topK, topP, maxOutputTokens }
+                parent_asset_id: explicitParentId,  // Stage 5a: Explicit parent reference ID
+                sprite_variant                   // Stage 5a: Which variant this sprite is (e.g., 'main', 'n', 'corner')
+            } = await request.json();
+
+            // Validate required fields
+            if (!category || !asset_key) {
+                return Response.json({
+                    success: false,
+                    error: 'category and asset_key are required'
+                }, { status: 400 });
+            }
+
+            // Stage 4: Validate and clamp generation settings
+            const validatedSettings = validateGenerationSettings(generation_settings);
+            console.log(`Generation settings validated:`, JSON.stringify(validatedSettings));
+
+            // Stage 5a: Validate explicit parent_asset_id if provided
+            let validatedParentId = null;
+            if (explicitParentId) {
+                const parentRef = await env.DB.prepare(`
+                    SELECT id, category, asset_key, status, r2_key_private
+                    FROM generated_assets
+                    WHERE id = ? AND status = 'approved'
+                `).bind(explicitParentId).first();
+
+                if (!parentRef) {
+                    return Response.json({
+                        success: false,
+                        error: 'Parent reference not found or not approved'
+                    }, { status: 400 });
+                }
+
+                // Validate sprite/reference relationship
+                const validRelationship = validateSpriteRefRelationship(category, parentRef.category);
+                if (!validRelationship) {
+                    return Response.json({
+                        success: false,
+                        error: `Cannot create ${category} from ${parentRef.category}`
+                    }, { status: 400 });
+                }
+
+                validatedParentId = explicitParentId;
+                console.log(`Using explicit parent_asset_id: ${validatedParentId} (${parentRef.category}/${parentRef.asset_key})`);
+            }
 
             // === DEPENDENCY CHECKS ===
             // Scene generation requires avatar assets to be approved first
@@ -2258,30 +3042,36 @@ export async function handleAssetRoutes(request, env, path, method, user) {
                 }
             }
 
-            // Build the full prompt based on category using the master prompt builder
-            let fullPrompt = prompt;
+            // Stage 4: Build the prompt - either from custom prompt or database template
+            let fullPrompt;
 
-            // If no custom prompt provided, auto-build from category templates
-            if (!prompt) {
-                try {
-                    fullPrompt = buildAssetPrompt(category, asset_key, custom_details || '');
-                } catch (err) {
-                    return Response.json({
-                        error: err.message,
-                        hint: `Provide a known asset_key for category "${category}" or include a custom prompt`,
-                        supported_categories: {
-                            reference_sheets: ['building_ref', 'character_ref', 'vehicle_ref', 'effect_ref'],
-                            sprites: ['building_sprite', 'terrain', 'effect', 'scene', 'npc', 'avatar', 'ui', 'overlay']
-                        }
-                    }, { status: 400 });
+            if (customPrompt) {
+                // Use custom prompt directly
+                fullPrompt = customPrompt;
+                if (custom_details) {
+                    fullPrompt += `\n\n${custom_details}`;
                 }
+                console.log(`Using custom prompt (${fullPrompt.length} chars)`);
             } else {
-                // If custom prompt provided, wrap it with style guide for consistency
+                // Stage 3: Get prompt from database template
                 try {
-                    fullPrompt = buildAssetPrompt(category, asset_key, prompt);
-                } catch {
-                    // If category doesn't have a builder, use prompt with style guide wrapper
-                    fullPrompt = `${prompt}\n\n${STYLE_GUIDE}\n\n${STYLE_REFERENCE_ANCHOR}`;
+                    fullPrompt = await getPromptForGeneration(env, category, asset_key, custom_details || '');
+                    console.log(`Using database template prompt (${fullPrompt.length} chars)`);
+                } catch (err) {
+                    // Fall back to legacy buildAssetPrompt for backwards compatibility
+                    console.log(`No database template found, falling back to buildAssetPrompt: ${err.message}`);
+                    try {
+                        fullPrompt = buildAssetPrompt(category, asset_key, custom_details || '');
+                    } catch (buildErr) {
+                        return Response.json({
+                            error: buildErr.message,
+                            hint: `Provide a known asset_key for category "${category}" or include a custom prompt`,
+                            supported_categories: {
+                                reference_sheets: ['building_ref', 'character_ref', 'vehicle_ref', 'effect_ref'],
+                                sprites: ['building_sprite', 'terrain', 'effect', 'scene', 'npc', 'avatar', 'ui', 'overlay']
+                            }
+                        }, { status: 400 });
+                    }
                 }
             }
 
@@ -2289,9 +3079,17 @@ export async function handleAssetRoutes(request, env, path, method, user) {
                 return Response.json({ error: 'Could not build prompt. Provide asset_key or custom prompt.' }, { status: 400 });
             }
 
+            // Stage 4: Fetch user-specified reference images from library/approved assets
+            let userReferenceImages = [];
+            if (reference_images && reference_images.length > 0) {
+                userReferenceImages = await fetchReferenceImages(env, reference_images);
+                console.log(`Fetched ${userReferenceImages.length} user-specified reference images`);
+            }
+
             // For sprite categories, fetch the approved reference sheet image
             let referenceImage = null;
-            let parentAssetId = null;
+            // Stage 5a: Use explicit parent_asset_id if provided, otherwise auto-detect
+            let parentAssetId = validatedParentId || null;
             const refCategory = SPRITE_TO_REF_CATEGORY[category];
 
             if (refCategory) {
@@ -2521,12 +3319,28 @@ ${fullPrompt}`;
 
             const nextVariant = (maxVariant?.max_variant || 0) + 1;
 
-            // Create new asset record (always creates new, never overwrites)
+            // Stage 4: Create new asset record with generation_settings
+            // Stage 5a: Added sprite_variant column
             const result = await env.DB.prepare(`
-                INSERT INTO generated_assets (category, asset_key, variant, base_prompt, current_prompt, status, generation_model, parent_asset_id)
-                VALUES (?, ?, ?, ?, ?, 'pending', 'gemini-3-pro-image-preview', ?)
+                INSERT INTO generated_assets (category, asset_key, variant, base_prompt, current_prompt, status, generation_model, parent_asset_id, generation_settings, sprite_variant)
+                VALUES (?, ?, ?, ?, ?, 'pending', 'gemini-3-pro-image-preview', ?, ?, ?)
                 RETURNING id
-            `).bind(category, asset_key, nextVariant, fullPrompt, fullPrompt, parentAssetId).first();
+            `).bind(
+                category,
+                asset_key,
+                nextVariant,
+                fullPrompt,
+                fullPrompt,
+                parentAssetId,
+                JSON.stringify(validatedSettings),  // Stage 4: Store settings for reproducibility
+                sprite_variant || null               // Stage 5a: Store sprite variant
+            ).first();
+
+            // Stage 4: Store reference image links
+            if (reference_images && reference_images.length > 0) {
+                await storeReferenceLinks(env, result.id, reference_images);
+                console.log(`Stored ${reference_images.length} reference links for asset ${result.id}`);
+            }
 
             // Add to queue
             await env.DB.prepare(`
@@ -2534,14 +3348,19 @@ ${fullPrompt}`;
                 VALUES (?, 5)
             `).bind(result.id).run();
 
-            // Trigger generation with optional reference image(s)
-            // Combine primary reference with building references for effect sprites, and terrain siblings for terrain tiles
+            // Stage 4: Combine all reference images for generation
+            // Order: user-specified refs first, then parent ref, then auto-fetched context refs
             const allReferenceImages = [
-                ...(referenceImage ? [referenceImage] : []),
-                ...buildingReferenceImages,
-                ...terrainSiblingImages
+                ...userReferenceImages,              // Stage 4: User-specified from library/approved assets
+                ...(referenceImage ? [referenceImage] : []),  // Parent reference sheet for sprites
+                ...buildingReferenceImages,          // Building context for effects
+                ...terrainSiblingImages              // Sibling tiles for terrain consistency
             ];
-            const generated = await generateWithGemini(env, fullPrompt, allReferenceImages.length > 0 ? allReferenceImages : null);
+
+            console.log(`Total reference images for generation: ${allReferenceImages.length}`);
+
+            // Stage 4: Pass validated settings to Gemini
+            const generated = await generateWithGemini(env, fullPrompt, allReferenceImages, validatedSettings);
 
             if (generated.success) {
                 // Determine storage path based on category
@@ -2577,28 +3396,42 @@ ${fullPrompt}`;
                     WHERE asset_id = ?
                 `).bind(result.id).run();
 
+                // Stage 4: Enhanced audit logging with settings
+                // Stage 5a: Added sprite_variant to audit
                 await logAudit(env, 'generate', result.id, user?.username, {
                     category,
                     asset_key,
                     variant: nextVariant,
-                    used_reference: !!referenceImage,
+                    sprite_variant: sprite_variant || null,
+                    hasCustomPrompt: !!customPrompt,
+                    referenceCount: reference_images.length,
+                    used_parent_reference: !!referenceImage,
                     sibling_count: terrainSiblingImages.length,
-                    sibling_tiles: terrainSiblingImages.map(s => s.name)
+                    sibling_tiles: terrainSiblingImages.map(s => s.name),
+                    settings: validatedSettings
                 });
 
                 const siblingNote = terrainSiblingImages.length > 0
                     ? ` Using ${terrainSiblingImages.length} sibling tile(s) for consistency: ${terrainSiblingImages.map(s => s.name).join(', ')}.`
                     : '';
 
+                // Stage 4: Enhanced response with variant and settings
+                // Stage 5a: Added sprite_variant to response
                 return Response.json({
                     success: true,
                     asset_id: result.id,
+                    assetId: result.id,  // Stage 4: Also include camelCase for frontend
+                    variant: nextVariant,
                     r2_key: r2Key,
                     bucket: 'private',
                     parent_asset_id: parentAssetId,
+                    sprite_variant: sprite_variant || null,
                     used_reference_image: !!referenceImage,
+                    user_references_count: userReferenceImages.length,
                     sibling_tiles_used: terrainSiblingImages.length,
                     sibling_tiles: terrainSiblingImages.map(s => s.name),
+                    generation_settings: validatedSettings,
+                    message: 'Generation started',
                     note: referenceImage
                         ? `Generated using approved reference sheet.${siblingNote} Original stored in private bucket.`
                         : `Original stored in private bucket.${siblingNote} Use POST /process/:id to create game-ready WebP in public bucket.`
@@ -2681,13 +3514,21 @@ ${fullPrompt}`;
         if (action === 'approve' && method === 'PUT' && param1) {
             const id = param1;
 
-            // Get asset details to know category and asset_key
+            // Get full asset details (need all fields for pipeline)
             const asset = await env.DB.prepare(`
-                SELECT category, asset_key FROM generated_assets WHERE id = ?
+                SELECT * FROM generated_assets WHERE id = ?
             `).bind(id).first();
 
             if (!asset) {
                 return Response.json({ error: 'Asset not found' }, { status: 404 });
+            }
+
+            // Validate status - can only approve from review or completed
+            if (asset.status !== 'review' && asset.status !== 'completed') {
+                return Response.json({
+                    success: false,
+                    error: `Cannot approve asset with status: ${asset.status}`
+                }, { status: 400 });
             }
 
             // Deactivate other assets of the same category and asset_key
@@ -2704,102 +3545,57 @@ ${fullPrompt}`;
                 WHERE id = ?
             `).bind(user?.username || 'admin', id).run();
 
-            await logAudit(env, 'approve', parseInt(id), user?.username, { set_active: true });
+            await logAudit(env, 'approve', parseInt(id), user?.username, {
+                set_active: true,
+                category: asset.category,
+                asset_key: asset.asset_key
+            });
 
-            // Auto-remove background for terrain and building sprites on approval
-            let backgroundRemoved = false;
-            if (asset.category === 'terrain' || asset.category === 'building_sprite') {
-                try {
-                    // Get full asset details
-                    const fullAsset = await env.DB.prepare(`
-                        SELECT * FROM generated_assets WHERE id = ?
-                    `).bind(id).first();
+            // ===========================================
+            // POST-APPROVAL PIPELINE (SPRITES ONLY)
+            // Runs asynchronously for sprite categories
+            // ===========================================
 
-                    if (fullAsset && fullAsset.r2_key_private && !fullAsset.background_removed) {
-                        // Fetch from R2
-                        const imageObject = await env.R2_PRIVATE.get(fullAsset.r2_key_private);
-                        if (imageObject) {
-                            const imageBuffer = await imageObject.arrayBuffer();
-
-                            // Call Slazzer API
-                            const formData = new FormData();
-                            formData.append('source_image_file', new Blob([imageBuffer], { type: 'image/png' }), 'image.png');
-                            formData.append('crop', 'true');
-
-                            const slazzerResponse = await fetch('https://api.slazzer.com/v2.0/remove_image_background', {
-                                method: 'POST',
-                                headers: { 'API-KEY': env.SLAZZER_API_KEY },
-                                body: formData
-                            });
-
-                            if (slazzerResponse.ok) {
-                                const transparentBuffer = await slazzerResponse.arrayBuffer();
-                                const newR2Key = fullAsset.r2_key_private.replace('.png', '_transparent.png');
-                                await env.R2_PRIVATE.put(newR2Key, transparentBuffer, {
-                                    httpMetadata: { contentType: 'image/png' }
-                                });
-                                await env.DB.prepare(`
-                                    UPDATE generated_assets
-                                    SET background_removed = TRUE, r2_key_private = ?, updated_at = CURRENT_TIMESTAMP
-                                    WHERE id = ?
-                                `).bind(newR2Key, id).run();
-                                backgroundRemoved = true;
-
-                                // Store the master transparent PNG in private bucket
-                                // (already stored above as newR2Key)
-
-                                // Convert to WebP and resize to game dimensions
-                                // Uses Workers built-in OffscreenCanvas - FREE, no external API needed
-                                const targetDims = getTargetDimensions(asset.category, asset.asset_key);
-                                let gameReadyBuffer;
-                                let convertedToWebP = false;
-
-                                if (targetDims) {
-                                    try {
-                                        // Use built-in OffscreenCanvas to convert and resize
-                                        gameReadyBuffer = await convertToWebPAndResize(
-                                            transparentBuffer,
-                                            targetDims.width,
-                                            targetDims.height
-                                        );
-                                        convertedToWebP = true;
-                                        console.log(`Converted and resized ${asset.asset_key} to ${targetDims.width}x${targetDims.height} WebP`);
-                                    } catch (convertErr) {
-                                        console.error('WebP conversion/resize failed, storing PNG as fallback:', convertErr);
-                                        gameReadyBuffer = transparentBuffer;
-                                    }
-                                } else {
-                                    // No resize needed (scenes, avatars, etc.) - store as-is
-                                    console.log(`No resize needed for ${asset.category}/${asset.asset_key} - storing original`);
-                                    gameReadyBuffer = transparentBuffer;
-                                }
-
-                                // Publish to public bucket
-                                const gameReadyKey = `sprites/${asset.category}/${asset.asset_key}_v${fullAsset.variant}.webp`;
-                                await env.R2_PUBLIC.put(gameReadyKey, gameReadyBuffer, {
-                                    httpMetadata: { contentType: convertedToWebP ? 'image/webp' : 'image/png' }
-                                });
-                                const gameReadyUrl = `https://assets.notropolis.net/${gameReadyKey}`;
-                                await env.DB.prepare(`
-                                    UPDATE generated_assets
-                                    SET r2_key_public = ?, r2_url = ?, updated_at = CURRENT_TIMESTAMP
-                                    WHERE id = ?
-                                `).bind(gameReadyKey, gameReadyUrl, id).run();
-
-                                await logAudit(env, 'auto_publish_sprite', parseInt(id), user?.username, {
-                                    target_dimensions: targetDims,
-                                    converted_to_webp: convertedToWebP
-                                });
-                            }
-                        }
+            if (SPRITE_CATEGORIES.includes(asset.category)) {
+                // Only run pipeline if not already processed
+                if (!asset.background_removed && asset.r2_key_private) {
+                    // Run pipeline asynchronously - don't block the response
+                    const pipelinePromise = postApprovalPipeline(env, parseInt(id), asset, user?.username);
+                    if (ctx && ctx.waitUntil) {
+                        ctx.waitUntil(pipelinePromise);
+                    } else {
+                        // Fallback: just run it (will complete before worker terminates)
+                        pipelinePromise.catch(err => console.error('Pipeline error:', err));
                     }
-                } catch (err) {
-                    console.error('Auto background removal failed:', err);
+
+                    return Response.json({
+                        success: true,
+                        approved: true,
+                        is_active: true,
+                        pipeline: 'started',
+                        message: 'Approved. Processing pipeline started (bg removal → trim → resize → publish).'
+                    });
+                } else {
+                    // Already processed or no image - just approve
+                    return Response.json({
+                        success: true,
+                        approved: true,
+                        is_active: true,
+                        message: asset.background_removed
+                            ? 'Approved. Already processed.'
+                            : 'Approved (no image to process).'
+                    });
                 }
             }
 
-            // Check if this is a terrain_ref that should auto-generate terrain sprite variations
+            // ===========================================
+            // AUTO-GENERATION FOR REFERENCE SHEETS
+            // Queues sprite generation when refs are approved
+            // ===========================================
+
             let autoGeneratedVariations = [];
+
+            // Check if this is a terrain_ref that should auto-generate terrain sprite variations
             if (asset.category === 'terrain_ref' && TERRAIN_VARIATIONS[asset.asset_key]) {
                 const variations = TERRAIN_VARIATIONS[asset.asset_key];
                 for (const variantKey of variations) {
@@ -2886,9 +3682,12 @@ ${fullPrompt}`;
                 });
             }
 
+            // Non-sprite category approved (references, backgrounds, etc.)
             return Response.json({
                 success: true,
+                approved: true,
                 is_active: true,
+                message: 'Approved successfully.',
                 auto_queued: autoGeneratedVariations.length > 0 ? autoGeneratedVariations : undefined
             });
         }
@@ -2986,75 +3785,286 @@ Please address the above feedback in this generation.`;
             });
         }
 
-        // POST /api/admin/assets/regenerate/:id - Regenerate an asset (works for rejected, pending, or failed)
+        // POST /api/admin/assets/regenerate/:id - Regenerate an asset (creates new version, preserves old)
+        // Stage 6: Enhanced to create new asset record with incremented variant, accept overrides
         if (action === 'regenerate' && method === 'POST' && param1) {
             const id = param1;
 
-            const asset = await env.DB.prepare(`
-                SELECT * FROM generated_assets WHERE id = ?
-            `).bind(id).first();
+            try {
+                const body = await request.json().catch(() => ({}));
+                const {
+                    prompt: customPrompt,
+                    custom_details,
+                    reference_images,
+                    generation_settings,
+                    preserve_old = true  // Default: preserve old version
+                } = body;
 
-            if (!asset) {
-                return Response.json({ error: 'Asset not found' }, { status: 404 });
-            }
+                // Get original asset
+                const original = await env.DB.prepare(`
+                    SELECT * FROM generated_assets WHERE id = ?
+                `).bind(id).first();
 
-            // Get parent reference image if this asset has a parent
-            let referenceImage = null;
-            if (asset.parent_asset_id) {
-                const parentAsset = await env.DB.prepare(`
-                    SELECT r2_key_private FROM generated_assets WHERE id = ?
-                `).bind(asset.parent_asset_id).first();
+                if (!original) {
+                    return Response.json({ success: false, error: 'Asset not found' }, { status: 404 });
+                }
 
-                if (parentAsset?.r2_key_private) {
-                    const refObject = await env.R2_PRIVATE.get(parentAsset.r2_key_private);
-                    if (refObject) {
-                        const refBuffer = await refObject.arrayBuffer();
-                        referenceImage = {
-                            buffer: new Uint8Array(refBuffer),
-                            mimeType: 'image/png',
-                            name: 'reference'
-                        };
+                // Validate status - can regenerate from review, completed, rejected, failed, approved
+                const allowedStatuses = ['review', 'completed', 'rejected', 'failed', 'approved'];
+                if (!allowedStatuses.includes(original.status)) {
+                    return Response.json({
+                        success: false,
+                        error: `Cannot regenerate asset with status: ${original.status}`
+                    }, { status: 400 });
+                }
+
+                // Calculate new variant number
+                const maxVariant = await env.DB.prepare(`
+                    SELECT MAX(variant) as max FROM generated_assets
+                    WHERE category = ? AND asset_key = ?
+                `).bind(original.category, original.asset_key).first();
+
+                const newVariant = (maxVariant?.max || 0) + 1;
+
+                // Determine the prompt
+                let finalPrompt;
+                if (customPrompt) {
+                    finalPrompt = customPrompt;
+                    if (custom_details) {
+                        finalPrompt += `\n\n${custom_details}`;
+                    }
+                } else {
+                    // Use original prompt with optional custom details
+                    finalPrompt = original.current_prompt;
+                    if (custom_details) {
+                        finalPrompt += `\n\n${custom_details}`;
                     }
                 }
-            }
 
-            // Use the current_prompt which includes any incorporated feedback
-            const generated = await generateWithGemini(env, asset.current_prompt, referenceImage ? [referenceImage] : null);
+                // Determine settings (use overrides or inherit from original)
+                const originalSettings = original.generation_settings
+                    ? JSON.parse(original.generation_settings)
+                    : {};
 
-            if (generated.success) {
-                // Store new version (overwrite old in private bucket)
-                const r2Key = asset.r2_key_private || `raw/${asset.category}_${asset.asset_key}_v${asset.variant}.png`;
-
-                await env.R2_PRIVATE.put(r2Key, generated.imageBuffer, {
-                    httpMetadata: { contentType: 'image/png' }
+                const mergedSettings = validateGenerationSettings({
+                    temperature: generation_settings?.temperature ?? originalSettings.temperature,
+                    topK: generation_settings?.topK ?? originalSettings.topK,
+                    topP: generation_settings?.topP ?? originalSettings.topP,
+                    maxOutputTokens: generation_settings?.maxOutputTokens ?? originalSettings.maxOutputTokens
                 });
 
-                // Update to review status
+                // Update old version status if preserving
+                if (preserve_old) {
+                    // Mark old as "completed" (ready for review/comparison)
+                    // Don't change if already approved
+                    if (original.status !== 'approved') {
+                        await env.DB.prepare(`
+                            UPDATE generated_assets
+                            SET status = 'completed',
+                                updated_at = CURRENT_TIMESTAMP
+                            WHERE id = ?
+                        `).bind(id).run();
+                    }
+                }
+
+                // Create new version
+                // Note: Convert undefined to null explicitly for D1 compatibility
+                const insertResult = await env.DB.prepare(`
+                    INSERT INTO generated_assets (
+                        category, asset_key, variant,
+                        base_prompt, current_prompt,
+                        status, parent_asset_id,
+                        generation_settings, generation_model,
+                        auto_created, auto_created_from
+                    )
+                    VALUES (?, ?, ?, ?, ?, 'pending', ?, ?, 'gemini-3-pro-image-preview', ?, ?)
+                    RETURNING id
+                `).bind(
+                    original.category,
+                    original.asset_key,
+                    newVariant,
+                    original.base_prompt,  // Keep original base prompt
+                    finalPrompt,           // Use new/modified prompt as current
+                    original.parent_asset_id ?? null,
+                    JSON.stringify(mergedSettings),
+                    original.auto_created ? 1 : 0,  // Boolean as integer for SQLite
+                    original.auto_created_from ?? null
+                ).first();
+
+                const newAssetId = insertResult.id;
+
+                // Copy or create reference links
+                if (reference_images && reference_images.length > 0) {
+                    // Use new reference images
+                    await storeReferenceLinks(env, newAssetId, reference_images);
+                    console.log(`Stored ${reference_images.length} new reference links for regenerated asset ${newAssetId}`);
+                } else {
+                    // Copy reference links from original
+                    const originalLinks = await env.DB.prepare(`
+                        SELECT reference_image_id, approved_asset_id, link_type, sort_order
+                        FROM asset_reference_links
+                        WHERE asset_id = ?
+                    `).bind(id).all();
+
+                    for (const link of originalLinks.results || []) {
+                        await env.DB.prepare(`
+                            INSERT INTO asset_reference_links (
+                                asset_id, reference_image_id, approved_asset_id,
+                                link_type, sort_order
+                            )
+                            VALUES (?, ?, ?, ?, ?)
+                        `).bind(
+                            newAssetId,
+                            link.reference_image_id,
+                            link.approved_asset_id,
+                            link.link_type,
+                            link.sort_order
+                        ).run();
+                    }
+                    if (originalLinks.results?.length > 0) {
+                        console.log(`Copied ${originalLinks.results.length} reference links from original asset ${id} to ${newAssetId}`);
+                    }
+                }
+
+                // Queue for generation
                 await env.DB.prepare(`
-                    UPDATE generated_assets
-                    SET status = 'review',
-                        r2_key_private = ?,
-                        background_removed = FALSE,
-                        updated_at = CURRENT_TIMESTAMP
-                    WHERE id = ?
-                `).bind(r2Key, id).run();
+                    INSERT INTO asset_generation_queue (asset_id, priority)
+                    VALUES (?, 3)
+                `).bind(newAssetId).run();
 
-                await logAudit(env, 'regenerate', parseInt(id), user?.username, { prompt_version: asset.prompt_version });
+                // Update status to generating
+                await env.DB.prepare(`
+                    UPDATE generated_assets SET status = 'generating' WHERE id = ?
+                `).bind(newAssetId).run();
 
-                return Response.json({
-                    success: true,
-                    asset_id: id,
-                    prompt_version: asset.prompt_version,
-                    message: 'Asset regenerated with updated prompt. Ready for review.'
+                // Log audit
+                await logAudit(env, 'regenerate', newAssetId, user?.username, {
+                    original_id: parseInt(id),
+                    original_variant: original.variant,
+                    new_variant: newVariant,
+                    had_custom_prompt: !!customPrompt,
+                    had_new_references: !!(reference_images && reference_images.length > 0),
+                    had_new_settings: !!generation_settings,
+                    preserved_old: preserve_old,
+                    settings: mergedSettings
                 });
-            } else {
-                await env.DB.prepare(`
-                    UPDATE generated_assets
-                    SET error_message = ?, updated_at = CURRENT_TIMESTAMP
-                    WHERE id = ?
-                `).bind(generated.error, id).run();
 
-                return Response.json({ success: false, error: generated.error }, { status: 500 });
+                // Fetch reference images for generation
+                // First, get user-specified references from asset_reference_links
+                const referenceLinksForGeneration = await env.DB.prepare(`
+                    SELECT reference_image_id, approved_asset_id, link_type
+                    FROM asset_reference_links
+                    WHERE asset_id = ?
+                    ORDER BY sort_order
+                `).bind(newAssetId).all();
+
+                const referenceSpecs = (referenceLinksForGeneration.results || []).map(link => ({
+                    type: link.link_type,
+                    id: link.link_type === 'library' ? link.reference_image_id : link.approved_asset_id
+                }));
+
+                let userReferenceImages = [];
+                if (referenceSpecs.length > 0) {
+                    userReferenceImages = await fetchReferenceImages(env, referenceSpecs);
+                }
+
+                // Fetch parent reference image if this is a sprite
+                let parentReferenceImage = null;
+                if (original.parent_asset_id) {
+                    const parentAsset = await env.DB.prepare(`
+                        SELECT r2_key_private, asset_key, category FROM generated_assets WHERE id = ?
+                    `).bind(original.parent_asset_id).first();
+
+                    if (parentAsset?.r2_key_private) {
+                        const refObject = await env.R2_PRIVATE.get(parentAsset.r2_key_private);
+                        if (refObject) {
+                            const refBuffer = await refObject.arrayBuffer();
+                            parentReferenceImage = {
+                                buffer: new Uint8Array(refBuffer),
+                                mimeType: 'image/png',
+                                name: `Parent: ${parentAsset.category}/${parentAsset.asset_key}`
+                            };
+                        }
+                    }
+                }
+
+                // Combine reference images
+                const allReferenceImages = [
+                    ...userReferenceImages,
+                    ...(parentReferenceImage ? [parentReferenceImage] : [])
+                ];
+
+                console.log(`Regenerating asset ${newAssetId} (v${newVariant}) with ${allReferenceImages.length} reference images`);
+
+                // Start generation
+                const generated = await generateWithGemini(env, finalPrompt, allReferenceImages, mergedSettings);
+
+                if (generated.success) {
+                    // Determine storage path
+                    let r2Key;
+                    if (original.category.endsWith('_ref')) {
+                        r2Key = `refs/${original.asset_key}_ref_v${newVariant}.png`;
+                    } else if (original.category === 'scene') {
+                        r2Key = `scenes/${original.asset_key}_v${newVariant}.png`;
+                    } else {
+                        r2Key = `raw/${original.category}_${original.asset_key}_raw_v${newVariant}.png`;
+                    }
+
+                    // Store in PRIVATE bucket
+                    await env.R2_PRIVATE.put(r2Key, generated.imageBuffer, {
+                        httpMetadata: { contentType: 'image/png' }
+                    });
+
+                    // Update asset record
+                    await env.DB.prepare(`
+                        UPDATE generated_assets
+                        SET status = 'completed', r2_key_private = ?, updated_at = CURRENT_TIMESTAMP
+                        WHERE id = ?
+                    `).bind(r2Key, newAssetId).run();
+
+                    // Update queue
+                    await env.DB.prepare(`
+                        UPDATE asset_generation_queue
+                        SET status = 'completed', completed_at = CURRENT_TIMESTAMP
+                        WHERE asset_id = ?
+                    `).bind(newAssetId).run();
+
+                    return Response.json({
+                        success: true,
+                        originalId: parseInt(id),
+                        originalVariant: original.variant,
+                        newAssetId,
+                        newVariant,
+                        r2_key: r2Key,
+                        generation_settings: mergedSettings,
+                        message: `Created new version (variant ${newVariant}). ${preserve_old ? 'Old version preserved.' : ''}`
+                    });
+                } else {
+                    // Generation failed
+                    await env.DB.prepare(`
+                        UPDATE generated_assets
+                        SET status = 'failed', error_message = ?, updated_at = CURRENT_TIMESTAMP
+                        WHERE id = ?
+                    `).bind(generated.error, newAssetId).run();
+
+                    await env.DB.prepare(`
+                        UPDATE asset_generation_queue
+                        SET status = 'failed', completed_at = CURRENT_TIMESTAMP
+                        WHERE asset_id = ?
+                    `).bind(newAssetId).run();
+
+                    return Response.json({
+                        success: false,
+                        error: generated.error,
+                        newAssetId,
+                        newVariant,
+                        message: 'Regeneration failed'
+                    }, { status: 500 });
+                }
+
+            } catch (error) {
+                console.error('Regenerate error:', error);
+                return Response.json({ success: false, error: error.message }, { status: 500 });
             }
         }
 
@@ -3238,8 +4248,15 @@ Please address the above feedback in this generation.`;
                         continue;
                     }
 
-                    // Convert to WebP and resize
-                    const webpBuffer = await convertToWebPAndResize(pngBuffer, targetDims.width, targetDims.height);
+                    // Resize and convert to WebP using Cloudflare Image Transformations
+                    const tempKey = `_temp/${sprite.category}_${sprite.asset_key}_${Date.now()}.png`;
+                    const webpBuffer = await resizeViaCloudflare(
+                        env,
+                        pngBuffer,
+                        tempKey,
+                        targetDims.width,
+                        targetDims.height
+                    );
 
                     // Save to public bucket
                     const gameReadyKey = `sprites/${sprite.category}/${sprite.asset_key}_v${sprite.variant}.webp`;
@@ -4083,6 +5100,522 @@ Please address the above feedback in this generation.`;
             `).all();
 
             return Response.json({ categories: categories.results });
+        }
+
+        // ============================================
+        // REFERENCE LIBRARY ENDPOINTS
+        // ============================================
+
+        // GET /api/admin/assets/reference-library - List reference images
+        if (action === 'reference-library' && method === 'GET' && !param1) {
+            const category = url.searchParams.get('category');
+            const search = url.searchParams.get('search');
+            const archived = url.searchParams.get('archived') === 'true';
+
+            let query = `
+                SELECT
+                    id, name, description, category, tags,
+                    thumbnail_r2_key, width, height, file_size,
+                    usage_count, uploaded_by, created_at
+                FROM reference_images
+                WHERE is_archived = ?
+            `;
+            const params = [archived];
+
+            if (category) {
+                query += ` AND category = ?`;
+                params.push(category);
+            }
+
+            if (search) {
+                query += ` AND (name LIKE ? OR description LIKE ? OR tags LIKE ?)`;
+                const searchPattern = `%${search}%`;
+                params.push(searchPattern, searchPattern, searchPattern);
+            }
+
+            query += ` ORDER BY created_at DESC`;
+
+            const results = await env.DB.prepare(query).bind(...params).all();
+
+            // Generate thumbnail URLs for each image (using R2 key path through worker)
+            const images = (results.results || []).map(img => ({
+                ...img,
+                tags: img.tags ? JSON.parse(img.tags) : [],
+                thumbnailUrl: img.thumbnail_r2_key
+                    ? `/api/admin/assets/reference-library/serve/${encodeURIComponent(img.thumbnail_r2_key)}`
+                    : null
+            }));
+
+            return Response.json({
+                success: true,
+                images,
+                count: images.length
+            });
+        }
+
+        // GET /api/admin/assets/reference-library/:id - Get single reference image
+        if (action === 'reference-library' && method === 'GET' && param1 && !param2) {
+            const id = param1;
+
+            const image = await env.DB.prepare(`
+                SELECT * FROM reference_images WHERE id = ?
+            `).bind(id).first();
+
+            if (!image) {
+                return Response.json({ success: false, error: 'Image not found' }, { status: 404 });
+            }
+
+            return Response.json({
+                success: true,
+                image: {
+                    ...image,
+                    tags: image.tags ? JSON.parse(image.tags) : [],
+                    thumbnailUrl: image.thumbnail_r2_key
+                        ? `/api/admin/assets/reference-library/serve/${encodeURIComponent(image.thumbnail_r2_key)}`
+                        : null
+                }
+            });
+        }
+
+        // GET /api/admin/assets/reference-library/:id/preview - Get full-size preview URL
+        if (action === 'reference-library' && method === 'GET' && param1 && param2 === 'preview') {
+            const id = param1;
+
+            const image = await env.DB.prepare(`
+                SELECT r2_key, mime_type FROM reference_images WHERE id = ?
+            `).bind(id).first();
+
+            if (!image) {
+                return Response.json({ success: false, error: 'Image not found' }, { status: 404 });
+            }
+
+            // Return a worker URL that serves the image
+            return Response.json({
+                success: true,
+                previewUrl: `/api/admin/assets/reference-library/serve/${encodeURIComponent(image.r2_key)}`,
+                mimeType: image.mime_type
+            });
+        }
+
+        // GET /api/admin/assets/reference-library/serve/:key - Serve image from R2 (internal)
+        if (action === 'reference-library' && param1 === 'serve' && method === 'GET' && param2) {
+            // Reconstruct the full key from remaining path parts
+            const keyParts = pathParts.slice(2); // Skip 'reference-library' and 'serve'
+            const r2Key = decodeURIComponent(keyParts.join('/'));
+
+            const object = await env.R2_PRIVATE.get(r2Key);
+
+            if (!object) {
+                return Response.json({ success: false, error: 'Image not found in storage' }, { status: 404 });
+            }
+
+            // Return the image directly
+            const headers = new Headers();
+            headers.set('Content-Type', object.httpMetadata?.contentType || 'image/png');
+            headers.set('Cache-Control', 'private, max-age=3600');
+
+            return new Response(object.body, { headers });
+        }
+
+        // POST /api/admin/assets/reference-library/upload - Upload new reference image
+        if (action === 'reference-library' && param1 === 'upload' && method === 'POST') {
+            try {
+                const formData = await request.formData();
+                const file = formData.get('file');
+                const name = formData.get('name');
+                const description = formData.get('description') || null;
+                const category = formData.get('category') || 'general';
+                const tags = formData.get('tags') || '[]';
+
+                if (!file || !name) {
+                    return Response.json({ success: false, error: 'File and name are required' }, { status: 400 });
+                }
+
+                // Validate file type
+                const validTypes = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'];
+                if (!validTypes.includes(file.type)) {
+                    return Response.json({
+                        success: false,
+                        error: `Invalid file type. Allowed: ${validTypes.join(', ')}`
+                    }, { status: 400 });
+                }
+
+                // Read file buffer
+                const arrayBuffer = await file.arrayBuffer();
+                const buffer = new Uint8Array(arrayBuffer);
+
+                // Generate unique filename
+                const timestamp = Date.now();
+                const sanitizedName = name.toLowerCase().replace(/[^a-z0-9]/g, '_');
+                const extension = file.type.split('/')[1];
+                const r2Key = `reference-library/${category}/${sanitizedName}_${timestamp}.${extension}`;
+
+                // Upload to R2 private bucket
+                await env.R2_PRIVATE.put(r2Key, buffer, {
+                    httpMetadata: { contentType: file.type }
+                });
+
+                // MVP: Use same key for thumbnail (use Cloudflare transforms at read time)
+                const thumbnailKey = r2Key;
+
+                // Get image dimensions
+                const dimensions = getImageDimensions(buffer);
+
+                // Insert database record
+                const result = await env.DB.prepare(`
+                    INSERT INTO reference_images (
+                        name, description, category, tags,
+                        r2_key, thumbnail_r2_key,
+                        width, height, file_size, mime_type,
+                        uploaded_by
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    RETURNING id
+                `).bind(
+                    name, description, category, tags,
+                    r2Key, thumbnailKey,
+                    dimensions.width, dimensions.height, buffer.length, file.type,
+                    user?.username || 'system'
+                ).first();
+
+                // Log audit (null for asset_id since this is a reference image, not a generated asset)
+                await logAudit(env, 'upload_reference_image', null, user?.username, {
+                    reference_image_id: result.id,
+                    name, category, file_size: buffer.length
+                });
+
+                return Response.json({
+                    success: true,
+                    image: {
+                        id: result.id,
+                        name,
+                        category,
+                        r2Key,
+                        thumbnailKey,
+                        width: dimensions.width,
+                        height: dimensions.height,
+                        fileSize: buffer.length
+                    }
+                });
+
+            } catch (error) {
+                console.error('Upload error:', error);
+                return Response.json({ success: false, error: error.message }, { status: 500 });
+            }
+        }
+
+        // PUT /api/admin/assets/reference-library/:id - Update metadata
+        if (action === 'reference-library' && method === 'PUT' && param1 && !param2) {
+            const id = param1;
+            const body = await request.json();
+
+            // Validate image exists and is not archived
+            const existing = await env.DB.prepare(`
+                SELECT id FROM reference_images WHERE id = ? AND is_archived = FALSE
+            `).bind(id).first();
+
+            if (!existing) {
+                return Response.json({ success: false, error: 'Image not found' }, { status: 404 });
+            }
+
+            // Build update query dynamically
+            const updates = [];
+            const values = [];
+
+            if (body.name !== undefined) {
+                updates.push('name = ?');
+                values.push(body.name);
+            }
+            if (body.description !== undefined) {
+                updates.push('description = ?');
+                values.push(body.description);
+            }
+            if (body.category !== undefined) {
+                updates.push('category = ?');
+                values.push(body.category);
+            }
+            if (body.tags !== undefined) {
+                updates.push('tags = ?');
+                values.push(JSON.stringify(body.tags));
+            }
+
+            if (updates.length === 0) {
+                return Response.json({ success: false, error: 'No fields to update' }, { status: 400 });
+            }
+
+            updates.push('updated_at = CURRENT_TIMESTAMP');
+            values.push(id);
+
+            await env.DB.prepare(`
+                UPDATE reference_images
+                SET ${updates.join(', ')}
+                WHERE id = ?
+            `).bind(...values).run();
+
+            // Log audit (null for asset_id since this is a reference image, not a generated asset)
+            await logAudit(env, 'update_reference_image', null, user?.username, {
+                reference_image_id: parseInt(id),
+                ...body
+            });
+
+            return Response.json({ success: true });
+        }
+
+        // DELETE /api/admin/assets/reference-library/:id - Archive (soft delete)
+        if (action === 'reference-library' && method === 'DELETE' && param1 && !param2) {
+            const id = param1;
+
+            // Check if image is in use
+            const usageCount = await env.DB.prepare(`
+                SELECT COUNT(*) as count FROM asset_reference_links
+                WHERE reference_image_id = ?
+            `).bind(id).first();
+
+            // Soft delete (archive)
+            const result = await env.DB.prepare(`
+                UPDATE reference_images
+                SET is_archived = TRUE, archived_at = CURRENT_TIMESTAMP
+                WHERE id = ? AND is_archived = FALSE
+            `).bind(id).run();
+
+            if (result.meta.changes === 0) {
+                return Response.json({ success: false, error: 'Image not found or already archived' }, { status: 404 });
+            }
+
+            // Log audit (null for asset_id since this is a reference image, not a generated asset)
+            await logAudit(env, 'archive_reference_image', null, user?.username, {
+                reference_image_id: parseInt(id),
+                was_in_use: usageCount.count > 0,
+                usage_count: usageCount.count
+            });
+
+            return Response.json({
+                success: true,
+                archived: true,
+                wasInUse: usageCount.count > 0
+            });
+        }
+
+        // ============================================
+        // PROMPT TEMPLATE ENDPOINTS
+        // ============================================
+
+        // GET /api/admin/assets/prompts - List all categories with their templates
+        if (action === 'prompts' && method === 'GET' && !param1) {
+            const templates = await env.DB.prepare(`
+                SELECT DISTINCT category, asset_key, template_name
+                FROM prompt_templates
+                WHERE is_active = TRUE
+                ORDER BY category, asset_key
+            `).all();
+
+            // Group by category
+            const grouped = (templates.results || []).reduce((acc, t) => {
+                if (!acc[t.category]) {
+                    acc[t.category] = [];
+                }
+                acc[t.category].push({
+                    assetKey: t.asset_key,
+                    templateName: t.template_name
+                });
+                return acc;
+            }, {});
+
+            return Response.json({
+                success: true,
+                categories: grouped
+            });
+        }
+
+        // GET /api/admin/assets/prompts/:category/:assetKey - Get active template
+        if (action === 'prompts' && method === 'GET' && param1 && param2 && !param3) {
+            const category = param1;
+            const assetKey = param2;
+
+            // Try specific template first
+            let template = await env.DB.prepare(`
+                SELECT * FROM prompt_templates
+                WHERE category = ? AND asset_key = ? AND is_active = TRUE
+            `).bind(category, assetKey).first();
+
+            // Fall back to category default if no specific template
+            if (!template) {
+                template = await env.DB.prepare(`
+                    SELECT * FROM prompt_templates
+                    WHERE category = ? AND asset_key = '_default' AND is_active = TRUE
+                `).bind(category).first();
+            }
+
+            // NO hardcoded fallback - fail explicitly to avoid wasting Gemini tokens
+            if (!template) {
+                return Response.json({
+                    success: false,
+                    error: `No prompt template found for ${category}/${assetKey}. Run the seed migration (0027_seed_prompt_templates.sql) first.`
+                }, { status: 404 });
+            }
+
+            return Response.json({
+                success: true,
+                template: {
+                    id: template.id,
+                    category: template.category,
+                    assetKey: template.asset_key,
+                    templateName: template.template_name,
+                    basePrompt: template.base_prompt,
+                    styleGuide: template.style_guide,
+                    systemInstructions: template.system_instructions,
+                    version: template.version,
+                    createdBy: template.created_by,
+                    updatedAt: template.updated_at,
+                    isHardcoded: false
+                }
+            });
+        }
+
+        // GET /api/admin/assets/prompts/:category/:assetKey/history - Version history
+        if (action === 'prompts' && method === 'GET' && param1 && param2 && param3 === 'history') {
+            const category = param1;
+            const assetKey = param2;
+
+            const versions = await env.DB.prepare(`
+                SELECT
+                    id, version, is_active,
+                    base_prompt, style_guide,
+                    created_by, created_at, change_notes
+                FROM prompt_templates
+                WHERE category = ? AND asset_key = ?
+                ORDER BY version DESC
+            `).bind(category, assetKey).all();
+
+            return Response.json({
+                success: true,
+                versions: (versions.results || []).map(v => ({
+                    id: v.id,
+                    version: v.version,
+                    isActive: v.is_active,
+                    basePrompt: v.base_prompt,
+                    styleGuide: v.style_guide,
+                    createdBy: v.created_by,
+                    createdAt: v.created_at,
+                    changeNotes: v.change_notes
+                }))
+            });
+        }
+
+        // PUT /api/admin/assets/prompts/:category/:assetKey - Update template (creates new version)
+        if (action === 'prompts' && method === 'PUT' && param1 && param2 && !param3) {
+            const category = param1;
+            const assetKey = param2;
+            const body = await request.json();
+
+            const { basePrompt, styleGuide, systemInstructions, templateName, changeNotes } = body;
+
+            if (!basePrompt) {
+                return Response.json({ success: false, error: 'basePrompt is required' }, { status: 400 });
+            }
+
+            // Get current version number
+            const current = await env.DB.prepare(`
+                SELECT MAX(version) as maxVersion FROM prompt_templates
+                WHERE category = ? AND asset_key = ?
+            `).bind(category, assetKey).first();
+
+            const newVersion = (current?.maxVersion || 0) + 1;
+
+            // CRITICAL: D1 does not enforce unique active constraint
+            // Deactivate current active version FIRST, then insert new one
+            await env.DB.prepare(`
+                UPDATE prompt_templates
+                SET is_active = FALSE
+                WHERE category = ? AND asset_key = ? AND is_active = TRUE
+            `).bind(category, assetKey).run();
+
+            // Insert new version
+            const result = await env.DB.prepare(`
+                INSERT INTO prompt_templates (
+                    category, asset_key, template_name,
+                    base_prompt, style_guide, system_instructions,
+                    version, is_active, created_by, change_notes
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, TRUE, ?, ?)
+            `).bind(
+                category, assetKey, templateName || `${category}/${assetKey}`,
+                basePrompt, styleGuide || null, systemInstructions || null,
+                newVersion, user?.username || 'system', changeNotes || null
+            ).run();
+
+            const templateId = result.meta.last_row_id;
+
+            // Log audit
+            await logAudit(env, 'update_prompt_template', null, user?.username, {
+                category, assetKey, version: newVersion, changeNotes, templateId
+            });
+
+            return Response.json({
+                success: true,
+                templateId,
+                version: newVersion
+            });
+        }
+
+        // POST /api/admin/assets/prompts/:category/:assetKey/reset - Reset to system default
+        if (action === 'prompts' && method === 'POST' && param1 && param2 && param3 === 'reset') {
+            const category = param1;
+            const assetKey = param2;
+
+            // Find the original system template (version 1, created_by = 'system')
+            const systemTemplate = await env.DB.prepare(`
+                SELECT * FROM prompt_templates
+                WHERE category = ? AND asset_key = ? AND version = 1 AND created_by = 'system'
+            `).bind(category, assetKey).first();
+
+            if (!systemTemplate) {
+                return Response.json({
+                    success: false,
+                    error: 'No system default found for this template'
+                }, { status: 404 });
+            }
+
+            // Get current max version
+            const current = await env.DB.prepare(`
+                SELECT MAX(version) as maxVersion FROM prompt_templates
+                WHERE category = ? AND asset_key = ?
+            `).bind(category, assetKey).first();
+
+            const newVersion = (current?.maxVersion || 0) + 1;
+
+            // Deactivate all current active versions
+            await env.DB.prepare(`
+                UPDATE prompt_templates
+                SET is_active = FALSE
+                WHERE category = ? AND asset_key = ? AND is_active = TRUE
+            `).bind(category, assetKey).run();
+
+            // Create a new version that's a copy of the system template
+            const result = await env.DB.prepare(`
+                INSERT INTO prompt_templates (
+                    category, asset_key, template_name,
+                    base_prompt, style_guide, system_instructions,
+                    version, is_active, created_by, change_notes
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, TRUE, ?, ?)
+            `).bind(
+                category, assetKey, systemTemplate.template_name,
+                systemTemplate.base_prompt, systemTemplate.style_guide, systemTemplate.system_instructions,
+                newVersion, user?.username || 'system', 'Reset to system default'
+            ).run();
+
+            // Log audit
+            await logAudit(env, 'reset_prompt_template', null, user?.username, {
+                category, assetKey, version: newVersion, resetToVersion: 1
+            });
+
+            return Response.json({
+                success: true,
+                templateId: result.meta.last_row_id,
+                version: newVersion,
+                message: 'Template reset to system default'
+            });
         }
 
         // Default: route not found

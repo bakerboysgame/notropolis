@@ -386,7 +386,7 @@ export default {
               headers: { ...corsHeaders, 'Content-Type': 'application/json' }
             });
           }
-          const assetResponse = await handleAssetRoutes(request, env, path, method, assetUser);
+          const assetResponse = await handleAssetRoutes(request, env, path, method, assetUser, ctx);
           // Add CORS headers to response
           const assetHeaders = new Headers(assetResponse.headers);
           Object.entries(corsHeaders).forEach(([key, value]) => assetHeaders.set(key, value));
