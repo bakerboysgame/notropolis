@@ -947,22 +947,25 @@ Simple green grass with subtle texture. Seamless tiling.${customDetails ? `\n\n$
 // ============================================================================
 
 const BUILDING_SIZE_CLASSES = {
-    claim_stake: { canvas: '64x64', class: 'TINY' },
-    demolished: { canvas: '128x128', class: 'SHORT' },
-    market_stall: { canvas: '128x128', class: 'SHORT' },
-    hot_dog_stand: { canvas: '128x128', class: 'SHORT' },
-    campsite: { canvas: '128x128', class: 'SHORT' },
-    shop: { canvas: '192x192', class: 'MEDIUM' },
-    burger_bar: { canvas: '192x192', class: 'MEDIUM' },
-    motel: { canvas: '192x192', class: 'MEDIUM' },
-    high_street_store: { canvas: '256x256', class: 'TALL' },
-    restaurant: { canvas: '256x256', class: 'TALL' },
-    manor: { canvas: '256x256', class: 'TALL' },
-    police_station: { canvas: '256x256', class: 'TALL' },
-    casino: { canvas: '320x320', class: 'VERY_TALL' },
-    temple: { canvas: '320x320', class: 'VERY_TALL' },
-    bank: { canvas: '320x320', class: 'VERY_TALL' }
+    claim_stake: { canvas: '64x64', class: 'TINY', width: 64, height: 64 },
+    demolished: { canvas: '128x128', class: 'SHORT', width: 128, height: 128 },
+    market_stall: { canvas: '128x128', class: 'SHORT', width: 128, height: 128 },
+    hot_dog_stand: { canvas: '128x128', class: 'SHORT', width: 128, height: 128 },
+    campsite: { canvas: '128x128', class: 'SHORT', width: 128, height: 128 },
+    shop: { canvas: '192x192', class: 'MEDIUM', width: 192, height: 192 },
+    burger_bar: { canvas: '192x192', class: 'MEDIUM', width: 192, height: 192 },
+    motel: { canvas: '192x192', class: 'MEDIUM', width: 192, height: 192 },
+    high_street_store: { canvas: '256x256', class: 'TALL', width: 256, height: 256 },
+    restaurant: { canvas: '256x256', class: 'TALL', width: 256, height: 256 },
+    manor: { canvas: '256x256', class: 'TALL', width: 256, height: 256 },
+    police_station: { canvas: '256x256', class: 'TALL', width: 256, height: 256 },
+    casino: { canvas: '320x320', class: 'VERY_TALL', width: 320, height: 320 },
+    temple: { canvas: '320x320', class: 'VERY_TALL', width: 320, height: 320 },
+    bank: { canvas: '320x320', class: 'VERY_TALL', width: 320, height: 320 }
 };
+
+// Terrain tile dimensions (isometric diamond)
+const TERRAIN_DIMENSIONS = { width: 64, height: 32 };
 
 /**
  * Build prompt for building game sprite (references the approved ref sheet)
@@ -1958,7 +1961,11 @@ export async function handleAssetRoutes(request, env, path, method, user) {
         if (action === 'list' && method === 'GET' && param1) {
             const category = param1;
             const assets = await env.DB.prepare(`
-                SELECT * FROM generated_assets
+                SELECT *,
+                       r2_key_private as r2_key,
+                       CASE WHEN r2_url IS NOT NULL THEN r2_url
+                            ELSE NULL END as public_url
+                FROM generated_assets
                 WHERE category = ?
                 ORDER BY asset_key, variant
             `).bind(category).all();
@@ -3149,6 +3156,8 @@ Please address the above feedback in this generation.`;
 
             const sprites = await env.DB.prepare(`
                 SELECT ga.*,
+                       ga.r2_key_private as r2_key,
+                       CASE WHEN ga.r2_url IS NOT NULL THEN ga.r2_url ELSE NULL END as public_url,
                        (SELECT bc.active_sprite_id FROM building_configurations bc
                         WHERE bc.building_type_id = ?) = ga.id as is_active
                 FROM generated_assets ga

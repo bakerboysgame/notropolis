@@ -113,6 +113,7 @@ export interface Asset {
   variant: number;
   status: AssetStatus;
   r2_key: string;
+  public_url?: string;  // Public URL for published assets
   prompt?: string;
   rejection_reason?: string;
   parent_asset_id?: string;

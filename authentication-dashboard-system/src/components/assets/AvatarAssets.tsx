@@ -138,14 +138,16 @@ export function AvatarAssets() {
   }, [renderComposite]);
 
   const getAssetUrl = async (asset: LayerAsset): Promise<string | null> => {
+    // Prefer public URL if available (published assets)
     if (asset.public_url) return asset.public_url;
-    if (asset.r2_key) {
-      // Try to get preview URL
+    // Fall back to preview API for private assets
+    if (asset.r2_key || asset.id) {
       try {
         const { url } = await assetApi.getPreviewUrl(asset.id);
         return url;
-      } catch {
-        return `https://assets.notropolis.net/${asset.r2_key}`;
+      } catch (err) {
+        console.error(`Failed to get preview URL for asset ${asset.id}:`, err);
+        return null;
       }
     }
     return null;

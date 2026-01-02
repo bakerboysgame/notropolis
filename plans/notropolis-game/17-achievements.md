@@ -701,16 +701,16 @@ export function AchievementUnlock({ achievement, onDismiss }) {
 
 ## Acceptance Checklist
 
-- [ ] Achievement definitions seeded
-- [ ] Progress tracked automatically
-- [ ] Completion detected and recorded
-- [ ] Rewards granted on completion
-- [ ] Achievement page displays all
-- [ ] Category filter works
-- [ ] Progress bars show correctly
-- [ ] Unlock notification appears
-- [ ] Badges displayed on profile
-- [ ] Rarity colors shown
+- [x] Achievement definitions seeded (14 achievements, 3 badges)
+- [x] Progress tracked automatically
+- [x] Completion detected and recorded
+- [x] Rewards granted on completion
+- [x] Achievement page displays all
+- [x] Category filter works
+- [x] Progress bars show correctly
+- [x] Unlock notification appears
+- [x] Badges displayed on profile
+- [x] Rarity colors shown
 
 ## Deployment
 

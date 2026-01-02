@@ -1,9 +1,66 @@
 // src/components/assets/BuildingManager.tsx
 import { useState, useEffect } from 'react';
-import { Loader2, Building2 } from 'lucide-react';
+import { Loader2, Building2, ImageOff } from 'lucide-react';
 import { clsx } from 'clsx';
 import { assetApi, BuildingConfig, Asset } from '../../services/assetApi';
 import { useToast } from '../ui/Toast';
+
+// Component to load sprite images - uses public_url if available, otherwise preview API
+function SpriteImage({ asset, alt, className }: { asset: Asset; alt: string; className?: string }) {
+  const [imageUrl, setImageUrl] = useState<string | null>(asset.public_url || null);
+  const [loading, setLoading] = useState(!asset.public_url);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    // If we have a public URL, use it directly
+    if (asset.public_url) {
+      setImageUrl(asset.public_url);
+      setLoading(false);
+      return;
+    }
+
+    // Otherwise fetch via preview API
+    let cancelled = false;
+    const loadImage = async () => {
+      try {
+        setLoading(true);
+        setError(false);
+        const { url } = await assetApi.getPreviewUrl(asset.id);
+        if (!cancelled) {
+          setImageUrl(url);
+        }
+      } catch {
+        if (!cancelled) {
+          setError(true);
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    };
+    loadImage();
+    return () => { cancelled = true; };
+  }, [asset.id, asset.public_url]);
+
+  if (loading) {
+    return (
+      <div className={clsx('flex items-center justify-center bg-gray-100 dark:bg-gray-800', className)}>
+        <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
+      </div>
+    );
+  }
+
+  if (error || !imageUrl) {
+    return (
+      <div className={clsx('flex items-center justify-center bg-gray-100 dark:bg-gray-800', className)}>
+        <ImageOff className="w-4 h-4 text-gray-400" />
+      </div>
+    );
+  }
+
+  return <img src={imageUrl} alt={alt} className={className} />;
+}
 
 export function BuildingManager() {
   const { showToast } = useToast();
@@ -253,8 +310,8 @@ export function BuildingManager() {
                             : 'border-gray-200 dark:border-gray-700 hover:border-gray-400 dark:hover:border-gray-500'
                         )}
                       >
-                        <img
-                          src={sprite.r2_key ? `https://assets.notropolis.net/${sprite.r2_key}` : ''}
+                        <SpriteImage
+                          asset={sprite}
                           alt={`v${sprite.variant}`}
                           className="w-16 h-16 object-contain"
                         />
