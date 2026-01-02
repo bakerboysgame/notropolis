@@ -620,35 +620,28 @@ Remember: This reference establishes how this effect looks from all angles. The 
 }
 
 // ============================================================================
-// TERRAIN TILE FEATURES
+// TERRAIN TILE SYSTEM - SIMPLE, CLEAN PROMPTS
 // ============================================================================
 
+// All terrain tiles are ISOMETRIC DIAMONDS (rhombus shape, 2:1 ratio like 128x64)
+// The diamond points are: TOP, RIGHT, BOTTOM, LEFT
+// Edges connect adjacent points: top-right edge, right-bottom edge, bottom-left edge, left-top edge
+
 const TERRAIN_FEATURES = {
-    grass: `Lush green grass with subtle variation in shade. Small tufts and texture visible but not overwhelming. Natural, well-maintained lawn appearance.`,
+    grass: `Green grass tile. Seamless texture.`,
+    trees: `Trees on grass base.`,
+    mountain: `Rocky mountain terrain.`,
+    sand: `Sandy beach/desert tile.`,
 
-    trees: `Dense cluster of trees viewed from above and the side. Chunky, stylized tree canopy with visible foliage masses. Mix of greens. Trees extend above the base diamond footprint like early 3D game trees.`,
+    // Reference sheet descriptions (simple)
+    water: `Water tiles reference sheet. Show: 1 full water tile, 4 edge tiles (shore on one side), 4 outer corners (shore on two sides), 4 inner corners (small shore in one corner).`,
+    road: `Road tiles reference sheet. Dark gray asphalt with light sidewalks. Show all connection types: 2 straights, 4 corners, 4 T-junctions, 1 crossroads, 4 dead ends.`,
+    dirt: `Dirt path tiles reference sheet. Brown path through green grass. Show: 2 straights, 4 corners.`,
 
-    mountain: `Rocky, elevated terrain with chunky rock formations. Gray and brown stone with visible facets. Impassable, rugged appearance. Angular rock shapes with visible polygonal faces.`,
-
-    sand: `Golden/beige sand with subtle ripple texture suggesting wind patterns. Small variation in tone. Beach/desert sand appearance.`,
-
-    // Water base - when approved, edge variants auto-generate
-    water: `Blue water with subtle ripple texture. Gentle reflective quality suggesting calm water surface. Light caustic patterns optional. This establishes the water style - edge/corner variants will auto-generate when approved.`,
-
-    // Road base - when approved, all 15 variants auto-generate (straights, corners, T-junctions, 4-way, dead-ends)
-    road: `STYLE REFERENCE FOR ALL ROAD TILES. Dark gray asphalt road with photorealistic surface texture. Light gray/beige sidewalks on edges. Clear visual distinction between road surface (vehicles) and sidewalk (pedestrians). Show as North-South road through center. When this is approved, all road variants (corners, intersections, dead-ends) auto-generate.`,
-
-    // Internal: Road variant base description (used for auto-generated variants)
-    road_base: `Dark gray asphalt road with photorealistic surface texture. Light gray/beige sidewalks on edges. Clear visual distinction between road surface (vehicles) and sidewalk (pedestrians). Must match the approved "road" base tile style exactly.`,
-
-    // Dirt base - when approved, 6 variants auto-generate
-    dirt: `STYLE REFERENCE FOR ALL DIRT TILES. Brown/tan compacted dirt path. Visible texture suggesting worn earth - small pebbles, subtle tire/foot track impressions. Earthy, natural appearance. Show as North-South path. When this is approved, all dirt variants (corners, straights) auto-generate.`,
-
-    // Internal: Dirt variant base description
-    dirt_base: `Brown/tan compacted dirt path. Visible texture suggesting worn earth - small pebbles, subtle tire/foot track impressions. Earthy, natural appearance. Must match the approved "dirt" base tile style exactly.`,
-
-    // Internal: Water edge tiles base description
-    water_edge_base: `Water tile with land transition. The water should blend naturally into grass/land on the specified edge(s). Gentle shore/beach effect at the transition. Must match the approved "water" base tile style exactly.`
+    // Sprite base descriptions (simple)
+    road_base: `Dark gray asphalt road with narrow light sidewalks on edges. No grass. Road is 70% of tile width.`,
+    dirt_base: `Brown dirt path through green grass. Path is 40% of tile width.`,
+    water_edge_base: `Blue water with sandy shore strip where it meets land.`
 };
 
 // ============================================================================
@@ -660,13 +653,13 @@ const TERRAIN_VARIATIONS = {
     // Grass: base tile approved → generate the seamless grass tile
     grass: ['grass_tile'],
 
-    // Road: base tile approved → generate all 15 connection variants
+    // Road: 5 base tiles (rotate in game engine for other orientations)
     road: [
-        'road_ns', 'road_ew',                                           // Straights (2)
-        'road_ne', 'road_nw', 'road_se', 'road_sw',                     // Corners (4)
-        'road_nes', 'road_new', 'road_nsw', 'road_esw',                 // T-junctions (4)
-        'road_nesw',                                                     // 4-way (1)
-        'road_n', 'road_e', 'road_s', 'road_w'                          // Dead ends (4)
+        'road_straight',    // Horizontal straight (rotate 90° for vertical)
+        'road_corner',      // Top-to-right corner (rotate for other corners)
+        'road_tjunction',   // T-junction (rotate for other orientations)
+        'road_crossroad',   // 4-way intersection (no rotation needed)
+        'road_deadend'      // Dead end (rotate for other directions)
     ],
 
     // Dirt: base tile approved → generate all 6 connection variants
@@ -675,12 +668,53 @@ const TERRAIN_VARIATIONS = {
         'dirt_ne', 'dirt_nw', 'dirt_se', 'dirt_sw'                      // Corners (4)
     ],
 
-    // Water: base tile approved → generate all 12 edge/corner variants
+    // Water: base tile approved → generate full tile + 12 edge/corner variants = 13 tiles
     water: [
+        'water_full',  // Pure water tile, no edges (1)
         'water_edge_n', 'water_edge_e', 'water_edge_s', 'water_edge_w', // Edges (4)
         'water_corner_ne', 'water_corner_nw', 'water_corner_se', 'water_corner_sw', // Outer corners (4)
         'water_inner_ne', 'water_inner_nw', 'water_inner_se', 'water_inner_sw'      // Inner corners (4)
     ]
+};
+
+// Simple tile descriptions - minimal text, let the AI interpret
+const WATER_TILE_DESCRIPTIONS = {
+    water_full: `Pure water, no shore.`,
+    water_edge_n: `Shore on N edge (top-right). Water fills rest.`,
+    water_edge_e: `Shore on E edge (bottom-right). Water fills rest.`,
+    water_edge_s: `Shore on S edge (bottom-left). Water fills rest.`,
+    water_edge_w: `Shore on W edge (top-left). Water fills rest.`,
+    water_corner_ne: `Shore on N and E edges (outer corner at right point). Water in SW.`,
+    water_corner_nw: `Shore on N and W edges (outer corner at top point). Water in SE.`,
+    water_corner_se: `Shore on S and E edges (outer corner at bottom point). Water in NW.`,
+    water_corner_sw: `Shore on S and W edges (outer corner at left point). Water in NE.`,
+    water_inner_ne: `Small shore in NE corner only. Water everywhere else.`,
+    water_inner_nw: `Small shore in NW corner only. Water everywhere else.`,
+    water_inner_se: `Small shore in SE corner only. Water everywhere else.`,
+    water_inner_sw: `Small shore in SW corner only. Water everywhere else.`
+};
+
+// Road tile descriptions - MUST match reference road width exactly
+const ROAD_TILE_DESCRIPTIONS = {
+    road_straight: `Horizontal road. Same style as reference but rotated 90 degrees. Sidewalk on top and bottom edges.`,
+
+    road_corner: `Road curves from LEFT edge to BOTTOM edge. SAME width as reference. Smooth curve. White/empty in top-right. No grass.`,
+
+    road_tjunction: `Roads on LEFT, RIGHT, and BOTTOM edges. SAME width as reference. White strip at TOP only. No grass.`,
+
+    road_crossroad: `Roads on ALL 4 edges. SAME width as reference. Small white squares in corners. No grass.`,
+
+    road_deadend: `Road from BOTTOM edge, ends in semicircle at top. SAME width as reference. White on sides. No grass.`
+};
+
+// Simple dirt path descriptions
+const DIRT_TILE_DESCRIPTIONS = {
+    dirt_ns: `Straight path: N to S. Grass on sides.`,
+    dirt_ew: `Straight path: E to W. Grass on sides.`,
+    dirt_ne: `Corner path: N to E. Grass fills SW.`,
+    dirt_nw: `Corner path: N to W. Grass fills SE.`,
+    dirt_se: `Corner path: S to E. Grass fills NW.`,
+    dirt_sw: `Corner path: S to W. Grass fills NE.`
 };
 
 // Terrain reference sheet layouts - defines grid positions for all variations
@@ -730,73 +764,101 @@ const TERRAIN_REF_LAYOUTS = {
         ]
     },
     water: {
-        grid: '4x3', // 4 columns, 3 rows = 12 tiles
+        grid: '5x3', // 5 columns, 3 rows = 15 slots (13 tiles + 2 empty)
         tiles: [
-            // Row 1: Edges
-            { key: 'water_edge_n', label: 'Edge N', pos: 'top-left' },
-            { key: 'water_edge_e', label: 'Edge E', pos: 'top-2nd' },
-            { key: 'water_edge_s', label: 'Edge S', pos: 'top-3rd' },
-            { key: 'water_edge_w', label: 'Edge W', pos: 'top-right' },
-            // Row 2: Outer corners
-            { key: 'water_corner_ne', label: 'Corner NE', pos: '2nd-left' },
-            { key: 'water_corner_nw', label: 'Corner NW', pos: '2nd-2nd' },
-            { key: 'water_corner_se', label: 'Corner SE', pos: '2nd-3rd' },
-            { key: 'water_corner_sw', label: 'Corner SW', pos: '2nd-right' },
-            // Row 3: Inner corners
-            { key: 'water_inner_ne', label: 'Inner NE', pos: 'bottom-left' },
-            { key: 'water_inner_nw', label: 'Inner NW', pos: 'bottom-2nd' },
-            { key: 'water_inner_se', label: 'Inner SE', pos: 'bottom-3rd' },
-            { key: 'water_inner_sw', label: 'Inner SW', pos: 'bottom-right' },
+            // Row 1: Full water + Edge tiles - shore on one side, water on other three
+            { key: 'water_full', label: 'Full Water (no edges)', pos: 'top-left' },
+            { key: 'water_edge_n', label: 'N Edge (shore at north)', pos: 'top-2nd' },
+            { key: 'water_edge_e', label: 'E Edge (shore at east)', pos: 'top-3rd' },
+            { key: 'water_edge_s', label: 'S Edge (shore at south)', pos: 'top-4th' },
+            { key: 'water_edge_w', label: 'W Edge (shore at west)', pos: 'top-right' },
+            // Row 2: Outer corners - shore on two adjacent sides (water pokes into land)
+            { key: 'water_corner_ne', label: 'NE Outer Corner', pos: '2nd-left' },
+            { key: 'water_corner_nw', label: 'NW Outer Corner', pos: '2nd-2nd' },
+            { key: 'water_corner_se', label: 'SE Outer Corner', pos: '2nd-3rd' },
+            { key: 'water_corner_sw', label: 'SW Outer Corner', pos: '2nd-right' },
+            // Row 3: Inner corners - land pokes into water at one corner (mostly water)
+            { key: 'water_inner_ne', label: 'NE Inner Corner', pos: 'bottom-left' },
+            { key: 'water_inner_nw', label: 'NW Inner Corner', pos: 'bottom-2nd' },
+            { key: 'water_inner_se', label: 'SE Inner Corner', pos: 'bottom-3rd' },
+            { key: 'water_inner_sw', label: 'SW Inner Corner', pos: 'bottom-right' },
         ]
     }
 };
 
 /**
- * Build prompt for terrain REFERENCE SHEET (shows ALL variations in a grid)
+ * Build prompt for terrain REFERENCE SHEET - SIMPLIFIED
  */
 function buildTerrainRefPrompt(terrainType, customDetails = '') {
-    const layout = TERRAIN_REF_LAYOUTS[terrainType];
-    if (!layout) {
-        throw new Error(`No reference layout defined for terrain type: ${terrainType}`);
+    // Road reference - 5 simple road sprites
+    if (terrainType === 'road') {
+        return `5 road sprite tiles in a horizontal row. Pixel art style.
+
+STYLE: Black/dark gray road, YELLOW/ORANGE dashed centerline, NO curbs, NO sidewalks, transparent or white background.
+
+5 TILES left to right:
+1. STRAIGHT vertical
+2. CORNER (90 degree smooth curve)
+3. T-JUNCTION (3-way)
+4. CROSSROAD (4-way, plus shape)
+5. DEAD-END (cul-de-sac)
+
+All tiles: same road width, same style, roads connect at tile edges.${customDetails ? `\n\n${customDetails}` : ''}`;
     }
 
-    const baseFeatures = TERRAIN_FEATURES[terrainType];
-    if (!baseFeatures) {
-        throw new Error(`No features defined for terrain type: ${terrainType}`);
+    // Water reference
+    if (terrainType === 'water') {
+        return `Create a WATER TILES reference sheet for an isometric game.
+
+TILE SHAPE: Diamond (rhombus), 2:1 ratio. Points at: top, right, bottom, left.
+
+WATER STYLE:
+- Blue water with subtle ripples
+- Sandy shore where water meets land (shore is INSIDE the water tile)
+
+SHOW 13 TILES in a 5x3 grid:
+Row 1: Full-water, N-edge, E-edge, S-edge, W-edge
+Row 2: NE-outer, NW-outer, SE-outer, SW-outer, empty
+Row 3: NE-inner, NW-inner, SE-inner, SW-inner, empty
+
+Edge tiles: Shore runs along that full edge (diagonal line).
+Outer corners: Shore on two adjacent edges.
+Inner corners: Small shore in one corner only, rest is water.
+
+Background: white or light gray.${customDetails ? `\n\n${customDetails}` : ''}`;
     }
 
-    // Build tile descriptions for the grid
-    const tileDescriptions = layout.tiles
-        .filter(t => t.key !== 'empty')
-        .map(t => `- ${t.label} (${t.key}): Shows ${t.key.replace(terrainType + '_', '').toUpperCase()} connection`)
-        .join('\n');
+    // Dirt reference
+    if (terrainType === 'dirt') {
+        return `Create a DIRT PATH TILES reference sheet for an isometric game.
 
-    return `Create a TERRAIN REFERENCE SHEET showing ALL ${terrainType.toUpperCase()} tile variations in a ${layout.grid} grid.
+TILE SHAPE: Diamond (rhombus), 2:1 ratio.
 
-=== THIS IS A REFERENCE SHEET, NOT A SINGLE TILE ===
-This sheet shows ALL possible connection types for ${terrainType} terrain.
-Each tile in the grid is a separate variation that will be extracted as an individual sprite.
+DIRT STYLE:
+- Brown/tan dirt path (40% of tile width)
+- Green grass fills areas without path
 
-GRID LAYOUT: ${layout.grid} (${layout.tiles.length} tiles total)
-Each tile in the grid is a diamond/rhombus isometric tile (64x32 pixel ratio).
-Tiles should be arranged in a clean grid with small gaps between them.
+SHOW 6 TILES in a 3x2 grid:
+Row 1: NS-straight, EW-straight, NE-corner
+Row 2: NW-corner, SE-corner, SW-corner
 
-BASE STYLE FOR ALL TILES:
-${baseFeatures}
+Path enters/exits at center of each edge for seamless connection.
 
-TILE VARIATIONS TO INCLUDE:
-${tileDescriptions}
+Background: white or light gray.${customDetails ? `\n\n${customDetails}` : ''}`;
+    }
 
-CRITICAL REQUIREMENTS:
-1. ALL tiles must share IDENTICAL texture, color, and material properties
-2. Tiles differ ONLY in their connection directions (where the path/water extends)
-3. Use consistent lighting and perspective across all tiles
-4. Each tile fits a diamond footprint (isometric 2:1 ratio)
-5. Background: Light gray or white (for easy extraction)
+    // Grass reference
+    if (terrainType === 'grass') {
+        return `Create a GRASS TILE for an isometric game.
 
-STYLE: Retro 90s CGI shapes with modern photorealistic rendering.
+TILE SHAPE: Diamond (rhombus), 2:1 ratio.
 
-${customDetails ? `ADDITIONAL NOTES:\n${customDetails}` : ''}`;
+Simple green grass with subtle texture. Seamless tiling.
+
+Background: white or light gray.${customDetails ? `\n\n${customDetails}` : ''}`;
+    }
+
+    throw new Error(`No reference prompt for terrain type: ${terrainType}`);
 }
 
 // NPC/Vehicle directional sprite mappings
@@ -810,63 +872,58 @@ const DIRECTIONAL_SPRITE_VARIANTS = {
 };
 
 /**
- * Build prompt for terrain tile generation
+ * Build prompt for terrain tile sprite - SIMPLIFIED
  */
 function buildTerrainPrompt(terrainType, customDetails = '') {
-    const isGrass = terrainType === 'grass_tile';
-    const isRoad = terrainType.startsWith('road_');
-    const isDirt = terrainType.startsWith('dirt_');
-    const isWaterEdge = terrainType.startsWith('water_') && terrainType !== 'water';
+    // Get the tile description
+    const tileDesc = ROAD_TILE_DESCRIPTIONS[terrainType] ||
+                     DIRT_TILE_DESCRIPTIONS[terrainType] ||
+                     WATER_TILE_DESCRIPTIONS[terrainType] ||
+                     terrainType;
 
-    let baseFeatures;
-    let specificDetails = '';
+    // Road tiles - SQUARE with horizontal/vertical roads (top-down with subtle 3D)
+    if (terrainType.startsWith('road_')) {
+        return `${tileDesc}
 
-    if (isGrass) {
-        baseFeatures = TERRAIN_FEATURES.grass;
-        specificDetails = 'Seamless tiling grass tile. This is the base ground that all other terrain sits on.';
-    } else if (isRoad) {
-        baseFeatures = TERRAIN_FEATURES.road_base;
-        const directions = terrainType.replace('road_', '');
-        specificDetails = `Road connects to: ${directions.toUpperCase().split('').join(', ')} direction(s).`;
-    } else if (isDirt) {
-        baseFeatures = TERRAIN_FEATURES.dirt_base;
-        const directions = terrainType.replace('dirt_', '');
-        specificDetails = `Dirt path connects to: ${directions.toUpperCase().split('').join(', ')} direction(s).`;
-    } else if (isWaterEdge) {
-        baseFeatures = TERRAIN_FEATURES.water_edge_base;
-        const edgeType = terrainType.replace('water_', '');
-        specificDetails = `Edge type: ${edgeType}. Land appears on this side of the tile.`;
-    } else {
-        baseFeatures = TERRAIN_FEATURES[terrainType] || customDetails;
+Match the attached reference image EXACTLY - same road width, same sidewalk width, same colors. Road must connect seamlessly when tiles placed together.${customDetails ? `\n\n${customDetails}` : ''}`;
     }
 
-    if (!baseFeatures) {
-        throw new Error(`No features defined for terrain type: ${terrainType}. Provide customDetails.`);
+    // Dirt tiles
+    if (terrainType.startsWith('dirt_')) {
+        return `Create a single DIRT PATH TILE for an isometric game: ${terrainType}
+
+SHAPE: Diamond (rhombus), 128x64 pixels, transparent background.
+
+STYLE: Brown dirt path (40% width) through green grass.
+Match the approved dirt reference exactly.
+
+THIS TILE: ${tileDesc}
+
+Path enters/exits at the CENTER of each connecting edge.${customDetails ? `\n\n${customDetails}` : ''}`;
     }
 
-    return `Create a single isometric terrain tile for ${terrainType.toUpperCase().replace(/_/g, ' ')}.
+    // Water tiles
+    if (terrainType.startsWith('water_')) {
+        return `Create a single WATER TILE for an isometric game: ${terrainType}
 
-FORMAT REQUIREMENTS:
-- Diamond/rhombus shaped tile viewed from above at 45-degree isometric angle
-- Dimensions: Flat diamond that fits a 64x32 pixel canvas (2:1 ratio)
-- Background: TRANSPARENT (PNG-ready)
-- This is a FLAT ground tile (except trees/mountain which extend upward)
+SHAPE: Diamond (rhombus), 128x64 pixels, transparent background.
 
-THE TERRAIN:
-${baseFeatures}
-${specificDetails}
+STYLE: Blue water with ripples. Sandy shore where water meets land.
+Match the approved water reference exactly.
 
-${STYLE_GUIDE}
+THIS TILE: ${tileDesc}${customDetails ? `\n\n${customDetails}` : ''}`;
+    }
 
-${STYLE_REFERENCE_ANCHOR}
+    // Grass tile
+    if (terrainType === 'grass_tile') {
+        return `Create a single GRASS TILE for an isometric game.
 
-CRITICAL:
-- The tile must seamlessly connect when placed adjacent to identical tiles
-- NO external shadows outside the tile footprint
-- Transparent background
-- Match the chunky 90s CGI aesthetic from the building reference sheets
+SHAPE: Diamond (rhombus), 128x64 pixels, transparent background.
 
-${customDetails ? `ADDITIONAL NOTES:\n${customDetails}` : ''}`;
+Simple green grass with subtle texture. Seamless tiling.${customDetails ? `\n\n${customDetails}` : ''}`;
+    }
+
+    throw new Error(`Unknown terrain type: ${terrainType}`);
 }
 
 // ============================================================================
@@ -1852,6 +1909,105 @@ export async function handleAssetRoutes(request, env, path, method, user) {
             });
         }
 
+        // POST /api/admin/assets/process-queue - Process pending items in the generation queue
+        if (action === 'process-queue' && method === 'POST') {
+            const { limit = 5 } = await request.json().catch(() => ({}));
+
+            // Get pending items from queue
+            const pendingItems = await env.DB.prepare(`
+                SELECT q.id as queue_id, q.asset_id, a.category, a.asset_key, a.base_prompt, a.parent_asset_id
+                FROM asset_generation_queue q
+                JOIN generated_assets a ON q.asset_id = a.id
+                WHERE q.status = 'queued' AND a.status = 'pending'
+                ORDER BY q.priority, q.created_at
+                LIMIT ?
+            `).bind(limit).all();
+
+            const items = pendingItems.results || [];
+            if (items.length === 0) {
+                return Response.json({ success: true, processed: 0, message: 'No pending items in queue' });
+            }
+
+            const processed = [];
+            const errors = [];
+
+            for (const item of items) {
+                try {
+                    // Mark as processing
+                    await env.DB.prepare(`
+                        UPDATE asset_generation_queue SET status = 'processing' WHERE id = ?
+                    `).bind(item.queue_id).run();
+                    await env.DB.prepare(`
+                        UPDATE generated_assets SET status = 'generating' WHERE id = ?
+                    `).bind(item.asset_id).run();
+
+                    // Get parent reference image if this is a child asset
+                    let referenceImage = null;
+                    if (item.parent_asset_id) {
+                        const parentAsset = await env.DB.prepare(`
+                            SELECT r2_key_private FROM generated_assets WHERE id = ?
+                        `).bind(item.parent_asset_id).first();
+
+                        if (parentAsset?.r2_key_private) {
+                            const refObject = await env.R2_PRIVATE.get(parentAsset.r2_key_private);
+                            if (refObject) {
+                                const refBuffer = await refObject.arrayBuffer();
+                                referenceImage = {
+                                    buffer: new Uint8Array(refBuffer),
+                                    mimeType: 'image/png',
+                                    name: 'reference'
+                                };
+                            }
+                        }
+                    }
+
+                    // Generate the image
+                    const generated = await generateWithGemini(env, item.base_prompt, referenceImage ? [referenceImage] : null);
+
+                    if (generated.success) {
+                        // Store in R2
+                        const r2Key = `raw/${item.category}_${item.asset_key}_raw_v1.png`;
+                        await env.R2_PRIVATE.put(r2Key, generated.imageBuffer, {
+                            httpMetadata: { contentType: 'image/png' }
+                        });
+
+                        // Update asset record
+                        await env.DB.prepare(`
+                            UPDATE generated_assets
+                            SET status = 'completed', r2_key_private = ?
+                            WHERE id = ?
+                        `).bind(r2Key, item.asset_id).run();
+
+                        // Mark queue item as completed
+                        await env.DB.prepare(`
+                            UPDATE asset_generation_queue SET status = 'completed' WHERE id = ?
+                        `).bind(item.queue_id).run();
+
+                        processed.push({ asset_id: item.asset_id, asset_key: item.asset_key });
+                    } else {
+                        throw new Error(generated.error || 'Generation failed');
+                    }
+                } catch (err) {
+                    // Mark as failed
+                    await env.DB.prepare(`
+                        UPDATE asset_generation_queue SET status = 'failed', error_message = ? WHERE id = ?
+                    `).bind(err.message, item.queue_id).run();
+                    await env.DB.prepare(`
+                        UPDATE generated_assets SET status = 'failed', error_message = ? WHERE id = ?
+                    `).bind(err.message, item.asset_id).run();
+
+                    errors.push({ asset_id: item.asset_id, asset_key: item.asset_key, error: err.message });
+                }
+            }
+
+            return Response.json({
+                success: true,
+                processed: processed.length,
+                errors: errors.length,
+                details: { processed, errors }
+            });
+        }
+
         // GET /api/admin/assets/preview/:assetId - Get signed preview URL for private asset
         if (action === 'preview' && method === 'GET' && param1) {
             const assetId = param1;
@@ -1996,17 +2152,55 @@ export async function handleAssetRoutes(request, env, path, method, user) {
             }
 
             // For effect sprites, include building references so the AI knows the size/style
+            // Pick buildings of DIFFERENT sizes to ensure effect works on all building types
             let buildingReferenceImages = [];
             if (category === 'effect') {
-                // Fetch up to 3 approved building sprites as size references
+                // Small buildings (TINY/SHORT): claim_stake, market_stall, hot_dog_stand, campsite
+                const smallBuildings = ['claim_stake', 'market_stall', 'hot_dog_stand', 'campsite'];
+                // Medium buildings: shop, burger_bar, motel
+                const mediumBuildings = ['shop', 'burger_bar', 'motel'];
+                // Large buildings (TALL/VERY_TALL): restaurant, manor, police_station, casino, temple, bank
+                const largeBuildings = ['restaurant', 'manor', 'police_station', 'casino', 'temple', 'bank'];
+
+                // Fetch one of each size class if available
                 const buildingSprites = await env.DB.prepare(`
                     SELECT id, r2_key_private, asset_key FROM generated_assets
                     WHERE category = 'building_sprite' AND status = 'approved' AND r2_key_private IS NOT NULL
-                    ORDER BY RANDOM()
-                    LIMIT 3
-                `).all();
+                    AND (
+                        asset_key IN (${smallBuildings.map(() => '?').join(',')})
+                        OR asset_key IN (${mediumBuildings.map(() => '?').join(',')})
+                        OR asset_key IN (${largeBuildings.map(() => '?').join(',')})
+                    )
+                    ORDER BY
+                        CASE
+                            WHEN asset_key IN (${smallBuildings.map(() => '?').join(',')}) THEN 1
+                            WHEN asset_key IN (${mediumBuildings.map(() => '?').join(',')}) THEN 2
+                            WHEN asset_key IN (${largeBuildings.map(() => '?').join(',')}) THEN 3
+                        END,
+                        RANDOM()
+                `).bind(
+                    ...smallBuildings, ...mediumBuildings, ...largeBuildings,
+                    ...smallBuildings, ...mediumBuildings, ...largeBuildings
+                ).all();
 
+                // Take up to 3 - ideally one from each size category
+                const selectedSprites = [];
+                let hasSmall = false, hasMedium = false, hasLarge = false;
                 for (const sprite of buildingSprites.results || []) {
+                    if (selectedSprites.length >= 3) break;
+                    const isSmall = smallBuildings.includes(sprite.asset_key);
+                    const isMedium = mediumBuildings.includes(sprite.asset_key);
+                    const isLarge = largeBuildings.includes(sprite.asset_key);
+
+                    if ((isSmall && !hasSmall) || (isMedium && !hasMedium) || (isLarge && !hasLarge) || selectedSprites.length < 3) {
+                        selectedSprites.push(sprite);
+                        if (isSmall) hasSmall = true;
+                        if (isMedium) hasMedium = true;
+                        if (isLarge) hasLarge = true;
+                    }
+                }
+
+                for (const sprite of selectedSprites) {
                     if (sprite.r2_key_private) {
                         const spriteObject = await env.R2_PRIVATE.get(sprite.r2_key_private);
                         if (spriteObject) {
@@ -2021,14 +2215,119 @@ export async function handleAssetRoutes(request, env, path, method, user) {
                 }
 
                 if (buildingReferenceImages.length > 0) {
-                    fullPrompt = `BUILDING REFERENCE IMAGES ATTACHED: These are example building sprites that your effect overlay will be placed ON TOP OF. Study their size, angle, and style. Your effect overlay must:
-1. Match the same 45-degree isometric angle
-2. Be sized to cover/overlay these buildings appropriately
-3. Have the same center point so when overlaid, the effect appears centered on the building
+                    const sizeNote = buildingReferenceImages.length >= 3
+                        ? 'These buildings show SMALL, MEDIUM, and LARGE sizes - your effect must work on ALL of them.'
+                        : 'Study these building sizes - your effect must work on buildings of varying sizes.';
 
-The buildings show you the target size - your effect should fill a similar canvas area.
+                    fullPrompt = `BUILDING REFERENCE IMAGES ATTACHED: These are example building sprites that your effect overlay will be placed ON TOP OF.
+
+${sizeNote}
+
+Your effect overlay must:
+1. Match the same 45-degree isometric angle
+2. Be sized proportionally - smaller effect for smaller buildings, larger for larger buildings
+3. Work as a SCALABLE overlay that can be resized to fit any building
+4. Have the center point so when overlaid, the effect appears centered on the building
+
+The effect should fill approximately 70-90% of the building footprint when overlaid.
 
 ${fullPrompt}`;
+                }
+            }
+
+            // For terrain sprites, include previously approved sibling tiles for consistency
+            // This ensures road tiles interlock perfectly - each new tile copies the exact dimensions from siblings
+            let terrainSiblingImages = [];
+            if (category === 'terrain') {
+                // Extract terrain type from asset_key (e.g., 'road' from 'road_straight')
+                const terrainType = asset_key.split('_')[0]; // 'road', 'water', 'dirt', 'grass'
+
+                // Road tiles have a specific chain order for generation
+                // road_straight is the MASTER - all others must match its exact dimensions
+                const ROAD_CHAIN_ORDER = ['road_straight', 'road_corner', 'road_tjunction', 'road_crossroad', 'road_deadend'];
+
+                let siblingQuery;
+                if (terrainType === 'road') {
+                    // For road tiles, prioritize road_straight as the master, then follow chain order
+                    siblingQuery = await env.DB.prepare(`
+                        SELECT id, r2_key_private, asset_key FROM generated_assets
+                        WHERE category = 'terrain'
+                        AND status = 'approved'
+                        AND r2_key_private IS NOT NULL
+                        AND asset_key LIKE 'road_%'
+                        AND asset_key != ?
+                        ORDER BY
+                            CASE asset_key
+                                WHEN 'road_straight' THEN 1
+                                WHEN 'road_corner' THEN 2
+                                WHEN 'road_tjunction' THEN 3
+                                WHEN 'road_crossroad' THEN 4
+                                WHEN 'road_deadend' THEN 5
+                                ELSE 6
+                            END,
+                            id ASC
+                    `).bind(asset_key).all();
+                } else {
+                    // For other terrain types, use the original ordering
+                    siblingQuery = await env.DB.prepare(`
+                        SELECT id, r2_key_private, asset_key FROM generated_assets
+                        WHERE category = 'terrain'
+                        AND status = 'approved'
+                        AND r2_key_private IS NOT NULL
+                        AND asset_key LIKE ?
+                        AND asset_key != ?
+                        ORDER BY
+                            CASE
+                                WHEN asset_key LIKE '%_ns' OR asset_key LIKE '%_ew' THEN 1
+                                WHEN asset_key LIKE '%_ne' OR asset_key LIKE '%_nw' OR asset_key LIKE '%_se' OR asset_key LIKE '%_sw' THEN 2
+                                ELSE 3
+                            END,
+                            id ASC
+                    `).bind(`${terrainType}_%`, asset_key).all();
+                }
+
+                // Fetch up to 5 sibling tiles
+                const selectedSiblings = (siblingQuery.results || []).slice(0, 5);
+
+                for (const sibling of selectedSiblings) {
+                    if (sibling.r2_key_private) {
+                        const siblingObject = await env.R2_PRIVATE.get(sibling.r2_key_private);
+                        if (siblingObject) {
+                            const buffer = await siblingObject.arrayBuffer();
+                            terrainSiblingImages.push({
+                                buffer: new Uint8Array(buffer),
+                                mimeType: 'image/png',
+                                name: sibling.asset_key
+                            });
+                        }
+                    }
+                }
+
+                if (terrainSiblingImages.length > 0) {
+                    const siblingNames = terrainSiblingImages.map(s => s.name).join(', ');
+
+                    // Road-specific instructions
+                    if (terrainType === 'road') {
+                        fullPrompt = `REFERENCE IMAGES ATTACHED: ${siblingNames}
+
+Copy the EXACT road width, sidewalk width, and colors from the attached images. Your tile must connect seamlessly with these when placed edge-to-edge.
+
+${fullPrompt}`;
+                    } else {
+                        // Non-road terrain
+                        fullPrompt = `SIBLING TILE IMAGES ATTACHED: These are previously approved ${terrainType} tiles that your new tile MUST match exactly.
+Sibling tiles: ${siblingNames}
+
+CRITICAL - Your tile must have:
+- IDENTICAL path/feature width (measure from the siblings)
+- IDENTICAL colors and style
+- IDENTICAL edge alignment (where features meet tile edges)
+- SEAMLESS connection when placed adjacent to these tiles
+
+Study the attached sibling tiles carefully. Copy their exact proportions and style.
+
+${fullPrompt}`;
+                    }
                 }
             }
 
@@ -2054,8 +2353,12 @@ ${fullPrompt}`;
             `).bind(result.id).run();
 
             // Trigger generation with optional reference image(s)
-            // Combine primary reference with building references for effect sprites
-            const allReferenceImages = referenceImage ? [referenceImage, ...buildingReferenceImages] : buildingReferenceImages;
+            // Combine primary reference with building references for effect sprites, and terrain siblings for terrain tiles
+            const allReferenceImages = [
+                ...(referenceImage ? [referenceImage] : []),
+                ...buildingReferenceImages,
+                ...terrainSiblingImages
+            ];
             const generated = await generateWithGemini(env, fullPrompt, allReferenceImages.length > 0 ? allReferenceImages : null);
 
             if (generated.success) {
@@ -2092,7 +2395,18 @@ ${fullPrompt}`;
                     WHERE asset_id = ?
                 `).bind(result.id).run();
 
-                await logAudit(env, 'generate', result.id, user?.username, { category, asset_key, variant: nextVariant, used_reference: !!referenceImage });
+                await logAudit(env, 'generate', result.id, user?.username, {
+                    category,
+                    asset_key,
+                    variant: nextVariant,
+                    used_reference: !!referenceImage,
+                    sibling_count: terrainSiblingImages.length,
+                    sibling_tiles: terrainSiblingImages.map(s => s.name)
+                });
+
+                const siblingNote = terrainSiblingImages.length > 0
+                    ? ` Using ${terrainSiblingImages.length} sibling tile(s) for consistency: ${terrainSiblingImages.map(s => s.name).join(', ')}.`
+                    : '';
 
                 return Response.json({
                     success: true,
@@ -2101,9 +2415,11 @@ ${fullPrompt}`;
                     bucket: 'private',
                     parent_asset_id: parentAssetId,
                     used_reference_image: !!referenceImage,
+                    sibling_tiles_used: terrainSiblingImages.length,
+                    sibling_tiles: terrainSiblingImages.map(s => s.name),
                     note: referenceImage
-                        ? 'Generated using approved reference sheet. Original stored in private bucket.'
-                        : 'Original stored in private bucket. Use POST /process/:id to create game-ready WebP in public bucket.'
+                        ? `Generated using approved reference sheet.${siblingNote} Original stored in private bucket.`
+                        : `Original stored in private bucket.${siblingNote} Use POST /process/:id to create game-ready WebP in public bucket.`
                 });
             } else {
                 await env.DB.prepare(`
@@ -2396,7 +2712,7 @@ Please address the above feedback in this generation.`;
             });
         }
 
-        // POST /api/admin/assets/regenerate/:id - Regenerate a rejected asset
+        // POST /api/admin/assets/regenerate/:id - Regenerate an asset (works for rejected, pending, or failed)
         if (action === 'regenerate' && method === 'POST' && param1) {
             const id = param1;
 
@@ -2408,8 +2724,28 @@ Please address the above feedback in this generation.`;
                 return Response.json({ error: 'Asset not found' }, { status: 404 });
             }
 
+            // Get parent reference image if this asset has a parent
+            let referenceImage = null;
+            if (asset.parent_asset_id) {
+                const parentAsset = await env.DB.prepare(`
+                    SELECT r2_key_private FROM generated_assets WHERE id = ?
+                `).bind(asset.parent_asset_id).first();
+
+                if (parentAsset?.r2_key_private) {
+                    const refObject = await env.R2_PRIVATE.get(parentAsset.r2_key_private);
+                    if (refObject) {
+                        const refBuffer = await refObject.arrayBuffer();
+                        referenceImage = {
+                            buffer: new Uint8Array(refBuffer),
+                            mimeType: 'image/png',
+                            name: 'reference'
+                        };
+                    }
+                }
+            }
+
             // Use the current_prompt which includes any incorporated feedback
-            const generated = await generateWithGemini(env, asset.current_prompt);
+            const generated = await generateWithGemini(env, asset.current_prompt, referenceImage ? [referenceImage] : null);
 
             if (generated.success) {
                 // Store new version (overwrite old in private bucket)
@@ -3226,6 +3562,10 @@ Please address the above feedback in this generation.`;
                 }, { status: 400 });
             } else if (asset.category === 'scene') {
                 gameReadyKey = `scenes/${asset.asset_key}_v${asset.variant}.${outputFormat}`;
+            } else if (asset.category === 'avatar') {
+                // Avatar assets go to avatars/ folder (for compositing system)
+                // Keep as PNG for compositing transparency
+                gameReadyKey = `avatars/${asset.asset_key}_v${asset.variant}.png`;
             } else {
                 // Sprites: buildings, terrain, effects, overlays, ui, npc
                 gameReadyKey = `sprites/${asset.category}/${asset.asset_key}_v${asset.variant}.${outputFormat}`;

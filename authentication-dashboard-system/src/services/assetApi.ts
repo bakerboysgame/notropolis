@@ -238,6 +238,139 @@ class AssetAdminApi {
       method: 'PUT',
     });
   }
+
+  // Get rejection history for an asset
+  async getRejections(assetId: string): Promise<Rejection[]> {
+    const data = await this.fetch<{ rejections: Rejection[] }>(`/rejections/${assetId}`);
+    return data.rejections || [];
+  }
+
+  // Building Manager APIs
+  async getBuildingConfigs(): Promise<BuildingConfig[]> {
+    const data = await this.fetch<{ buildings: BuildingConfig[] }>('/buildings');
+    return data.buildings || [];
+  }
+
+  async getBuildingSprites(buildingType: string): Promise<Asset[]> {
+    const data = await this.fetch<{ sprites: Asset[] }>(`/buildings/${buildingType}/sprites`);
+    return data.sprites || [];
+  }
+
+  async updateBuildingConfig(buildingType: string, config: Partial<BuildingConfigUpdate>): Promise<{ success: boolean }> {
+    return this.fetch(`/buildings/${buildingType}`, {
+      method: 'PUT',
+      body: JSON.stringify(config),
+    });
+  }
+
+  async publishBuilding(buildingType: string): Promise<{ success: boolean }> {
+    return this.fetch(`/buildings/${buildingType}/publish`, { method: 'POST' });
+  }
+
+  async unpublishBuilding(buildingType: string): Promise<{ success: boolean }> {
+    return this.fetch(`/buildings/${buildingType}/unpublish`, { method: 'POST' });
+  }
+
+  // Scene Template APIs
+  async getSceneTemplates(): Promise<SceneTemplate[]> {
+    const data = await this.fetch<{ templates: SceneTemplate[] }>('/scene-templates');
+    return data.templates || [];
+  }
+
+  async updateSceneTemplate(id: string, data: Partial<SceneTemplateUpdate>): Promise<{ success: boolean }> {
+    return this.fetch(`/scene-templates/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async publishSceneTemplate(id: string): Promise<{ success: boolean }> {
+    return this.fetch(`/scene-templates/${id}/publish`, { method: 'POST' });
+  }
+
+  // Avatar composite preview
+  async previewAvatarComposite(sceneId: string, companyId: string): Promise<{ composite_url: string }> {
+    return this.fetch(`/scenes/compose/${sceneId}/${companyId}`);
+  }
 }
+
+// Rejection history interface
+export interface Rejection {
+  id: string;
+  asset_id: string;
+  rejected_by: string;
+  rejection_reason: string;
+  prompt_at_rejection: string;
+  prompt_version: number;
+  r2_key_rejected: string;
+  created_at: string;
+}
+
+// Building configuration interfaces
+export interface BuildingConfig {
+  building_type_id: string;
+  building_name: string;
+  level_required: number;
+  requires_license: boolean;
+  base_cost: number;
+  base_profit: number;
+  cost_override: number | null;
+  base_profit_override: number | null;
+  effective_cost: number;
+  effective_profit: number;
+  active_sprite_id: string | null;
+  sprite_url: string | null;
+  available_sprites: number;
+  is_published: boolean;
+  published_at: string | null;
+  published_by: string | null;
+}
+
+export interface BuildingConfigUpdate {
+  active_sprite_id: string;
+  cost_override: number | null;
+  base_profit_override: number | null;
+}
+
+// Scene template interfaces
+export interface SceneTemplate {
+  id: string;
+  name: string;
+  description: string;
+  background_r2_key: string | null;
+  background_url: string | null;
+  foreground_r2_key: string | null;
+  foreground_url: string | null;
+  avatar_slot: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
+  width: number;
+  height: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SceneTemplateUpdate {
+  avatar_slot: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
+}
+
+// Avatar layer types for composite preview
+export const AVATAR_LAYER_TYPES = [
+  { id: 'avatar_bg', name: 'Background', order: 0 },
+  { id: 'base_body', name: 'Base Body', order: 1 },
+  { id: 'outfit', name: 'Outfit', order: 3 },
+  { id: 'hair', name: 'Hair', order: 4 },
+  { id: 'headwear', name: 'Headwear', order: 5 },
+  { id: 'accessory', name: 'Accessory', order: 6 },
+] as const;
 
 export const assetApi = new AssetAdminApi();

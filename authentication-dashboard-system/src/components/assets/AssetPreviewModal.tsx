@@ -13,9 +13,10 @@ import {
   AlertTriangle,
   Image as ImageIcon,
   Star,
+  History,
 } from 'lucide-react';
 import { clsx } from 'clsx';
-import { Asset, assetApi, SPRITE_CATEGORIES } from '../../services/assetApi';
+import { Asset, assetApi, SPRITE_CATEGORIES, Rejection } from '../../services/assetApi';
 import { useToast } from '../ui/Toast';
 
 interface AssetPreviewModalProps {
@@ -37,6 +38,8 @@ const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
 
 const DEFAULT_STATUS = { label: 'Unknown', color: 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300' };
 
+type TabId = 'details' | 'history';
+
 export function AssetPreviewModal({ asset, onClose, onUpdate }: AssetPreviewModalProps) {
   const { showToast } = useToast();
   const [imageUrl, setImageUrl] = useState<string | null>(null);
@@ -45,6 +48,11 @@ export function AssetPreviewModal({ asset, onClose, onUpdate }: AssetPreviewModa
   const [showPrompt, setShowPrompt] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
   const [showRejectInput, setShowRejectInput] = useState(false);
+
+  // Tab state
+  const [activeTab, setActiveTab] = useState<TabId>('details');
+  const [rejections, setRejections] = useState<Rejection[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
 
   // Action loading states
   const [approving, setApproving] = useState(false);
@@ -102,6 +110,26 @@ export function AssetPreviewModal({ asset, onClose, onUpdate }: AssetPreviewModa
     document.addEventListener('keydown', handleEscape);
     return () => document.removeEventListener('keydown', handleEscape);
   }, [onClose]);
+
+  // Load rejection history when history tab is selected
+  useEffect(() => {
+    if (activeTab === 'history' && rejections.length === 0) {
+      loadRejectionHistory();
+    }
+  }, [activeTab]);
+
+  const loadRejectionHistory = async () => {
+    setLoadingHistory(true);
+    try {
+      const data = await assetApi.getRejections(asset.id);
+      setRejections(data);
+    } catch {
+      // Silently fail - history may not exist
+      setRejections([]);
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
 
   // Format asset key for display
   const formatAssetKey = (key: string) => {
@@ -255,8 +283,36 @@ export function AssetPreviewModal({ asset, onClose, onUpdate }: AssetPreviewModa
           </button>
         </div>
 
+        {/* Tabs */}
+        <div className="flex border-b border-gray-200 dark:border-gray-700 px-4">
+          <button
+            onClick={() => setActiveTab('details')}
+            className={clsx(
+              'px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors',
+              activeTab === 'details'
+                ? 'border-purple-500 text-purple-600 dark:text-purple-400'
+                : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+            )}
+          >
+            Details
+          </button>
+          <button
+            onClick={() => setActiveTab('history')}
+            className={clsx(
+              'px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors flex items-center gap-1',
+              activeTab === 'history'
+                ? 'border-purple-500 text-purple-600 dark:text-purple-400'
+                : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+            )}
+          >
+            <History className="w-4 h-4" />
+            History
+          </button>
+        </div>
+
         {/* Content */}
         <div className="flex-1 overflow-y-auto">
+          {activeTab === 'details' ? (
           <div className="grid md:grid-cols-2 gap-6 p-6">
             {/* Image */}
             <div className="aspect-square bg-gray-100 dark:bg-gray-900 rounded-lg overflow-hidden relative">
@@ -494,6 +550,84 @@ export function AssetPreviewModal({ asset, onClose, onUpdate }: AssetPreviewModa
               )}
             </div>
           </div>
+          ) : (
+            /* History Tab Content */
+            <div className="p-6">
+              <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-4">
+                Rejection History
+              </h3>
+
+              {loadingHistory ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
+                </div>
+              ) : rejections.length === 0 ? (
+                <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+                  <History className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                  <p>No rejection history for this asset</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {rejections.map((rejection, index) => (
+                    <div
+                      key={rejection.id}
+                      className="border border-gray-200 dark:border-gray-700 rounded-lg p-4"
+                    >
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="px-2 py-0.5 bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300 rounded text-xs font-medium">
+                            Rejection #{rejections.length - index}
+                          </span>
+                          <span className="text-xs text-gray-500 dark:text-gray-400">
+                            v{rejection.prompt_version}
+                          </span>
+                        </div>
+                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                          {new Date(rejection.created_at).toLocaleString()}
+                        </span>
+                      </div>
+
+                      <div className="mb-3">
+                        <div className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                          Reason:
+                        </div>
+                        <p className="text-sm text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded p-2">
+                          {rejection.rejection_reason}
+                        </p>
+                      </div>
+
+                      {rejection.prompt_at_rejection && (
+                        <details className="text-sm">
+                          <summary className="cursor-pointer text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200">
+                            View prompt at rejection
+                          </summary>
+                          <pre className="mt-2 p-3 bg-gray-50 dark:bg-gray-900 rounded text-xs text-gray-600 dark:text-gray-400 whitespace-pre-wrap overflow-x-auto">
+                            {rejection.prompt_at_rejection}
+                          </pre>
+                        </details>
+                      )}
+
+                      <div className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                        Rejected by: {rejection.rejected_by}
+                      </div>
+                    </div>
+                  ))}
+
+                  {/* Current prompt comparison */}
+                  {asset.prompt && (
+                    <div className="mt-6 border-t border-gray-200 dark:border-gray-700 pt-4">
+                      <h4 className="font-medium text-gray-900 dark:text-gray-100 mb-2">
+                        Current Prompt
+                      </h4>
+                      <pre className="p-3 bg-gray-50 dark:bg-gray-900 rounded text-xs text-gray-600 dark:text-gray-400 whitespace-pre-wrap overflow-x-auto">
+                        {asset.prompt}
+                      </pre>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>

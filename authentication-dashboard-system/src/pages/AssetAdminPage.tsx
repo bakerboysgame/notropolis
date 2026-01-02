@@ -3,6 +3,9 @@ import { useState, useCallback } from 'react';
 import {
   Image,
   AlertCircle,
+  Building2,
+  User,
+  Film,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useAuth } from '../contexts/AuthContext';
@@ -11,6 +14,16 @@ import { AssetGrid } from '../components/assets/AssetGrid';
 import { AssetPreviewModal } from '../components/assets/AssetPreviewModal';
 import { GenerateModal } from '../components/assets/GenerateModal';
 import { QueueStatus } from '../components/assets/QueueStatus';
+import { BuildingManager } from '../components/assets/BuildingManager';
+import { AvatarAssets } from '../components/assets/AvatarAssets';
+import { SceneTemplates } from '../components/assets/SceneTemplates';
+
+// Management tabs (separate from asset category tabs)
+const MANAGEMENT_TABS = [
+  { key: 'building-manager', label: 'Building Manager', icon: Building2 },
+  { key: 'avatar-preview', label: 'Avatar Preview', icon: User },
+  { key: 'scene-templates', label: 'Scene Templates', icon: Film },
+] as const;
 
 export default function AssetAdminPage() {
   const { user } = useAuth();
@@ -159,6 +172,7 @@ export default function AssetAdminPage() {
       {/* Tabs */}
       <div className="border-b border-gray-200 dark:border-gray-700">
         <nav className="-mb-px flex space-x-1 overflow-x-auto">
+          {/* Asset Category Tabs */}
           {TABS.map((tab) => (
             <button
               key={tab.key}
@@ -173,12 +187,41 @@ export default function AssetAdminPage() {
               {tab.label}
             </button>
           ))}
+
+          {/* Separator */}
+          <div className="border-l border-gray-300 dark:border-gray-600 mx-2 my-2" />
+
+          {/* Management Tabs */}
+          {MANAGEMENT_TABS.map((tab) => {
+            const Icon = tab.icon;
+            return (
+              <button
+                key={tab.key}
+                onClick={() => setActiveTab(tab.key)}
+                className={clsx(
+                  'py-3 px-4 border-b-2 font-medium text-sm whitespace-nowrap transition-colors flex items-center gap-1.5',
+                  activeTab === tab.key
+                    ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:border-gray-300'
+                )}
+              >
+                <Icon className="w-4 h-4" />
+                {tab.label}
+              </button>
+            );
+          })}
         </nav>
       </div>
 
       {/* Content */}
       <div className="space-y-6">
-        {renderGridSection(currentTab)}
+        {/* Management Tabs Content */}
+        {activeTab === 'building-manager' && <BuildingManager />}
+        {activeTab === 'avatar-preview' && <AvatarAssets />}
+        {activeTab === 'scene-templates' && <SceneTemplates />}
+
+        {/* Asset Category Tabs Content */}
+        {!MANAGEMENT_TABS.some(t => t.key === activeTab) && renderGridSection(currentTab)}
       </div>
 
       {/* Preview Modal */}
