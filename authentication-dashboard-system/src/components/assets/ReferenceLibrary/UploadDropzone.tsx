@@ -4,6 +4,7 @@ import { useState, useCallback } from 'react';
 import { Upload, Loader2, AlertCircle, CheckCircle } from 'lucide-react';
 import { clsx } from 'clsx';
 import { referenceLibraryApi, ReferenceImage } from '../../../services/assetApi';
+import { config } from '../../../config/environment';
 
 interface UploadDropzoneProps {
   onUploadComplete: (image: ReferenceImage) => void;
@@ -75,11 +76,12 @@ export default function UploadDropzone({
       });
 
       // Create a ReferenceImage object from the upload response
+      // Use the API serve endpoint for thumbnails (not a direct R2 URL)
       const image: ReferenceImage = {
         id: result.id,
         name: result.name,
         category: result.category,
-        thumbnailUrl: `https://r2.notropolis.net/${result.thumbnailKey}`,
+        thumbnailUrl: `${config.API_BASE_URL}/api/admin/assets/reference-library/serve/${encodeURIComponent(result.thumbnailKey)}`,
         r2_key: result.r2Key,
         thumbnail_r2_key: result.thumbnailKey,
         width: result.width,

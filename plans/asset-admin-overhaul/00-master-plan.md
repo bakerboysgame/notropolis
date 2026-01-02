@@ -110,7 +110,7 @@
 | 10 ✅ | Asset Manager | Expand Building Manager with price editing + all asset types (NPCs, effects, terrain, base ground) |
 | 11 | UI Testing Guide | Manual testing of all features through the admin UI |
 | 12 ✅ | R2 Asset Archival | Archive existing assets to make way for fresh generation with corrected specs |
-| 13 | Prompt Template Migration | Update templates with square format, system instructions, comprehensive prompts |
+| 13 ✅ | Prompt Template Migration | Update templates with square format, system instructions, comprehensive prompts |
 
 ---
 

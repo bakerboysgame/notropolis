@@ -5208,11 +5208,12 @@ Please address the above feedback in this generation.`;
             const results = await env.DB.prepare(query).bind(...params).all();
 
             // Generate thumbnail URLs for each image (using R2 key path through worker)
+            const serverUrl = env.SERVER_URL || 'https://api.notropolis.net';
             const images = (results.results || []).map(img => ({
                 ...img,
                 tags: img.tags ? JSON.parse(img.tags) : [],
                 thumbnailUrl: img.thumbnail_r2_key
-                    ? `/api/admin/assets/reference-library/serve/${encodeURIComponent(img.thumbnail_r2_key)}`
+                    ? `${serverUrl}/api/admin/assets/reference-library/serve/${encodeURIComponent(img.thumbnail_r2_key)}`
                     : null
             }));
 
@@ -5235,13 +5236,14 @@ Please address the above feedback in this generation.`;
                 return Response.json({ success: false, error: 'Image not found' }, { status: 404 });
             }
 
+            const serverUrl = env.SERVER_URL || 'https://api.notropolis.net';
             return Response.json({
                 success: true,
                 image: {
                     ...image,
                     tags: image.tags ? JSON.parse(image.tags) : [],
                     thumbnailUrl: image.thumbnail_r2_key
-                        ? `/api/admin/assets/reference-library/serve/${encodeURIComponent(image.thumbnail_r2_key)}`
+                        ? `${serverUrl}/api/admin/assets/reference-library/serve/${encodeURIComponent(image.thumbnail_r2_key)}`
                         : null
                 }
             });
@@ -5260,9 +5262,10 @@ Please address the above feedback in this generation.`;
             }
 
             // Return a worker URL that serves the image
+            const serverUrl = env.SERVER_URL || 'https://api.notropolis.net';
             return Response.json({
                 success: true,
-                previewUrl: `/api/admin/assets/reference-library/serve/${encodeURIComponent(image.r2_key)}`,
+                previewUrl: `${serverUrl}/api/admin/assets/reference-library/serve/${encodeURIComponent(image.r2_key)}`,
                 mimeType: image.mime_type
             });
         }

@@ -59,13 +59,8 @@ export function GenerateModal({
     return () => document.removeEventListener('keydown', handleEscape);
   }, [onClose]);
 
-  // Reset when modal opens with pre-filled values
-  useEffect(() => {
-    if (initialCategory) {
-      // If category is pre-filled, skip to prompt step
-      setCurrentStep(1);
-    }
-  }, [initialCategory]);
+  // Note: We always start at step 0 (Category) even if category is pre-filled
+  // This allows the user to review/change the category selection
 
   const updateFormData = (updates: Partial<GenerateFormData>) => {
     setFormData(prev => ({ ...prev, ...updates }));
