@@ -13,6 +13,10 @@ Generate layered avatar components (base body, skin tones, outfits, hair, access
 
 `[Blocks: Stage 05 Scene Illustrations]` - **IMPORTANT:** Scene generation is blocked until avatar base assets are approved. This ensures scenes can be tested with actual avatar compositing. The API will return an error if scene generation is attempted before avatar/base_* assets are approved.
 
+## Test Credentials
+
+**REQUIRED:** Use tokens from `authentication-dashboard-system/docs/REFERENCE-test-tokens/CLAUDE.md` for all API testing.
+
 ## Complexity
 
 **High** - Multiple interrelated assets that must align perfectly for compositing.
@@ -67,8 +71,8 @@ All avatar layers must align to a fixed canvas size and position:
 
 | ID | Name | Description |
 |----|------|-------------|
-| `base_1` | Standard | Average build, neutral pose |
-| `base_2` | Athletic | Slightly broader shoulders |
+| `base_standard` | Standard | Average build, neutral pose |
+| `base_athletic` | Athletic | Slightly broader shoulders |
 
 **Generation Prompt Template:**
 ```
@@ -113,12 +117,12 @@ Instead of generating separate skin images, skin tones are applied as color tint
 
 | ID | Name | Description |
 |----|------|-------------|
-| `hair_1` | Short Brown | Short, neat businessman cut (like reference) |
-| `hair_2` | Slicked Back | Slicked back, darker |
-| `hair_3` | Bald | No hair (for combining with hats) |
-| `hair_4` | Grey Executive | Distinguished grey/silver |
-| `hair_5` | Mohawk | Punk style for unlockables |
-| `hair_6` | Long | Longer hair, casual style |
+| `hair_short` | Short | Short, neat businessman cut (like reference) |
+| `hair_slicked` | Slicked Back | Slicked back, shiny, product-styled |
+| `hair_bald` | Bald | No hair (for combining with hats) |
+| `hair_curly` | Curly | Chunky stylized curls, medium length |
+| `hair_mohawk` | Mohawk | Punk style for unlockables |
+| `hair_long` | Long | Longer hair, casual style |
 
 **Generation Prompt Template:**
 ```
@@ -145,14 +149,14 @@ The hair will be composited onto a base character, so ensure:
 
 | ID | Name | Description | Rarity |
 |----|------|-------------|--------|
-| `outfit_1` | Business Suit | Grey suit with tie (like reference) | Common |
-| `outfit_2` | Casual | Polo shirt and khakis | Common |
-| `outfit_3` | Hawaiian | Loud Hawaiian shirt | Uncommon |
-| `outfit_4` | Prison Jumpsuit | Orange prison uniform | Common |
-| `outfit_5` | Tuxedo | Formal black tux | Rare |
-| `outfit_6` | Golf | Argyle sweater vest | Uncommon |
-| `outfit_7` | Tracksuit | 90s style tracksuit | Uncommon |
-| `outfit_8` | Gold Suit | Shiny gold suit | Legendary |
+| `outfit_suit` | Business Suit | Grey suit with tie (like reference) | Common |
+| `outfit_casual` | Casual | Polo shirt and khakis | Common |
+| `outfit_tropical` | Tropical | Hawaiian shirt, vacation attire | Uncommon |
+| `outfit_prison` | Prison Jumpsuit | Orange prison uniform | Common |
+| `outfit_formal` | Formal | Black tie formal wear, tuxedo | Rare |
+| `outfit_street` | Street | Hoodie, sneakers, urban fashion | Uncommon |
+| `outfit_flashy` | Flashy | Bright colors, gold accessories | Uncommon |
+| `outfit_gold_legendary` | Gold Suit | Shiny metallic gold suit | Legendary |
 
 **Generation Prompt Template:**
 ```
@@ -181,12 +185,12 @@ IMPORTANT:
 
 | ID | Name | Description | Rarity |
 |----|------|-------------|--------|
-| `head_1` | Top Hat | Classic formal top hat | Uncommon |
-| `head_2` | Baseball Cap | Casual cap | Common |
-| `head_3` | Fedora | Detective/noir style | Uncommon |
-| `head_4` | Crown | Royal gold crown | Legendary |
-| `head_5` | Hard Hat | Construction helmet | Common |
-| `head_6` | Cowboy Hat | Western style | Rare |
+| `headwear_tophat` | Top Hat | Classic formal top hat | Uncommon |
+| `headwear_cap` | Baseball Cap | Casual cap | Common |
+| `headwear_fedora` | Fedora | Detective/noir style | Uncommon |
+| `headwear_crown_legendary` | Crown | Royal gold crown with jewels | Legendary |
+| `headwear_hardhat` | Hard Hat | Construction helmet | Common |
+| `headwear_beanie` | Beanie | Knit beanie, urban style | Common |
 
 **Generation Prompt Template:**
 ```
@@ -211,12 +215,12 @@ The headwear will be composited on top of hair layer.
 
 | ID | Name | Description | Rarity |
 |----|------|-------------|--------|
-| `acc_1` | Glasses | Silver-rimmed glasses (like reference) | Common |
-| `acc_2` | Sunglasses | Dark aviator sunglasses | Common |
-| `acc_3` | Watch | Gold wristwatch | Uncommon |
-| `acc_4` | Cigar | Lit cigar in mouth | Rare |
-| `acc_5` | Monocle | Fancy single eyepiece | Rare |
-| `acc_6` | Gold Chain | Chunky gold necklace | Legendary |
+| `accessory_sunglasses` | Sunglasses | Dark aviator sunglasses | Common |
+| `accessory_watch` | Watch | Luxury wristwatch | Uncommon |
+| `accessory_cigar` | Cigar | Lit cigar in mouth | Rare |
+| `accessory_briefcase` | Briefcase | Professional leather briefcase | Common |
+| `accessory_chain` | Gold Chain | Chunky gold necklace | Uncommon |
+| `accessory_earring` | Earring | Stud or small hoop | Common |
 
 **Generation Prompt Template:**
 ```
@@ -243,10 +247,10 @@ Requirements:
 
 | ID | Name | Description | Rarity |
 |----|------|-------------|--------|
-| `bg_1` | City Skyline | Urban backdrop with buildings | Common |
-| `bg_2` | Office | Corporate office setting | Common |
-| `bg_3` | Mansion | Luxury mansion background | Rare |
-| `bg_4` | Money Vault | Stacks of cash backdrop | Legendary |
+| `background_city` | City Skyline | Urban backdrop with skyscrapers | Common |
+| `background_office` | Office | Executive office with city view | Common |
+| `background_mansion` | Mansion | Luxury mansion interior/exterior | Rare |
+| `background_prison` | Prison | Prison cell or yard backdrop | Common |
 
 **Generation Prompt Template:**
 ```
@@ -264,552 +268,76 @@ Requirements:
 
 ---
 
-## Generation Script
-
-```javascript
-#!/usr/bin/env node
-
-const WORKER_URL = 'https://your-worker.dev';
-const AUTH_TOKEN = 'your-admin-token';
-
-// Attach the character template as reference
-const CHARACTER_TEMPLATE_PATH = './character sheet template.jpg';
-
-const avatarAssets = {
-    base: [
-        {
-            id: 'base_1',
-            name: 'Standard',
-            prompt: `Create a 90s CGI character base body for avatar customization.
-
-Reference the attached character sheet for exact style.
-
-Requirements:
-- Full body, front-facing view
-- NEUTRAL BASE ONLY: Plain white t-shirt and grey shorts
-- NO glasses, NO accessories, NO hat
-- Transparent background (PNG)
-- 512x512 canvas, character centered
-- Same chunky 90s CGI style as reference
-- Skin should be a neutral mid-tone (for skin overlay)
-- Arms slightly away from body for outfit layering
-
-Style: Pixar-like chunky 90s CGI, stocky proportions.`
-        },
-        {
-            id: 'base_2',
-            name: 'Athletic',
-            prompt: `Create a 90s CGI character base body - ATHLETIC variant.
-
-Reference the attached character sheet for exact style.
-
-Requirements:
-- Full body, front-facing view
-- Slightly broader shoulders than standard
-- NEUTRAL BASE ONLY: Plain white t-shirt and grey shorts
-- NO glasses, NO accessories, NO hat
-- Transparent background (PNG)
-- 512x512 canvas, character centered
-- Same chunky 90s CGI style but more athletic build
-
-Style: Pixar-like chunky 90s CGI, athletic proportions.`
-        }
-    ],
-
-    hair: [
-        {
-            id: 'hair_1',
-            name: 'Short Brown',
-            prompt: `Create a hair asset for 90s CGI character avatar.
-
-Hair style: SHORT BROWN - neat businessman cut
-
-Requirements:
-- Hair ONLY, no head/face/body visible
-- Dark brown color, neatly combed to side
-- Transparent background (PNG)
-- 512x512 canvas
-- Positioned where it sits on character's head (top portion of canvas)
-- 90s CGI chunky aesthetic with smooth surfaces
-
-The hair will be composited onto a base character.`
-        },
-        {
-            id: 'hair_2',
-            name: 'Slicked Back',
-            prompt: `Create a hair asset for 90s CGI character avatar.
-
-Hair style: SLICKED BACK - dark, gelled back look
-
-Requirements:
-- Hair ONLY
-- Black/very dark brown, slicked back with gel
-- Transparent background (PNG)
-- 512x512 canvas
-- 90s CGI aesthetic
-
-Composited onto base character.`
-        },
-        {
-            id: 'hair_3',
-            name: 'Bald',
-            prompt: `Create a "bald head" asset for 90s CGI character avatar.
-
-This is the bald/shaved head option.
-
-Requirements:
-- Just the top of head shape with no hair
-- Transparent background (PNG)
-- 512x512 canvas
-- Shows smooth scalp matching 90s CGI style
-- Slight shine on top of head
-
-For players who prefer bald or want to show off headwear.`
-        },
-        {
-            id: 'hair_4',
-            name: 'Grey Executive',
-            prompt: `Create a hair asset for 90s CGI character avatar.
-
-Hair style: GREY EXECUTIVE - distinguished silver/grey
-
-Requirements:
-- Hair ONLY
-- Silver/grey color, neatly styled
-- Distinguished executive look
-- Transparent background (PNG)
-- 512x512 canvas
-- 90s CGI aesthetic`
-        },
-        {
-            id: 'hair_5',
-            name: 'Mohawk',
-            prompt: `Create a hair asset for 90s CGI character avatar.
-
-Hair style: MOHAWK - punk style
-
-Requirements:
-- Hair ONLY
-- Tall mohawk, spiky
-- Bright color (leave as dark for now, color via overlay)
-- Transparent background (PNG)
-- 512x512 canvas
-- 90s CGI aesthetic but edgy`
-        },
-        {
-            id: 'hair_6',
-            name: 'Long',
-            prompt: `Create a hair asset for 90s CGI character avatar.
-
-Hair style: LONG - shoulder-length casual
-
-Requirements:
-- Hair ONLY
-- Shoulder-length, slightly wavy
-- Transparent background (PNG)
-- 512x512 canvas
-- 90s CGI aesthetic`
-        }
-    ],
-
-    outfit: [
-        {
-            id: 'outfit_1',
-            name: 'Business Suit',
-            prompt: `Create an outfit asset for 90s CGI character avatar.
-
-Outfit: BUSINESS SUIT - grey suit with red/orange tie
-
-Reference the attached character sheet for exact style.
-
-Requirements:
-- Grey business suit jacket and pants
-- White dress shirt visible at collar
-- Red/orange patterned tie
-- NO head, NO face, NO hands visible
-- Transparent background (PNG)
-- 512x512 canvas
-- Must align with base character pose
-- Neck opening shows transparency
-- Sleeve openings show transparency`
-        },
-        {
-            id: 'outfit_2',
-            name: 'Casual',
-            prompt: `Create an outfit asset for 90s CGI character avatar.
-
-Outfit: CASUAL - polo shirt and khakis
-
-Requirements:
-- Light blue polo shirt
-- Khaki/tan pants
-- NO head, NO face, NO hands
-- Transparent background (PNG)
-- 512x512 canvas
-- Clean edges for compositing`
-        },
-        {
-            id: 'outfit_3',
-            name: 'Hawaiian',
-            prompt: `Create an outfit asset for 90s CGI character avatar.
-
-Outfit: HAWAIIAN SHIRT - loud tropical pattern
-
-Requirements:
-- Bright Hawaiian shirt with flowers/palms
-- Casual shorts or pants
-- NO head, NO face, NO hands
-- Transparent background (PNG)
-- 512x512 canvas`
-        },
-        {
-            id: 'outfit_4',
-            name: 'Prison Jumpsuit',
-            prompt: `Create an outfit asset for 90s CGI character avatar.
-
-Outfit: PRISON JUMPSUIT - orange prison uniform
-
-Requirements:
-- Bright orange prison jumpsuit
-- Single piece uniform look
-- NO head, NO face, NO hands
-- Transparent background (PNG)
-- 512x512 canvas`
-        },
-        {
-            id: 'outfit_5',
-            name: 'Tuxedo',
-            prompt: `Create an outfit asset for 90s CGI character avatar.
-
-Outfit: TUXEDO - formal black tuxedo
-
-Requirements:
-- Black tuxedo jacket with satin lapels
-- White dress shirt, black bow tie
-- Black pants
-- NO head, NO face, NO hands
-- Transparent background (PNG)
-- 512x512 canvas`
-        },
-        {
-            id: 'outfit_6',
-            name: 'Golf Attire',
-            prompt: `Create an outfit asset for 90s CGI character avatar.
-
-Outfit: GOLF ATTIRE - argyle sweater vest
-
-Requirements:
-- Argyle pattern sweater vest
-- Collared shirt underneath
-- Golf-appropriate pants
-- NO head, NO face, NO hands
-- Transparent background (PNG)
-- 512x512 canvas`
-        },
-        {
-            id: 'outfit_7',
-            name: 'Tracksuit',
-            prompt: `Create an outfit asset for 90s CGI character avatar.
-
-Outfit: 90s TRACKSUIT - vintage athletic wear
-
-Requirements:
-- Colorful 90s style tracksuit (think windbreaker material)
-- Zippered jacket with stripe details
-- Matching pants
-- NO head, NO face, NO hands
-- Transparent background (PNG)
-- 512x512 canvas`
-        },
-        {
-            id: 'outfit_8',
-            name: 'Gold Suit',
-            prompt: `Create an outfit asset for 90s CGI character avatar.
-
-Outfit: GOLD SUIT - flashy golden suit
-
-Requirements:
-- Shiny gold/metallic suit jacket
-- Matching gold pants
-- Luxurious, ostentatious look
-- NO head, NO face, NO hands
-- Transparent background (PNG)
-- 512x512 canvas`
-        }
-    ],
-
-    headwear: [
-        {
-            id: 'head_1',
-            name: 'Top Hat',
-            prompt: `Create a headwear asset for 90s CGI character avatar.
-
-Headwear: TOP HAT - classic formal
-
-Requirements:
-- Black top hat only
-- Transparent background (PNG)
-- 512x512 canvas
-- Positioned at top of canvas where head would be
-- 90s CGI chunky aesthetic`
-        },
-        {
-            id: 'head_2',
-            name: 'Baseball Cap',
-            prompt: `Create a headwear asset for 90s CGI character avatar.
-
-Headwear: BASEBALL CAP - casual cap
-
-Requirements:
-- Baseball cap, neutral color
-- Transparent background (PNG)
-- 512x512 canvas
-- Positioned correctly for head`
-        },
-        {
-            id: 'head_3',
-            name: 'Fedora',
-            prompt: `Create a headwear asset for 90s CGI character avatar.
-
-Headwear: FEDORA - detective/noir style
-
-Requirements:
-- Classic fedora hat
-- Dark grey/brown color
-- Transparent background (PNG)
-- 512x512 canvas`
-        },
-        {
-            id: 'head_4',
-            name: 'Crown',
-            prompt: `Create a headwear asset for 90s CGI character avatar.
-
-Headwear: ROYAL CROWN - golden king's crown
-
-Requirements:
-- Ornate golden crown with jewels
-- Regal, impressive look
-- Transparent background (PNG)
-- 512x512 canvas`
-        },
-        {
-            id: 'head_5',
-            name: 'Hard Hat',
-            prompt: `Create a headwear asset for 90s CGI character avatar.
-
-Headwear: HARD HAT - construction helmet
-
-Requirements:
-- Yellow construction hard hat
-- Transparent background (PNG)
-- 512x512 canvas`
-        },
-        {
-            id: 'head_6',
-            name: 'Cowboy Hat',
-            prompt: `Create a headwear asset for 90s CGI character avatar.
-
-Headwear: COWBOY HAT - western style
-
-Requirements:
-- Brown leather cowboy hat
-- Wide brim
-- Transparent background (PNG)
-- 512x512 canvas`
-        }
-    ],
-
-    accessory: [
-        {
-            id: 'acc_1',
-            name: 'Glasses',
-            prompt: `Create an accessory asset for 90s CGI character avatar.
-
-Accessory: GLASSES - silver-rimmed reading glasses
-
-Reference the attached character sheet for style.
-
-Requirements:
-- Silver/metal rimmed glasses only
-- Positioned at eye level
-- Transparent background (PNG)
-- 512x512 canvas
-- Match the style from the character reference`
-        },
-        {
-            id: 'acc_2',
-            name: 'Sunglasses',
-            prompt: `Create an accessory asset for 90s CGI character avatar.
-
-Accessory: SUNGLASSES - dark aviator style
-
-Requirements:
-- Dark aviator sunglasses
-- Positioned at eye level
-- Transparent background (PNG)
-- 512x512 canvas`
-        },
-        {
-            id: 'acc_3',
-            name: 'Watch',
-            prompt: `Create an accessory asset for 90s CGI character avatar.
-
-Accessory: WATCH - gold wristwatch
-
-Requirements:
-- Fancy gold wristwatch
-- Positioned at left wrist area
-- Transparent background (PNG)
-- 512x512 canvas`
-        },
-        {
-            id: 'acc_4',
-            name: 'Cigar',
-            prompt: `Create an accessory asset for 90s CGI character avatar.
-
-Accessory: CIGAR - lit cigar
-
-Requirements:
-- Lit cigar positioned at mouth area
-- Small smoke wisps
-- Transparent background (PNG)
-- 512x512 canvas`
-        },
-        {
-            id: 'acc_5',
-            name: 'Monocle',
-            prompt: `Create an accessory asset for 90s CGI character avatar.
-
-Accessory: MONOCLE - fancy single eyepiece
-
-Requirements:
-- Gold monocle with chain
-- Positioned over one eye
-- Transparent background (PNG)
-- 512x512 canvas`
-        },
-        {
-            id: 'acc_6',
-            name: 'Gold Chain',
-            prompt: `Create an accessory asset for 90s CGI character avatar.
-
-Accessory: GOLD CHAIN - chunky necklace
-
-Requirements:
-- Thick gold chain necklace
-- Positioned at neck/chest area
-- Transparent background (PNG)
-- 512x512 canvas`
-        }
-    ],
-
-    background: [
-        {
-            id: 'bg_1',
-            name: 'City Skyline',
-            prompt: `Create a background for 90s CGI character avatar.
-
-Background: CITY SKYLINE
-
-Requirements:
-- Full 512x512 image, no transparency
-- 90s CGI aesthetic matching character style
-- Urban skyline with office buildings
-- Soft focus, not too detailed
-- Daylight lighting`
-        },
-        {
-            id: 'bg_2',
-            name: 'Office',
-            prompt: `Create a background for 90s CGI character avatar.
-
-Background: CORPORATE OFFICE
-
-Requirements:
-- Full 512x512 image, no transparency
-- 90s CGI aesthetic
-- Office interior with desk, window, plants
-- Professional corporate feel
-- Soft lighting`
-        },
-        {
-            id: 'bg_3',
-            name: 'Mansion',
-            prompt: `Create a background for 90s CGI character avatar.
-
-Background: LUXURY MANSION
-
-Requirements:
-- Full 512x512 image, no transparency
-- 90s CGI aesthetic
-- Mansion interior or exterior
-- Wealth and luxury feel
-- Rich colors`
-        },
-        {
-            id: 'bg_4',
-            name: 'Money Vault',
-            prompt: `Create a background for 90s CGI character avatar.
-
-Background: MONEY VAULT
-
-Requirements:
-- Full 512x512 image, no transparency
-- 90s CGI aesthetic
-- Vault filled with cash and gold
-- Wealth and success theme
-- Dramatic lighting`
-        }
-    ]
-};
-
-async function generateAsset(category, item, characterTemplate) {
-    const formData = new FormData();
-    formData.append('category', `avatar_${category}`);
-    formData.append('asset_key', item.id);
-    formData.append('prompt', item.prompt);
-    formData.append('variant', 1);
-
-    // Attach character template as reference image (for base/outfit generation)
-    if (['base', 'outfit', 'accessory'].includes(category) && characterTemplate) {
-        formData.append('reference_image', characterTemplate);
-    }
-
-    const response = await fetch(`${WORKER_URL}/api/admin/assets/generate`, {
-        method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${AUTH_TOKEN}`
-        },
-        body: formData
-    });
-
-    return response.json();
-}
-
-async function main() {
-    const fs = require('fs');
-    const characterTemplate = fs.readFileSync(CHARACTER_TEMPLATE_PATH);
-
-    console.log('Generating avatar assets...\n');
-
-    for (const [category, items] of Object.entries(avatarAssets)) {
-        console.log(`\n=== ${category.toUpperCase()} ===`);
-
-        for (const item of items) {
-            console.log(`  Generating: ${item.name}...`);
-
-            const result = await generateAsset(category, item, characterTemplate);
-            console.log(`    ${result.success ? '✓' : '✗'} ${result.url || result.error}`);
-
-            // Rate limiting pause
-            await new Promise(r => setTimeout(r, 3000));
-        }
-    }
-
-    console.log('\n✓ Avatar asset generation complete! Review and approve in admin panel.');
-}
-
-main().catch(console.error);
+## API Usage
+
+Avatar asset prompts are pre-built in `worker/src/routes/admin/assets.js`. Generate assets via the API:
+
+### All Avatar Asset Keys (32 total)
+
+```
+BASE (2):       base_standard, base_athletic
+HAIR (6):       hair_short, hair_slicked, hair_bald, hair_curly, hair_mohawk, hair_long
+OUTFIT (8):     outfit_suit, outfit_casual, outfit_tropical, outfit_prison, outfit_formal,
+                outfit_street, outfit_flashy, outfit_gold_legendary
+HEADWEAR (6):   headwear_tophat, headwear_cap, headwear_fedora, headwear_crown_legendary,
+                headwear_hardhat, headwear_beanie
+ACCESSORY (6):  accessory_sunglasses, accessory_watch, accessory_cigar, accessory_briefcase,
+                accessory_chain, accessory_earring
+BACKGROUND (4): background_city, background_office, background_mansion, background_prison
+```
+
+### Generate Single Asset
+
+```bash
+# Using Python (recommended - see CLAUDE.md for token)
+python3 -c "
+import urllib.request
+import json
+
+with open('/tmp/token.txt', 'r') as f:
+    token = f.read().strip()
+
+data = json.dumps({
+    'category': 'avatar',
+    'asset_key': 'base_standard'
+}).encode('utf-8')
+
+req = urllib.request.Request(
+    'https://api.notropolis.net/api/admin/assets/generate',
+    data=data,
+    headers={
+        'Authorization': f'Bearer {token}',
+        'Content-Type': 'application/json'
+    },
+    method='POST'
+)
+
+with urllib.request.urlopen(req) as resp:
+    print(json.dumps(json.loads(resp.read()), indent=2))
+"
+```
+
+### Generate All Avatar Assets (Batch)
+
+```bash
+# Generate all 32 avatar assets
+for key in base_standard base_athletic \
+           hair_short hair_slicked hair_bald hair_curly hair_mohawk hair_long \
+           outfit_suit outfit_casual outfit_tropical outfit_prison outfit_formal outfit_street outfit_flashy outfit_gold_legendary \
+           headwear_tophat headwear_cap headwear_fedora headwear_crown_legendary headwear_hardhat headwear_beanie \
+           accessory_sunglasses accessory_watch accessory_cigar accessory_briefcase accessory_chain accessory_earring \
+           background_city background_office background_mansion background_prison
+do
+    echo "Generating: $key"
+    python3 -c "
+import urllib.request, json
+with open('/tmp/token.txt') as f: token = f.read().strip()
+data = json.dumps({'category': 'avatar', 'asset_key': '$key'}).encode()
+req = urllib.request.Request('https://api.notropolis.net/api/admin/assets/generate', data=data, headers={'Authorization': f'Bearer {token}', 'Content-Type': 'application/json'}, method='POST')
+with urllib.request.urlopen(req) as r: print(json.loads(r.read()).get('message', 'OK'))
+"
+    sleep 3  # Rate limiting
+done
 ```
 
 ---
@@ -834,15 +362,16 @@ After generation, each asset needs:
 
 ## Seed Data Update
 
-Update the avatar_items seed data in the migration to match generated assets:
+After assets are generated and approved, update the avatar_items table:
 
 ```sql
 -- Update seed data after generation
--- Replace r2_key values with actual generated asset paths
+-- R2 keys are set automatically by the pipeline
 
-UPDATE avatar_items SET r2_key = 'avatars/base/standard.png' WHERE id = 'base_1';
-UPDATE avatar_items SET r2_key = 'avatars/base/athletic.png' WHERE id = 'base_2';
--- ... etc for all items
+-- Verify assets exist:
+SELECT id, category, r2_key, r2_url
+FROM avatar_items
+WHERE r2_key IS NOT NULL;
 ```
 
 ---
@@ -861,17 +390,21 @@ UPDATE avatar_items SET r2_key = 'avatars/base/athletic.png' WHERE id = 'base_2'
 
 ## Acceptance Checklist
 
-- [ ] 2 base body variants generated and approved
-- [ ] 6 hair styles generated with clean transparency
-- [ ] 8 outfits generated, aligned with base pose
-- [ ] 6 headwear items generated
-- [ ] 6 accessories generated
-- [ ] 4 backgrounds generated
-- [ ] All assets are 512x512 PNG
-- [ ] All assets (except backgrounds) have transparent backgrounds
-- [ ] Layer alignment verified by compositing test
-- [ ] Assets uploaded to R2: `avatars/{category}/{id}.png`
-- [ ] Database seed data updated with actual R2 keys
+- [x] 2 base bodies (`base_standard`, `base_athletic`) generated and approved
+- [x] 6 hair styles generated with clean transparency
+- [x] 8 outfits generated, aligned with base pose
+- [x] 6 headwear items generated
+- [x] 6 accessories generated
+- [x] 4 backgrounds generated (no transparency)
+- [x] All 32 assets are 512x512 PNG
+- [x] All assets (except backgrounds) have transparent backgrounds
+- [x] Layer alignment verified by compositing test
+- [x] Assets in private bucket: `avatars/{asset_key}_v1.png`
+- [x] Background removal applied (except background_* assets)
+- [x] Published to public bucket as PNG (for compositing)
+- [x] Database `generated_assets` table has all 32 avatar entries
+
+**Completed:** 2026-01-02 by Claude Code
 
 ---
 

@@ -103,15 +103,15 @@ Automated asset generation pipeline using Google Gemini API to create all game v
 | minimap_enemy | `ui` | 8×8 |
 | cursor_select | `ui` | 68×36 |
 
-### Avatar Assets (34 total - use character_ref)
+### Avatar Assets (32 total - use character_ref)
 | Category | Items | Size |
 |----------|-------|------|
 | base bodies | base_standard, base_athletic | 512×512 |
-| hair styles | short, long, mohawk, bald, slicked, curly | 512×512 |
-| outfits | suit, casual, flashy, street, gold_legendary, prison, tropical, formal | 512×512 |
-| headwear | tophat, cap, fedora, crown_legendary, hardhat, beanie | 512×512 |
-| accessories | sunglasses, watch, cigar, briefcase, chain, earring | 512×512 |
-| backgrounds | city, office, mansion, prison | 512×512 |
+| hair styles | hair_short, hair_long, hair_mohawk, hair_bald, hair_slicked, hair_curly | 512×512 |
+| outfits | outfit_suit, outfit_casual, outfit_flashy, outfit_street, outfit_gold_legendary, outfit_prison, outfit_tropical, outfit_formal | 512×512 |
+| headwear | headwear_tophat, headwear_cap, headwear_fedora, headwear_crown_legendary, headwear_hardhat, headwear_beanie | 512×512 |
+| accessories | accessory_sunglasses, accessory_watch, accessory_cigar, accessory_briefcase, accessory_chain, accessory_earring | 512×512 |
+| backgrounds | background_city, background_office, background_mansion, background_prison | 512×512 |
 
 ---
 
@@ -127,8 +127,8 @@ Automated asset generation pipeline using Google Gemini API to create all game v
 | Scenes | - | 12 | 12 |
 | UI | - | 3 | 3 |
 | Overlays | - | 2 | 2 |
-| Avatars | (uses character_ref) | 34 | 34 |
-| **TOTAL** | **26** | **125** | **151** |
+| Avatars | (uses character_ref) | 32 | 32 |
+| **TOTAL** | **26** | **123** | **149** |
 
 ---
 
@@ -171,7 +171,7 @@ POST /api/admin/assets/generate
 | `building_sprite` | (same as building_ref) |
 | `npc` | pedestrian_walk, pedestrian_stand, pedestrian_suit, pedestrian_casual, car_sedan, car_sports, car_van, car_taxi |
 | `effect` | fire, cluster_bomb, vandalism, robbery, poisoning, blackout, damage_25, damage_50, damage_75, for_sale, security |
-| `avatar` | base_standard, base_athletic, hair_short, hair_long, ... (34 total) |
+| `avatar` | base_standard, base_athletic, hair_short, hair_long, ... (32 total) |
 | `terrain` | grass, trees, mountain, sand, water, road_*, dirt_* |
 | `scene` | arrest_bg, court_bg, prison_bg, hero_bg, bank_interior_bg, temple_interior_bg, offshore_bg, dirty_trick_bg, arrest_fg, prison_fg, hero_fg, dirty_trick_fg |
 | `ui` | minimap_player, minimap_enemy, cursor_select |
@@ -192,7 +192,7 @@ POST /api/admin/assets/generate
 | 05 | Scene Templates | ✅ Done | Prompt builders for 12 scenes |
 | 06 | Terrain, UI & Overlays | ✅ Done | Prompt builders for remaining assets |
 | 07 | Asset Admin Page | **TODO** | Full management UI |
-| 08 | Avatar Assets | ✅ Done | Prompt builders for 34 avatar items |
+| 08 | Avatar Assets | ✅ Done | Prompt builders for 32 avatar items |
 
 ---
 

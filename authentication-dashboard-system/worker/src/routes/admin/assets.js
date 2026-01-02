@@ -790,20 +790,22 @@ const TERRAIN_REF_LAYOUTS = {
  * Build prompt for terrain REFERENCE SHEET - SIMPLIFIED
  */
 function buildTerrainRefPrompt(terrainType, customDetails = '') {
-    // Road reference - 5 simple road sprites
+    // Road reference - 5 interlocking road tiles
     if (terrainType === 'road') {
-        return `5 road sprite tiles in a horizontal row. Pixel art style.
+        return `5 road tiles in a row. Modern smooth style like SimCity 2000 or Pixar. NOT pixel art.
 
-STYLE: Black/dark gray road, YELLOW/ORANGE dashed centerline, NO curbs, NO sidewalks, transparent or white background.
+STYLE: Dark gray asphalt, yellow/orange dashed centerline, thin gray curb edge, white/transparent background.
 
-5 TILES left to right:
-1. STRAIGHT vertical
-2. CORNER (90 degree smooth curve)
-3. T-JUNCTION (3-way)
-4. CROSSROAD (4-way, plus shape)
-5. DEAD-END (cul-de-sac)
+CRITICAL: Roads exit at EXACT CENTER of each tile edge. All tiles same road width.
 
-All tiles: same road width, same style, roads connect at tile edges.${customDetails ? `\n\n${customDetails}` : ''}`;
+5 TILES (left to right, square tiles):
+1. STRAIGHT - vertical road, center of tile
+2. CORNER - smooth 90° curve, exits at center of top edge AND center of right edge
+3. T-JUNCTION - roads at center of top, bottom, right edges
+4. CROSSROAD - roads at center of all 4 edges
+5. DEAD-END - road at center of bottom edge, semicircle end
+
+4 corner tiles in a 2x2 grid must form a perfect circle.${customDetails ? `\n\n${customDetails}` : ''}`;
     }
 
     // Water reference
