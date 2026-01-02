@@ -18,7 +18,6 @@ import { GenerateFormData, SPRITE_TO_REF_CATEGORY } from './types';
 interface CategoryStepProps {
   formData: GenerateFormData;
   updateFormData: (updates: Partial<GenerateFormData>) => void;
-  locked?: boolean;
 }
 
 // Category labels for display
@@ -41,7 +40,6 @@ const CATEGORY_LABELS: Record<AssetCategory, string> = {
 export default function CategoryStep({
   formData,
   updateFormData,
-  locked,
 }: CategoryStepProps) {
   const [approvedRefs, setApprovedRefs] = useState<Asset[]>([]);
   const [spriteStatus, setSpriteStatus] = useState<SpriteStatusResponse | null>(null);
@@ -173,11 +171,7 @@ export default function CategoryStep({
         <select
           value={category}
           onChange={(e) => handleCategoryChange(e.target.value)}
-          disabled={locked}
-          className={clsx(
-            'w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm',
-            locked && 'opacity-60 cursor-not-allowed'
-          )}
+          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"
         >
           <option value="">Select category...</option>
           <optgroup label="Reference Sheets">
@@ -202,11 +196,6 @@ export default function CategoryStep({
             ))}
           </optgroup>
         </select>
-        {locked && (
-          <p className="text-sm text-purple-600 dark:text-purple-400 mt-1">
-            Category locked - generating sprite from reference
-          </p>
-        )}
       </div>
 
       {/* Parent Reference Selector (for sprites only) */}
@@ -322,11 +311,7 @@ export default function CategoryStep({
           <select
             value={assetKey}
             onChange={(e) => updateFormData({ assetKey: e.target.value })}
-            disabled={locked}
-            className={clsx(
-              'w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm',
-              locked && 'opacity-60 cursor-not-allowed'
-            )}
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"
           >
             <option value="">Select type...</option>
             {assetKeys.map((key) => (

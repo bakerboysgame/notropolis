@@ -108,6 +108,9 @@
 | 08a ✅ | System Instructions UI | Add system instructions editing to prompt editor (Advanced Settings) |
 | 09 ✅ | Integration Testing | End-to-end testing of all stages; performance verification |
 | 10 ✅ | Asset Manager | Expand Building Manager with price editing + all asset types (NPCs, effects, terrain, base ground) |
+| 11 | UI Testing Guide | Manual testing of all features through the admin UI |
+| 12 | R2 Asset Archival | Archive existing assets to make way for fresh generation with corrected specs |
+| 13 | Prompt Template Migration | Update templates with square format, system instructions, comprehensive prompts |
 
 ---
 
@@ -276,6 +279,8 @@ PUBLIC BUCKET: notropolis-game-assets
 - [Ref: 08a-system-instructions-ui.md] - System instructions editing in Advanced Settings
 - [Ref: 09-integration-testing.md] - Testing plan
 - [Ref: 10-asset-manager.md] - Asset Manager with price editing
+- [Ref: 11-ui-testing-guide.md] - Manual UI testing guide
+- [Ref: 12-r2-asset-archival.md] - R2 asset archival procedure
 - [Ref: asset-pipeline-reference.md] - Base ground asset prompts and specifications
 - [Ref: WORKER-PROMPTS.md] - Worker prompts for implementation
 

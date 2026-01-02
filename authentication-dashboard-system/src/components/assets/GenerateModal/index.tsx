@@ -162,7 +162,7 @@ export function GenerateModal({
         return (
           <CategoryStep
             {...props}
-            locked={!!initialCategory}
+            // Don't lock - let user change category even if pre-filled
           />
         );
       case 'prompt':
