@@ -792,20 +792,21 @@ const TERRAIN_REF_LAYOUTS = {
 function buildTerrainRefPrompt(terrainType, customDetails = '') {
     // Road reference - 5 interlocking road tiles
     if (terrainType === 'road') {
-        return `5 road tiles in a row. Modern smooth style like SimCity 2000 or Pixar. NOT pixel art.
+        return `5 road tiles in a row. Smooth modern style. NOT pixel art.
 
-STYLE: Dark gray asphalt, yellow/orange dashed centerline, thin gray curb edge, white/transparent background.
+ROAD: Dark gray asphalt, yellow/orange dashed centerline, thin gray curb ONLY around road edges.
+BACKGROUND: Transparent or white - NOT pavement. Sidewalk does NOT fill empty areas.
 
-CRITICAL: Roads exit at EXACT CENTER of each tile edge. All tiles same road width.
+CRITICAL ALIGNMENT: Road exits at exactly 50% (middle) of each tile edge. Road width is 60% of tile.
 
-5 TILES (left to right, square tiles):
-1. STRAIGHT - vertical road, center of tile
-2. CORNER - smooth 90° curve, exits at center of top edge AND center of right edge
-3. T-JUNCTION - roads at center of top, bottom, right edges
-4. CROSSROAD - roads at center of all 4 edges
-5. DEAD-END - road at center of bottom edge, semicircle end
+5 TILES left to right:
+1. STRAIGHT - vertical road through center
+2. CORNER - curve from center of LEFT edge to center of BOTTOM edge. Empty/transparent in top-right.
+3. T-JUNCTION - road at center of LEFT, RIGHT, BOTTOM edges. Empty at top.
+4. CROSSROAD - road at center of all 4 edges
+5. DEAD-END - road from center of BOTTOM edge, U-turn at top
 
-4 corner tiles in a 2x2 grid must form a perfect circle.${customDetails ? `\n\n${customDetails}` : ''}`;
+Sidewalk wraps road only. Empty space is transparent, not paved.${customDetails ? `\n\n${customDetails}` : ''}`;
     }
 
     // Water reference
@@ -2966,11 +2967,33 @@ Please address the above feedback in this generation.`;
         // GET /api/admin/assets/buildings - List all building types with configurations
         if (action === 'buildings' && method === 'GET' && !param1) {
             const buildings = await env.DB.prepare(`
-                SELECT * FROM v_building_manager
-                ORDER BY building_name
+                SELECT
+                    bt.id as building_type_id,
+                    bt.name as building_name,
+                    bt.cost as base_cost,
+                    bt.base_profit,
+                    bt.level_required,
+                    bt.requires_license,
+                    bc.active_sprite_id,
+                    bc.cost_override,
+                    bc.base_profit_override,
+                    COALESCE(bc.cost_override, bt.cost) as effective_cost,
+                    COALESCE(bc.base_profit_override, bt.base_profit) as effective_profit,
+                    COALESCE(bc.is_published, 0) as is_published,
+                    bc.published_at,
+                    bc.published_by,
+                    ga.r2_url as sprite_url,
+                    (SELECT COUNT(*) FROM generated_assets
+                     WHERE category = 'building_sprite'
+                     AND asset_key = bt.id
+                     AND status = 'approved') as available_sprites
+                FROM building_types bt
+                LEFT JOIN building_configurations bc ON bt.id = bc.building_type_id
+                LEFT JOIN generated_assets ga ON bc.active_sprite_id = ga.id
+                ORDER BY bt.name
             `).all();
 
-            return Response.json({ buildings: buildings.results });
+            return Response.json({ success: true, buildings: buildings.results });
         }
 
         // GET /api/admin/assets/buildings/:buildingType/sprites - Get available sprites
