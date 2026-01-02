@@ -2,7 +2,7 @@
 import { config } from '../config/environment';
 
 // Asset status types
-export type AssetStatus = 'pending' | 'generating' | 'completed' | 'review' | 'approved' | 'rejected' | 'failed';
+export type AssetStatus = 'pending' | 'generating' | 'completed' | 'review' | 'approved' | 'rejected' | 'failed' | 'archived';
 
 // Asset categories
 export type AssetCategory =
@@ -303,8 +303,10 @@ class AssetAdminApi {
   }
 
   // List assets by category
-  async listAssets(category: AssetCategory): Promise<Asset[]> {
-    return this.fetch<Asset[]>(`/list/${category}`);
+  // showArchived: if true, includes archived assets in results
+  async listAssets(category: AssetCategory, showArchived = false): Promise<Asset[]> {
+    const params = showArchived ? '?show_archived=true' : '';
+    return this.fetch<Asset[]>(`/list/${category}${params}`);
   }
 
   // Get generation queue status

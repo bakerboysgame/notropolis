@@ -12,6 +12,7 @@ interface AssetGridProps {
   onGenerateSprite?: (asset: Asset) => void;
   showGenerateSprite?: boolean;
   refreshTrigger?: number;
+  showArchived?: boolean;
 }
 
 export function AssetGrid({
@@ -22,6 +23,7 @@ export function AssetGrid({
   onGenerateSprite,
   showGenerateSprite = false,
   refreshTrigger = 0,
+  showArchived = false,
 }: AssetGridProps) {
   const [assets, setAssets] = useState<Asset[]>([]);
   const [loading, setLoading] = useState(true);
@@ -31,7 +33,7 @@ export function AssetGrid({
     setLoading(true);
     setError(null);
     try {
-      const data = await assetApi.listAssets(category);
+      const data = await assetApi.listAssets(category, showArchived);
       setAssets(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load assets');
@@ -42,7 +44,7 @@ export function AssetGrid({
 
   useEffect(() => {
     fetchAssets();
-  }, [category, refreshTrigger]);
+  }, [category, refreshTrigger, showArchived]);
 
   // Group assets by asset_key for better organization
   const groupedAssets = assets.reduce((acc, asset) => {

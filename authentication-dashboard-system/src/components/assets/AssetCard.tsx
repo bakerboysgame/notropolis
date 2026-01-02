@@ -57,6 +57,11 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.
     color: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300',
     icon: <AlertTriangle className="w-3 h-3" />,
   },
+  archived: {
+    label: 'Archived',
+    color: 'bg-gray-200 text-gray-500 dark:bg-gray-800 dark:text-gray-500',
+    icon: <Clock className="w-3 h-3" />,
+  },
 };
 
 // Fallback for unknown statuses
@@ -78,6 +83,7 @@ export function AssetCard({
 
   const statusConfig = STATUS_CONFIG[asset.status] || DEFAULT_STATUS_CONFIG;
   const isGenerating = asset.status === 'generating';
+  const isArchived = asset.status === 'archived';
   const canGenerateSprite = showGenerateSprite && asset.status === 'approved';
 
   // Fetch preview URL for thumbnail
@@ -121,7 +127,12 @@ export function AssetCard({
   };
 
   return (
-    <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+    <div className={clsx(
+      "bg-white dark:bg-gray-800 border rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow",
+      isArchived
+        ? "opacity-60 border-dashed border-gray-300 dark:border-gray-600"
+        : "border-gray-200 dark:border-gray-700"
+    )}>
       {/* Thumbnail */}
       <div className="aspect-square bg-gray-100 dark:bg-gray-900 relative">
         {loadingThumbnail ? (

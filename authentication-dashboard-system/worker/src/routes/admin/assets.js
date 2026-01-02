@@ -2661,15 +2661,20 @@ export async function handleAssetRoutes(request, env, path, method, user, ctx = 
 
     try {
         // GET /api/admin/assets/list/:category - List all assets by category
+        // Query params: ?show_archived=true to include archived assets
         if (action === 'list' && method === 'GET' && param1) {
             const category = param1;
+            const showArchived = url.searchParams.get('show_archived') === 'true';
+
+            // Build query based on whether to show archived
+            const statusFilter = showArchived ? '' : "AND status != 'archived'";
             const assets = await env.DB.prepare(`
                 SELECT *,
                        r2_key_private as r2_key,
                        CASE WHEN r2_url IS NOT NULL THEN r2_url
                             ELSE NULL END as public_url
                 FROM generated_assets
-                WHERE category = ?
+                WHERE category = ? ${statusFilter}
                 ORDER BY asset_key, variant
             `).bind(category).all();
 
