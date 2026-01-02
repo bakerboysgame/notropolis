@@ -7,6 +7,7 @@ import {
   User,
   Film,
   Archive,
+  Settings2,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useAuth } from '../contexts/AuthContext';
@@ -18,12 +19,14 @@ import { QueueStatus } from '../components/assets/QueueStatus';
 import { AssetManager } from '../components/assets/AssetManager';
 import { AvatarAssets } from '../components/assets/AvatarAssets';
 import { SceneTemplates } from '../components/assets/SceneTemplates';
+import { LlmSettings } from '../components/assets/LlmSettings';
 
 // Management tabs (separate from asset category tabs)
 const MANAGEMENT_TABS = [
   { key: 'asset-manager', label: 'Asset Manager', icon: Building2 },
   { key: 'avatar-preview', label: 'Avatar Preview', icon: User },
   { key: 'scene-templates', label: 'Scene Templates', icon: Film },
+  { key: 'llm-settings', label: 'LLM Settings', icon: Settings2 },
 ] as const;
 
 export default function AssetAdminPage() {
@@ -238,6 +241,7 @@ export default function AssetAdminPage() {
         {activeTab === 'asset-manager' && <AssetManager />}
         {activeTab === 'avatar-preview' && <AvatarAssets />}
         {activeTab === 'scene-templates' && <SceneTemplates />}
+        {activeTab === 'llm-settings' && <LlmSettings />}
 
         {/* Asset Category Tabs Content */}
         {!MANAGEMENT_TABS.some(t => t.key === activeTab) && renderGridSection(currentTab)}
