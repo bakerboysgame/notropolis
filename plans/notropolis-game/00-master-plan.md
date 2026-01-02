@@ -73,7 +73,7 @@ Notropolis is a competitive multiplayer property tycoon game where players run a
 | 15 | ✅ [Avatar System](15-avatar-system.md) | Character customization |
 | 16a | [Asset Requirements](16a-asset-requirements.md) | Sprite specifications for isometric view |
 | 16 | [Visual Polish](16-visual-polish.md) | Isometric zoomed view, two-mode interaction |
-| 17 | [Achievements](17-achievements.md) | Trophies, badges, leaderboards |
+| 17 | ✅ [Achievements](17-achievements.md) | Trophies, badges, leaderboards |
 
 ## Out of Scope
 

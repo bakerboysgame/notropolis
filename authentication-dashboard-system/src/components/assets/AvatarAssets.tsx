@@ -263,33 +263,42 @@ export function AvatarAssets() {
             />
           </div>
 
-          {/* Layer Selectors */}
-          <div className="mt-4 space-y-2">
+          {/* Layer Selectors - Clickable Thumbnails */}
+          <div className="mt-4 space-y-3">
             {loadingLayers ? (
               <div className="flex items-center justify-center py-4">
                 <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
               </div>
             ) : (
               AVATAR_LAYER_TYPES.map((lt) => (
-                <div key={lt.id} className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={!!previewLayers[lt.id]}
-                    onChange={(e) => handleLayerToggle(lt.id, e.target.checked)}
-                    className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
-                  />
-                  <select
-                    value={previewLayers[lt.id] ? String(previewLayers[lt.id]!.id) : ''}
-                    onChange={(e) => handleLayerSelect(lt.id, e.target.value)}
-                    className="flex-1 text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-                  >
-                    <option value="">{lt.name}: None</option>
-                    {approvedLayers[lt.id]?.map((asset) => (
-                      <option key={String(asset.id)} value={String(asset.id)}>
-                        {asset.asset_key.replace('avatar_', '')}
-                      </option>
-                    ))}
-                  </select>
+                <div key={lt.id} className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                      {lt.name}
+                    </span>
+                    {previewLayers[lt.id] && (
+                      <button
+                        onClick={() => handleLayerToggle(lt.id, false)}
+                        className="text-xs text-red-500 hover:text-red-700"
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
+                  <div className="flex gap-1 flex-wrap">
+                    {approvedLayers[lt.id]?.length === 0 ? (
+                      <span className="text-xs text-gray-400 italic">No assets</span>
+                    ) : (
+                      approvedLayers[lt.id]?.map((asset) => (
+                        <LayerThumbnail
+                          key={asset.id}
+                          asset={asset}
+                          selected={previewLayers[lt.id]?.id === asset.id}
+                          onClick={() => handleLayerSelect(lt.id, String(asset.id))}
+                        />
+                      ))
+                    )}
+                  </div>
                 </div>
               ))
             )}
@@ -307,6 +316,72 @@ export function AvatarAssets() {
         </div>
       </div>
     </div>
+  );
+}
+
+// Layer thumbnail component for composite preview selector
+function LayerThumbnail({
+  asset,
+  selected,
+  onClick,
+}: {
+  asset: LayerAsset;
+  selected: boolean;
+  onClick: () => void;
+}) {
+  const [imageUrl, setImageUrl] = useState<string | null>(asset.public_url || null);
+  const [loading, setLoading] = useState(!asset.public_url);
+
+  useEffect(() => {
+    if (asset.public_url) {
+      setImageUrl(asset.public_url);
+      setLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    const loadUrl = async () => {
+      try {
+        setLoading(true);
+        const { url } = await assetApi.getPreviewUrl(asset.id);
+        if (!cancelled) {
+          setImageUrl(url);
+        }
+      } catch {
+        // Ignore errors
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    };
+    loadUrl();
+    return () => { cancelled = true; };
+  }, [asset.id, asset.public_url]);
+
+  return (
+    <button
+      onClick={onClick}
+      className={clsx(
+        'w-10 h-10 rounded border-2 overflow-hidden flex items-center justify-center bg-gray-100 dark:bg-gray-800 transition-all',
+        selected
+          ? 'border-purple-500 ring-2 ring-purple-300 dark:ring-purple-700'
+          : 'border-gray-200 dark:border-gray-600 hover:border-gray-400'
+      )}
+      title={asset.asset_key.replace('avatar_', '')}
+    >
+      {loading ? (
+        <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
+      ) : imageUrl ? (
+        <img
+          src={imageUrl}
+          alt={asset.asset_key}
+          className="w-full h-full object-cover"
+        />
+      ) : (
+        <User className="w-4 h-4 text-gray-400" />
+      )}
+    </button>
   );
 }
 

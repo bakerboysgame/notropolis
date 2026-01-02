@@ -4,7 +4,8 @@
 // - env.R2_PRIVATE (private R2 bucket for refs/raw)
 // - env.R2_PUBLIC (public R2 bucket for game-ready assets)
 // - env.GEMINI_API_KEY
-// - env.REMOVAL_AI_API_KEY
+// - env.SLAZZER_API_KEY (for background removal)
+// Note: WebP conversion and resizing uses built-in OffscreenCanvas (no external API needed)
 
 // R2 Public URL Configuration:
 // Public bucket URL: https://pub-874867b18f8b4b4882277d8a2b7dfe80.r2.dev
@@ -26,6 +27,87 @@ async function hashString(str) {
     const hashBuffer = await crypto.subtle.digest('SHA-256', data);
     const hashArray = Array.from(new Uint8Array(hashBuffer));
     return hashArray.map(b => b.toString(16).padStart(2, '0')).join('').substring(0, 16);
+}
+
+/**
+ * Convert PNG to WebP and resize using Workers built-in OffscreenCanvas (FREE!)
+ * No external API needed - uses Cloudflare Workers runtime capabilities
+ * @param {ArrayBuffer} pngBuffer - The PNG image buffer
+ * @param {number} targetWidth - Target width in pixels
+ * @param {number} targetHeight - Target height in pixels
+ * @returns {Promise<ArrayBuffer>} - The resized WebP image buffer
+ */
+async function convertToWebPAndResize(pngBuffer, targetWidth, targetHeight) {
+    // Create a blob from the buffer
+    const blob = new Blob([pngBuffer], { type: 'image/png' });
+
+    // Decode the image using Workers built-in API
+    const imageBitmap = await createImageBitmap(blob);
+
+    // Create an OffscreenCanvas at target dimensions
+    const canvas = new OffscreenCanvas(targetWidth, targetHeight);
+    const ctx = canvas.getContext('2d');
+
+    // Draw the image scaled to target size (maintains transparency)
+    ctx.drawImage(imageBitmap, 0, 0, targetWidth, targetHeight);
+
+    // Convert to WebP blob (90% quality - good balance of size/quality)
+    const webpBlob = await canvas.convertToBlob({
+        type: 'image/webp',
+        quality: 0.9
+    });
+
+    // Return as ArrayBuffer
+    return await webpBlob.arrayBuffer();
+}
+
+/**
+ * Get target dimensions for an asset based on its category and asset_key
+ * @param {string} category - Asset category (building_sprite, terrain, etc.)
+ * @param {string} assetKey - The asset key (restaurant, grass, etc.)
+ * @returns {{ width: number, height: number } | null} - Target dimensions or null if no resize needed
+ */
+function getTargetDimensions(category, assetKey) {
+    if (category === 'building_sprite') {
+        const sizeClass = BUILDING_SIZE_CLASSES[assetKey];
+        if (sizeClass) {
+            return { width: sizeClass.width, height: sizeClass.height };
+        }
+        // Default for unknown buildings
+        return { width: 256, height: 256 };
+    }
+
+    if (category === 'terrain') {
+        return { width: 64, height: 32 };
+    }
+
+    if (category === 'npc') {
+        // NPCs are small sprites
+        if (assetKey.includes('car')) {
+            return { width: 64, height: 32 };
+        }
+        // Pedestrians
+        return { width: 32, height: 32 };
+    }
+
+    if (category === 'effect') {
+        return { width: 64, height: 64 };
+    }
+
+    if (category === 'overlay') {
+        return { width: 64, height: 32 };
+    }
+
+    if (category === 'ui') {
+        if (assetKey === 'cursor_select') {
+            return { width: 68, height: 36 };
+        }
+        // Minimap markers
+        return { width: 8, height: 8 };
+    }
+
+    // No resize for other categories (scenes, avatars, refs)
+    return null;
 }
 
 // ============================================================================
@@ -318,9 +400,9 @@ ROW 1 (top):
   [BACK VIEW] - Character viewed from behind
 
 ROW 2 (bottom):
+  [TOP-DOWN VIEW] - Character viewed from directly above (bird's eye) - CRITICAL for sprite generation
   [3/4 FRONT VIEW] - 45-degree front angle (shows depth)
-  [3/4 BACK VIEW] - 45-degree back angle
-  [FACE CLOSEUP + DETAILS] - Head closeup, hands, shoes, material textures
+  [DETAIL CLOSEUPS] - Face closeup, hands, shoes, material textures
 
 CRITICAL LAYOUT RULES:
 - Each view in its OWN SEPARATE BOX with white border
@@ -328,7 +410,8 @@ CRITICAL LAYOUT RULES:
 - Bold label at top of each box
 - Title at very top: "CHARACTER REFERENCE SHEET: [CHARACTER NAME]"
 - EVERY VIEW shows the COMPLETE character, same pose
-- Same lighting across all views (top-left at 45 degrees)`;
+- Same lighting across all views (top-left at 45 degrees)
+- TOP-DOWN VIEW is ESSENTIAL - shows head/shoulders from above for directional walk sprites`;
 
 const VEHICLE_REF_TEMPLATE = `
 VEHICLE REFERENCE SHEET TEMPLATE LAYOUT (CRITICAL - FOLLOW EXACTLY):
@@ -2662,10 +2745,39 @@ ${fullPrompt}`;
                                 `).bind(newR2Key, id).run();
                                 backgroundRemoved = true;
 
-                                // Auto-publish to public bucket as WebP
+                                // Store the master transparent PNG in private bucket
+                                // (already stored above as newR2Key)
+
+                                // Convert to WebP and resize to game dimensions
+                                // Uses Workers built-in OffscreenCanvas - FREE, no external API needed
+                                const targetDims = getTargetDimensions(asset.category, asset.asset_key);
+                                let gameReadyBuffer;
+                                let convertedToWebP = false;
+
+                                if (targetDims) {
+                                    try {
+                                        // Use built-in OffscreenCanvas to convert and resize
+                                        gameReadyBuffer = await convertToWebPAndResize(
+                                            transparentBuffer,
+                                            targetDims.width,
+                                            targetDims.height
+                                        );
+                                        convertedToWebP = true;
+                                        console.log(`Converted and resized ${asset.asset_key} to ${targetDims.width}x${targetDims.height} WebP`);
+                                    } catch (convertErr) {
+                                        console.error('WebP conversion/resize failed, storing PNG as fallback:', convertErr);
+                                        gameReadyBuffer = transparentBuffer;
+                                    }
+                                } else {
+                                    // No resize needed (scenes, avatars, etc.) - store as-is
+                                    console.log(`No resize needed for ${asset.category}/${asset.asset_key} - storing original`);
+                                    gameReadyBuffer = transparentBuffer;
+                                }
+
+                                // Publish to public bucket
                                 const gameReadyKey = `sprites/${asset.category}/${asset.asset_key}_v${fullAsset.variant}.webp`;
-                                await env.R2_PUBLIC.put(gameReadyKey, transparentBuffer, {
-                                    httpMetadata: { contentType: 'image/webp' }
+                                await env.R2_PUBLIC.put(gameReadyKey, gameReadyBuffer, {
+                                    httpMetadata: { contentType: convertedToWebP ? 'image/webp' : 'image/png' }
                                 });
                                 const gameReadyUrl = `https://assets.notropolis.net/${gameReadyKey}`;
                                 await env.DB.prepare(`
@@ -2673,6 +2785,11 @@ ${fullPrompt}`;
                                     SET r2_key_public = ?, r2_url = ?, updated_at = CURRENT_TIMESTAMP
                                     WHERE id = ?
                                 `).bind(gameReadyKey, gameReadyUrl, id).run();
+
+                                await logAudit(env, 'auto_publish_sprite', parseInt(id), user?.username, {
+                                    target_dimensions: targetDims,
+                                    converted_to_webp: convertedToWebP
+                                });
                             }
                         }
                     }
@@ -3064,6 +3181,106 @@ Please address the above feedback in this generation.`;
             return Response.json({ refs: refs.results });
         }
 
+        // POST /api/admin/assets/reprocess-sprites - Reprocess existing approved sprites with WebP conversion + resize
+        // Takes existing _transparent.png from private bucket and creates properly sized WebP in public bucket
+        if (action === 'reprocess-sprites' && method === 'POST') {
+            const { category, dry_run } = await request.json().catch(() => ({}));
+            const targetCategory = category || 'building_sprite';
+
+            // Find all approved sprites that have a transparent PNG in private bucket
+            const sprites = await env.DB.prepare(`
+                SELECT id, category, asset_key, variant, r2_key_private, r2_key_public, r2_url
+                FROM generated_assets
+                WHERE category = ?
+                  AND status = 'approved'
+                  AND background_removed = TRUE
+                  AND r2_key_private LIKE '%_transparent.png'
+                ORDER BY asset_key
+            `).bind(targetCategory).all();
+
+            if (!sprites.results || sprites.results.length === 0) {
+                return Response.json({
+                    success: false,
+                    message: `No approved ${targetCategory} assets found with transparent PNG`,
+                    hint: 'Make sure sprites are approved and have background removed'
+                });
+            }
+
+            if (dry_run) {
+                return Response.json({
+                    success: true,
+                    dry_run: true,
+                    message: `Would reprocess ${sprites.results.length} sprites`,
+                    sprites: sprites.results.map(s => ({
+                        id: s.id,
+                        asset_key: s.asset_key,
+                        source: s.r2_key_private,
+                        target_dimensions: getTargetDimensions(s.category, s.asset_key)
+                    }))
+                });
+            }
+
+            const results = [];
+            for (const sprite of sprites.results) {
+                try {
+                    // Fetch the transparent PNG from private bucket
+                    const pngObject = await env.R2_PRIVATE.get(sprite.r2_key_private);
+                    if (!pngObject) {
+                        results.push({ id: sprite.id, asset_key: sprite.asset_key, success: false, error: 'PNG not found in private bucket' });
+                        continue;
+                    }
+
+                    const pngBuffer = await pngObject.arrayBuffer();
+                    const targetDims = getTargetDimensions(sprite.category, sprite.asset_key);
+
+                    if (!targetDims) {
+                        results.push({ id: sprite.id, asset_key: sprite.asset_key, success: false, error: 'No target dimensions defined' });
+                        continue;
+                    }
+
+                    // Convert to WebP and resize
+                    const webpBuffer = await convertToWebPAndResize(pngBuffer, targetDims.width, targetDims.height);
+
+                    // Save to public bucket
+                    const gameReadyKey = `sprites/${sprite.category}/${sprite.asset_key}_v${sprite.variant}.webp`;
+                    await env.R2_PUBLIC.put(gameReadyKey, webpBuffer, {
+                        httpMetadata: { contentType: 'image/webp' }
+                    });
+                    const gameReadyUrl = `https://assets.notropolis.net/${gameReadyKey}`;
+
+                    // Update database
+                    await env.DB.prepare(`
+                        UPDATE generated_assets
+                        SET r2_key_public = ?, r2_url = ?, updated_at = CURRENT_TIMESTAMP
+                        WHERE id = ?
+                    `).bind(gameReadyKey, gameReadyUrl, sprite.id).run();
+
+                    results.push({
+                        id: sprite.id,
+                        asset_key: sprite.asset_key,
+                        success: true,
+                        dimensions: targetDims,
+                        public_url: gameReadyUrl
+                    });
+                } catch (err) {
+                    results.push({ id: sprite.id, asset_key: sprite.asset_key, success: false, error: err.message });
+                }
+            }
+
+            await logAudit(env, 'reprocess_sprites', null, user?.username, {
+                category: targetCategory,
+                total: sprites.results.length,
+                successful: results.filter(r => r.success).length,
+                failed: results.filter(r => !r.success).length
+            });
+
+            return Response.json({
+                success: true,
+                message: `Reprocessed ${results.filter(r => r.success).length}/${sprites.results.length} sprites`,
+                results
+            });
+        }
+
         // POST /api/admin/assets/reset-prompt/:id - Reset prompt to base
         if (action === 'reset-prompt' && method === 'POST' && param1) {
             const id = param1;
@@ -3173,7 +3390,11 @@ Please address the above feedback in this generation.`;
         // PUT /api/admin/assets/buildings/:buildingType - Update building configuration
         if (action === 'buildings' && method === 'PUT' && param1 && !param2) {
             const buildingType = param1;
-            const { active_sprite_id, cost_override, base_profit_override } = await request.json();
+            const body = await request.json();
+            // Convert undefined to null for D1 compatibility
+            const active_sprite_id = body.active_sprite_id ?? null;
+            const cost_override = body.cost_override ?? null;
+            const base_profit_override = body.base_profit_override ?? null;
 
             // Validate sprite belongs to this building type
             if (active_sprite_id) {
