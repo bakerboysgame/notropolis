@@ -103,10 +103,11 @@
 | 05 ✅ | Post-Approval Pipeline | Sprite approval triggers: bg removal → trim → private PNG → Cloudflare WebP → public |
 | 05a ✅ | Sprite Generation Flow | Manual sprite generation with parent ref selection, full Gemini control, sprite requirements tracking |
 | 06 ✅ | Regenerate Flow | Modify regenerate to preserve old versions and accept parameter overrides |
-| 07 | Frontend Generate Modal | Multi-step wizard with prompt editor, reference picker, parent ref selector, and settings |
-| 08 | Frontend Preview Modal | Add prompt editing, reference display, settings display, enhanced regenerate |
-| 09 | Integration Testing | End-to-end testing of all stages; performance verification |
-| 10 | Asset Manager | Expand Building Manager with price editing + all asset types (NPCs, effects, terrain, base ground) |
+| 07 ✅ | Frontend Generate Modal | Multi-step wizard with prompt editor, reference picker, parent ref selector, and settings |
+| 08 ✅ | Frontend Preview Modal | Add prompt editing, reference display, settings display, enhanced regenerate |
+| 08a ✅ | System Instructions UI | Add system instructions editing to prompt editor (Advanced Settings) |
+| 09 ✅ | Integration Testing | End-to-end testing of all stages; performance verification |
+| 10 ✅ | Asset Manager | Expand Building Manager with price editing + all asset types (NPCs, effects, terrain, base ground) |
 
 ---
 
@@ -272,6 +273,7 @@ PUBLIC BUCKET: notropolis-game-assets
 - [Ref: 06-regenerate-flow.md] - Regeneration behavior
 - [Ref: 07-frontend-generate-modal.md] - New generate wizard with parent ref selector
 - [Ref: 08-frontend-preview-modal.md] - Preview modal updates
+- [Ref: 08a-system-instructions-ui.md] - System instructions editing in Advanced Settings
 - [Ref: 09-integration-testing.md] - Testing plan
 - [Ref: 10-asset-manager.md] - Asset Manager with price editing
 - [Ref: asset-pipeline-reference.md] - Base ground asset prompts and specifications

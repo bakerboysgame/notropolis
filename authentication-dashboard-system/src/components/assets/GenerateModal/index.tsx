@@ -43,6 +43,7 @@ export function GenerateModal({
     variant: undefined,
     prompt: '',
     customDetails: '',
+    systemInstructions: '',
     referenceImages: [],
     generationSettings: { ...DEFAULT_GENERATION_SETTINGS },
     parentAssetId: parentAsset ? parseInt(parentAsset.id) : undefined,
@@ -120,6 +121,7 @@ export function GenerateModal({
         variant: formData.variant,
         prompt: formData.prompt || undefined,
         custom_details: formData.customDetails || undefined,
+        system_instructions: formData.systemInstructions || undefined,
         reference_images: formData.referenceImages.length > 0
           ? formData.referenceImages.map(ref => ({
               type: ref.type,

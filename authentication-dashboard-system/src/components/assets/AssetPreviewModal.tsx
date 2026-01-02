@@ -14,10 +14,14 @@ import {
   Image as ImageIcon,
   Star,
   History,
+  Link,
+  Sparkles,
+  Settings,
 } from 'lucide-react';
 import { clsx } from 'clsx';
-import { Asset, assetApi, SPRITE_CATEGORIES, Rejection } from '../../services/assetApi';
+import { Asset, assetApi, SPRITE_CATEGORIES, Rejection, AssetReferenceLink, GenerationSettings } from '../../services/assetApi';
 import { useToast } from '../ui/Toast';
+import RegenerateModal from './RegenerateModal';
 
 interface AssetPreviewModalProps {
   asset: Asset;
@@ -38,7 +42,7 @@ const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
 
 const DEFAULT_STATUS = { label: 'Unknown', color: 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300' };
 
-type TabId = 'details' | 'history';
+type TabId = 'details' | 'references' | 'history';
 
 export function AssetPreviewModal({ asset, onClose, onUpdate }: AssetPreviewModalProps) {
   const { showToast } = useToast();
@@ -48,16 +52,29 @@ export function AssetPreviewModal({ asset, onClose, onUpdate }: AssetPreviewModa
   const [showPrompt, setShowPrompt] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
   const [showRejectInput, setShowRejectInput] = useState(false);
+  const [isPromptEditing, setIsPromptEditing] = useState(false);
+  const [editedPrompt, setEditedPrompt] = useState(asset.prompt || '');
 
   // Tab state
   const [activeTab, setActiveTab] = useState<TabId>('details');
   const [rejections, setRejections] = useState<Rejection[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
 
+  // Stage 8: References and Regenerate
+  const [referenceLinks, setReferenceLinks] = useState<AssetReferenceLink[]>([]);
+  const [loadingReferences, setLoadingReferences] = useState(false);
+  const [showRegenerateModal, setShowRegenerateModal] = useState(false);
+
+  // Parse generation settings
+  const generationSettings: GenerationSettings | null = asset.generation_settings
+    ? (typeof asset.generation_settings === 'string'
+      ? JSON.parse(asset.generation_settings)
+      : asset.generation_settings)
+    : null;
+
   // Action loading states
   const [approving, setApproving] = useState(false);
   const [rejecting, setRejecting] = useState(false);
-  const [regenerating, setRegenerating] = useState(false);
   const [removingBg, setRemovingBg] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [settingActive, setSettingActive] = useState(false);
@@ -117,6 +134,26 @@ export function AssetPreviewModal({ asset, onClose, onUpdate }: AssetPreviewModa
       loadRejectionHistory();
     }
   }, [activeTab]);
+
+  // Stage 8: Load reference links when references tab is selected
+  useEffect(() => {
+    if (activeTab === 'references' && referenceLinks.length === 0) {
+      loadReferenceLinks();
+    }
+  }, [activeTab]);
+
+  const loadReferenceLinks = async () => {
+    setLoadingReferences(true);
+    try {
+      const links = await assetApi.getReferenceLinks(asset.id);
+      setReferenceLinks(links);
+    } catch {
+      // Silently fail - references may not exist
+      setReferenceLinks([]);
+    } finally {
+      setLoadingReferences(false);
+    }
+  };
 
   const loadRejectionHistory = async () => {
     setLoadingHistory(true);
@@ -196,18 +233,17 @@ export function AssetPreviewModal({ asset, onClose, onUpdate }: AssetPreviewModa
     }
   };
 
-  const handleRegenerate = async () => {
-    setRegenerating(true);
-    try {
-      await assetApi.regenerate(asset.id);
-      showToast('Regeneration started', 'success');
-      onUpdate();
-      onClose();
-    } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Failed to regenerate', 'error');
-    } finally {
-      setRegenerating(false);
-    }
+  // Stage 8: Open RegenerateModal instead of direct API call
+  const handleRegenerate = () => {
+    setShowRegenerateModal(true);
+  };
+
+  // Stage 8: Handle regeneration completion
+  const handleRegenerateComplete = (newAssetId: number) => {
+    setShowRegenerateModal(false);
+    showToast(`Created new version (Asset #${newAssetId})`, 'success');
+    onUpdate();
+    onClose();
   };
 
   const handleRemoveBackground = async () => {
@@ -274,6 +310,12 @@ export function AssetPreviewModal({ asset, onClose, onUpdate }: AssetPreviewModa
                 Active
               </span>
             )}
+            {asset.auto_created && (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 border border-purple-300 dark:border-purple-700">
+                <Sparkles className="w-3 h-3" />
+                Auto-created
+              </span>
+            )}
           </div>
           <button
             onClick={onClose}
@@ -295,6 +337,18 @@ export function AssetPreviewModal({ asset, onClose, onUpdate }: AssetPreviewModa
             )}
           >
             Details
+          </button>
+          <button
+            onClick={() => setActiveTab('references')}
+            className={clsx(
+              'px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors flex items-center gap-1',
+              activeTab === 'references'
+                ? 'border-purple-500 text-purple-600 dark:text-purple-400'
+                : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+            )}
+          >
+            <Link className="w-4 h-4" />
+            References
           </button>
           <button
             onClick={() => setActiveTab('history')}
@@ -385,6 +439,33 @@ export function AssetPreviewModal({ asset, onClose, onUpdate }: AssetPreviewModa
                 )}
               </div>
 
+              {/* Stage 8: Generation Settings */}
+              {generationSettings && (
+                <div className="p-3 bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-lg">
+                  <div className="flex items-center gap-2 text-gray-700 dark:text-gray-300 text-sm font-medium mb-2">
+                    <Settings className="w-4 h-4" />
+                    Generation Settings
+                  </div>
+                  <div className="flex flex-wrap gap-3 text-sm text-gray-600 dark:text-gray-400">
+                    {generationSettings.temperature !== undefined && (
+                      <span className="px-2 py-1 bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-600">
+                        Temperature: {generationSettings.temperature}
+                      </span>
+                    )}
+                    {generationSettings.topK !== undefined && (
+                      <span className="px-2 py-1 bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-600">
+                        Top K: {generationSettings.topK}
+                      </span>
+                    )}
+                    {generationSettings.topP !== undefined && (
+                      <span className="px-2 py-1 bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-600">
+                        Top P: {generationSettings.topP}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* Rejection reason */}
               {asset.status === 'rejected' && asset.rejection_reason && (
                 <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
@@ -411,25 +492,43 @@ export function AssetPreviewModal({ asset, onClose, onUpdate }: AssetPreviewModa
                 </div>
               )}
 
-              {/* Prompt (collapsible) */}
+              {/* Stage 8: Prompt (collapsible with edit toggle) */}
               {asset.prompt && (
                 <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-                  <button
-                    onClick={() => setShowPrompt(!showPrompt)}
-                    className="w-full flex items-center justify-between p-3 text-left text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
-                  >
-                    <span>Generation Prompt</span>
-                    {showPrompt ? (
-                      <ChevronUp className="w-4 h-4" />
-                    ) : (
-                      <ChevronDown className="w-4 h-4" />
+                  <div className="w-full flex items-center justify-between p-3 text-left text-sm font-medium text-gray-700 dark:text-gray-300">
+                    <button
+                      onClick={() => setShowPrompt(!showPrompt)}
+                      className="flex items-center gap-2 hover:text-gray-900 dark:hover:text-gray-100 transition-colors"
+                    >
+                      <span>Generation Prompt</span>
+                      {showPrompt ? (
+                        <ChevronUp className="w-4 h-4" />
+                      ) : (
+                        <ChevronDown className="w-4 h-4" />
+                      )}
+                    </button>
+                    {showPrompt && (
+                      <button
+                        onClick={() => setIsPromptEditing(!isPromptEditing)}
+                        className="text-xs text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300"
+                      >
+                        {isPromptEditing ? 'Done' : 'Edit'}
+                      </button>
                     )}
-                  </button>
+                  </div>
                   {showPrompt && (
                     <div className="p-3 bg-gray-50 dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700">
-                      <p className="text-xs text-gray-600 dark:text-gray-400 font-mono whitespace-pre-wrap">
-                        {asset.prompt}
-                      </p>
+                      {isPromptEditing ? (
+                        <textarea
+                          value={editedPrompt}
+                          onChange={(e) => setEditedPrompt(e.target.value)}
+                          className="w-full h-48 p-2 text-xs font-mono text-gray-600 dark:text-gray-400 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded resize-none"
+                        />
+                      ) : (
+                        <p className="text-xs text-gray-600 dark:text-gray-400 font-mono whitespace-pre-wrap">
+                          {asset.prompt}
+                        </p>
+                      )}
                     </div>
                   )}
                 </div>
@@ -498,10 +597,9 @@ export function AssetPreviewModal({ asset, onClose, onUpdate }: AssetPreviewModa
                     {canRegenerate && (
                       <button
                         onClick={handleRegenerate}
-                        disabled={regenerating}
-                        className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 rounded-lg text-sm font-medium hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 transition-colors"
+                        className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 rounded-lg text-sm font-medium hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
                       >
-                        {regenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                        <RefreshCw className="w-4 h-4" />
                         Regenerate
                       </button>
                     )}
@@ -550,6 +648,68 @@ export function AssetPreviewModal({ asset, onClose, onUpdate }: AssetPreviewModa
               )}
             </div>
           </div>
+          ) : activeTab === 'references' ? (
+            /* Stage 8: References Tab Content */
+            <div className="p-6">
+              <h3 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-4">
+                Reference Images Used
+              </h3>
+
+              {/* Parent Reference */}
+              {asset.parent_asset_id && (
+                <div className="mb-4 p-3 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg">
+                  <div className="flex items-center gap-2 text-purple-700 dark:text-purple-300 text-sm font-medium">
+                    <Link className="w-4 h-4" />
+                    Parent Reference
+                  </div>
+                  <p className="text-sm text-purple-600 dark:text-purple-400 mt-1">
+                    Generated from reference sheet #{asset.parent_asset_id}
+                  </p>
+                </div>
+              )}
+
+              {loadingReferences ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
+                </div>
+              ) : referenceLinks.length === 0 ? (
+                <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+                  <ImageIcon className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                  <p>No additional reference images used</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-4">
+                  {referenceLinks.map((link) => (
+                    <div
+                      key={link.id}
+                      className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 flex items-center gap-3"
+                    >
+                      <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded overflow-hidden flex-shrink-0">
+                        {link.thumbnailUrl ? (
+                          <img
+                            src={link.thumbnailUrl}
+                            alt={link.name}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <ImageIcon className="w-6 h-6 text-gray-400" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                          {link.name}
+                        </p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                          {link.link_type === 'library' ? 'Library' : 'Approved Asset'}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           ) : (
             /* History Tab Content */
             <div className="p-6">
@@ -630,6 +790,19 @@ export function AssetPreviewModal({ asset, onClose, onUpdate }: AssetPreviewModa
           )}
         </div>
       </div>
+
+      {/* Stage 8: Regenerate Modal */}
+      {showRegenerateModal && (
+        <RegenerateModal
+          isOpen={showRegenerateModal}
+          asset={asset}
+          currentPrompt={editedPrompt || asset.prompt || ''}
+          currentReferences={referenceLinks}
+          currentSettings={generationSettings}
+          onClose={() => setShowRegenerateModal(false)}
+          onRegenerate={handleRegenerateComplete}
+        />
+      )}
     </div>
   );
 }

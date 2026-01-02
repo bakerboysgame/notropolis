@@ -237,6 +237,18 @@ Deploy: npm run build && npm run deploy
 Verify: Open preview, test regenerate flow
 ```
 
+### Stage 8a: System Instructions UI
+```
+Stage Document: 08a-system-instructions-ui.md
+Files to Modify: src/components/assets/GenerateModal/PromptEditorStep.tsx, src/components/assets/GenerateModal/types.ts, src/services/assetApi.ts
+Deploy: npm run build && npm run deploy
+Verify:
+  - Open Generate modal, expand "Advanced Settings"
+  - Verify System Instructions textarea appears
+  - Edit and save as template
+  - Verify systemInstructions saved via API
+```
+
 ### Stage 9: Integration Testing
 ```
 Stage Document: 09-integration-testing.md

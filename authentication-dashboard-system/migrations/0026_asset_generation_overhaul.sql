@@ -92,6 +92,7 @@ CREATE INDEX IF NOT EXISTS idx_prompt_templates_category ON prompt_templates(cat
 ALTER TABLE generated_assets ADD COLUMN generation_settings TEXT;
 ALTER TABLE generated_assets ADD COLUMN auto_created BOOLEAN DEFAULT FALSE;
 ALTER TABLE generated_assets ADD COLUMN auto_created_from INTEGER;
+ALTER TABLE generated_assets ADD COLUMN sprite_variant TEXT;  -- Stage 5a: Which variant this sprite is (e.g., 'main', 'n', 'corner')
 
 CREATE INDEX IF NOT EXISTS idx_assets_auto_created ON generated_assets(auto_created_from);
 CREATE INDEX IF NOT EXISTS idx_assets_active ON generated_assets(category, asset_key, is_active);

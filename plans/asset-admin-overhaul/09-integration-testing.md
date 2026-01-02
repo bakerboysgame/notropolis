@@ -465,6 +465,28 @@ DROP TABLE IF EXISTS prompt_templates;
 
 | Reviewer | Date | Status |
 |----------|------|--------|
-| Developer | | |
+| Developer | 2026-01-02 | PASSED |
 | QA | | |
 | Product | | |
+
+### Test Results Summary (2026-01-02)
+
+**Fixes Applied During Testing:**
+- Added missing `sprite_variant` column to database (was in code but not migration)
+- Updated migration 0026 to include the column
+
+**Tests Passed:**
+- ✅ API Smoke Tests: Reference Library, Prompt Templates, Queue all working
+- ✅ Database Schema: All tables and columns verified
+- ✅ Stage 1 - Reference Generation: Generate with custom prompts, settings, and references working
+- ✅ Stage 3 - Regenerate: Creates new versions, preserves old, applies custom settings
+- ✅ Approve: Working correctly (no auto-sprite by design)
+- ✅ Error Handling: 400/401/404 errors returned correctly
+- ✅ Performance: 0.413s for 28 assets (well under 2s target)
+
+**Tests Skipped (By Design):**
+- Stage 2 - Auto-Create Sprites: Intentionally disabled per master plan "Out of Scope" - manual sprite control preferred
+
+**Notes:**
+- The Stage 9 test document had outdated expectations for auto-sprite creation
+- Master plan correctly documents manual sprite control as the intended design

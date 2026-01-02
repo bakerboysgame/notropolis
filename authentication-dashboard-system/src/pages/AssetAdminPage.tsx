@@ -14,13 +14,13 @@ import { AssetGrid } from '../components/assets/AssetGrid';
 import { AssetPreviewModal } from '../components/assets/AssetPreviewModal';
 import { GenerateModal } from '../components/assets/GenerateModal';
 import { QueueStatus } from '../components/assets/QueueStatus';
-import { BuildingManager } from '../components/assets/BuildingManager';
+import { AssetManager } from '../components/assets/AssetManager';
 import { AvatarAssets } from '../components/assets/AvatarAssets';
 import { SceneTemplates } from '../components/assets/SceneTemplates';
 
 // Management tabs (separate from asset category tabs)
 const MANAGEMENT_TABS = [
-  { key: 'building-manager', label: 'Building Manager', icon: Building2 },
+  { key: 'asset-manager', label: 'Asset Manager', icon: Building2 },
   { key: 'avatar-preview', label: 'Avatar Preview', icon: User },
   { key: 'scene-templates', label: 'Scene Templates', icon: Film },
 ] as const;
@@ -216,7 +216,7 @@ export default function AssetAdminPage() {
       {/* Content */}
       <div className="space-y-6">
         {/* Management Tabs Content */}
-        {activeTab === 'building-manager' && <BuildingManager />}
+        {activeTab === 'asset-manager' && <AssetManager />}
         {activeTab === 'avatar-preview' && <AvatarAssets />}
         {activeTab === 'scene-templates' && <SceneTemplates />}
 

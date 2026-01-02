@@ -8,6 +8,7 @@ export interface GenerateFormData {
   variant?: number;
   prompt: string;
   customDetails: string;
+  systemInstructions: string;
   referenceImages: Array<ReferenceImageSpec & {
     thumbnailUrl?: string;
     name?: string;

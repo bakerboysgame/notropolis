@@ -4081,6 +4081,71 @@ Please address the above feedback in this generation.`;
             return Response.json({ rejections: rejections.results });
         }
 
+        // GET /api/admin/assets/reference-links/:assetId - Get reference images used for an asset
+        if (action === 'reference-links' && method === 'GET' && param1) {
+            const assetId = param1;
+
+            // Get reference links with associated metadata
+            const links = await env.DB.prepare(`
+                SELECT
+                    arl.id,
+                    arl.asset_id,
+                    arl.reference_image_id,
+                    arl.approved_asset_id,
+                    arl.link_type,
+                    arl.sort_order,
+                    ri.name as ref_name,
+                    ri.thumbnail_r2_key as ref_thumbnail_key,
+                    ri.category as ref_category,
+                    ga.asset_key as approved_asset_key,
+                    ga.category as approved_asset_category,
+                    ga.r2_url as approved_asset_url
+                FROM asset_reference_links arl
+                LEFT JOIN reference_images ri ON arl.reference_image_id = ri.id
+                LEFT JOIN generated_assets ga ON arl.approved_asset_id = ga.id
+                WHERE arl.asset_id = ?
+                ORDER BY arl.sort_order
+            `).bind(assetId).all();
+
+            // Transform to frontend-friendly format with thumbnail URLs
+            const referenceLinks = await Promise.all((links.results || []).map(async (link) => {
+                let thumbnailUrl = null;
+                let name = '';
+
+                if (link.link_type === 'library' && link.ref_thumbnail_key) {
+                    // Get signed URL for library reference thumbnail
+                    const thumbnailObject = await env.R2_PRIVATE.get(link.ref_thumbnail_key);
+                    if (thumbnailObject) {
+                        const buffer = await thumbnailObject.arrayBuffer();
+                        const base64 = btoa(String.fromCharCode(...new Uint8Array(buffer)));
+                        thumbnailUrl = `data:image/png;base64,${base64}`;
+                    }
+                    name = link.ref_name || `Reference #${link.reference_image_id}`;
+                } else if (link.link_type === 'approved_asset') {
+                    // Use public URL for approved asset
+                    thumbnailUrl = link.approved_asset_url;
+                    name = link.approved_asset_key
+                        ? `${link.approved_asset_category}/${link.approved_asset_key}`
+                        : `Asset #${link.approved_asset_id}`;
+                }
+
+                return {
+                    id: link.id,
+                    link_type: link.link_type,
+                    reference_image_id: link.reference_image_id,
+                    approved_asset_id: link.approved_asset_id,
+                    thumbnailUrl,
+                    name,
+                    sort_order: link.sort_order
+                };
+            }));
+
+            return Response.json({
+                success: true,
+                referenceLinks
+            });
+        }
+
         // POST /api/admin/assets/generate-from-ref/:refId - Generate sprite from approved ref
         if (action === 'generate-from-ref' && method === 'POST' && param1) {
             const refId = param1;
@@ -5616,6 +5681,317 @@ Please address the above feedback in this generation.`;
                 version: newVersion,
                 message: 'Template reset to system default'
             });
+        }
+
+        // ============================================
+        // STAGE 10: ASSET CONFIGURATION ENDPOINTS
+        // ============================================
+
+        // GET /api/admin/assets/configurations/:category - List all configurations for a category
+        if (action === 'configurations' && method === 'GET' && param1 && !param2) {
+            const category = param1;
+
+            // For buildings, use existing building_configurations table
+            if (category === 'buildings') {
+                const configs = await env.DB.prepare(`
+                    SELECT
+                        bt.id as asset_key,
+                        bt.name,
+                        bc.active_sprite_id,
+                        bc.cost_override,
+                        bc.base_profit_override,
+                        bt.cost as default_cost,
+                        bt.base_profit as default_profit,
+                        COALESCE(bc.cost_override, bt.cost) as effective_cost,
+                        COALESCE(bc.base_profit_override, bt.base_profit) as effective_profit,
+                        COALESCE(bc.is_published, 0) as is_published,
+                        bc.published_at,
+                        bc.published_by,
+                        ga.r2_url as sprite_url,
+                        (SELECT COUNT(*) FROM generated_assets
+                         WHERE category = 'building_sprite'
+                         AND asset_key = bt.id
+                         AND status = 'approved') as available_sprites
+                    FROM building_types bt
+                    LEFT JOIN building_configurations bc ON bt.id = bc.building_type_id
+                    LEFT JOIN generated_assets ga ON bc.active_sprite_id = ga.id
+                    ORDER BY bt.name
+                `).all();
+
+                return Response.json({ success: true, configurations: configs.results });
+            }
+
+            // For other categories, use asset_configurations table
+            const configs = await env.DB.prepare(`
+                SELECT
+                    ac.*,
+                    ga.r2_url as sprite_url,
+                    ga.asset_key as sprite_key,
+                    (SELECT COUNT(*) FROM generated_assets
+                     WHERE category = ? AND asset_key = ac.asset_key
+                     AND status = 'approved') as available_sprites
+                FROM asset_configurations ac
+                LEFT JOIN generated_assets ga ON ac.active_sprite_id = ga.id
+                WHERE ac.category = ?
+                ORDER BY ac.asset_key
+            `).bind(category, category).all();
+
+            return Response.json({ success: true, configurations: configs.results });
+        }
+
+        // GET /api/admin/assets/configurations/:category/:assetKey/sprites - Get available sprites for an asset
+        if (action === 'configurations' && method === 'GET' && param1 && param2 && param3 === 'sprites') {
+            const category = param1;
+            const assetKey = param2;
+
+            // Map configuration category to sprite category
+            const spriteCategoryMap = {
+                'buildings': 'building_sprite',
+                'npcs': 'npc',
+                'effects': 'effect',
+                'terrain': 'terrain',
+                'base_ground': 'terrain',
+            };
+
+            const spriteCategory = spriteCategoryMap[category] || category;
+
+            const sprites = await env.DB.prepare(`
+                SELECT ga.*,
+                       ga.r2_key_private as r2_key,
+                       CASE WHEN ga.r2_url IS NOT NULL THEN ga.r2_url ELSE NULL END as public_url
+                FROM generated_assets ga
+                WHERE ga.category = ?
+                  AND ga.asset_key = ?
+                  AND ga.status = 'approved'
+                ORDER BY ga.created_at DESC
+            `).bind(spriteCategory, assetKey).all();
+
+            return Response.json({ success: true, sprites: sprites.results });
+        }
+
+        // PUT /api/admin/assets/configurations/:category/:assetKey - Update configuration for an asset
+        if (action === 'configurations' && method === 'PUT' && param1 && param2 && !param3) {
+            const category = param1;
+            const assetKey = param2;
+            const body = await request.json();
+
+            // For buildings, use existing building_configurations table
+            if (category === 'buildings') {
+                const { active_sprite_id, cost_override, base_profit_override } = body;
+
+                await env.DB.prepare(`
+                    INSERT INTO building_configurations (building_type_id, active_sprite_id, cost_override, base_profit_override)
+                    VALUES (?, ?, ?, ?)
+                    ON CONFLICT (building_type_id) DO UPDATE SET
+                        active_sprite_id = COALESCE(excluded.active_sprite_id, building_configurations.active_sprite_id),
+                        cost_override = excluded.cost_override,
+                        base_profit_override = excluded.base_profit_override,
+                        updated_at = CURRENT_TIMESTAMP
+                `).bind(assetKey, active_sprite_id || null, cost_override ?? null, base_profit_override ?? null).run();
+
+                await logAudit(env, 'update_building_config', active_sprite_id, user?.username, {
+                    building_type: assetKey, cost_override, base_profit_override
+                });
+
+                return Response.json({ success: true, message: 'Building configuration updated' });
+            }
+
+            // For other categories, use asset_configurations table
+            const { active_sprite_id, config, is_active } = body;
+
+            await env.DB.prepare(`
+                INSERT INTO asset_configurations (category, asset_key, active_sprite_id, config, is_active)
+                VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT (category, asset_key) DO UPDATE SET
+                    active_sprite_id = COALESCE(excluded.active_sprite_id, asset_configurations.active_sprite_id),
+                    config = COALESCE(excluded.config, asset_configurations.config),
+                    is_active = COALESCE(excluded.is_active, asset_configurations.is_active),
+                    updated_at = CURRENT_TIMESTAMP
+            `).bind(category, assetKey, active_sprite_id || null, config ? JSON.stringify(config) : null, is_active ?? false).run();
+
+            await logAudit(env, 'update_asset_config', null, user?.username, {
+                category, assetKey, ...body
+            });
+
+            return Response.json({ success: true, message: 'Asset configuration updated' });
+        }
+
+        // POST /api/admin/assets/configurations/:category/:assetKey/publish - Publish an asset configuration
+        if (action === 'configurations' && method === 'POST' && param1 && param2 && param3 === 'publish') {
+            const category = param1;
+            const assetKey = param2;
+
+            if (category === 'buildings') {
+                // Check configuration exists and has a sprite
+                const config = await env.DB.prepare(`
+                    SELECT * FROM building_configurations WHERE building_type_id = ?
+                `).bind(assetKey).first();
+
+                if (!config || !config.active_sprite_id) {
+                    return Response.json({
+                        error: 'Cannot publish: no sprite selected for this building type.'
+                    }, { status: 400 });
+                }
+
+                await env.DB.prepare(`
+                    UPDATE building_configurations
+                    SET is_published = TRUE,
+                        published_at = CURRENT_TIMESTAMP,
+                        published_by = ?,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE building_type_id = ?
+                `).bind(user?.username || 'admin', assetKey).run();
+
+                await logAudit(env, 'publish_building', config.active_sprite_id, user?.username, {
+                    building_type: assetKey
+                });
+
+                return Response.json({ success: true, message: 'Building configuration published.' });
+            }
+
+            // For other categories
+            const config = await env.DB.prepare(`
+                SELECT * FROM asset_configurations WHERE category = ? AND asset_key = ?
+            `).bind(category, assetKey).first();
+
+            if (!config || !config.active_sprite_id) {
+                return Response.json({
+                    error: 'Cannot publish: no sprite selected for this asset.'
+                }, { status: 400 });
+            }
+
+            await env.DB.prepare(`
+                UPDATE asset_configurations
+                SET is_published = TRUE,
+                    published_at = CURRENT_TIMESTAMP,
+                    published_by = ?,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE category = ? AND asset_key = ?
+            `).bind(user?.username || 'admin', category, assetKey).run();
+
+            await logAudit(env, 'publish_asset', config.active_sprite_id, user?.username, {
+                category, assetKey
+            });
+
+            return Response.json({ success: true, message: 'Asset configuration published.' });
+        }
+
+        // POST /api/admin/assets/configurations/:category/:assetKey/unpublish - Unpublish an asset configuration
+        if (action === 'configurations' && method === 'POST' && param1 && param2 && param3 === 'unpublish') {
+            const category = param1;
+            const assetKey = param2;
+
+            if (category === 'buildings') {
+                await env.DB.prepare(`
+                    UPDATE building_configurations
+                    SET is_published = FALSE,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE building_type_id = ?
+                `).bind(assetKey).run();
+
+                await logAudit(env, 'unpublish_building', null, user?.username, {
+                    building_type: assetKey
+                });
+
+                return Response.json({ success: true, message: 'Building unpublished.' });
+            }
+
+            // For other categories
+            await env.DB.prepare(`
+                UPDATE asset_configurations
+                SET is_published = FALSE,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE category = ? AND asset_key = ?
+            `).bind(category, assetKey).run();
+
+            await logAudit(env, 'unpublish_asset', null, user?.username, {
+                category, assetKey
+            });
+
+            return Response.json({ success: true, message: 'Asset unpublished.' });
+        }
+
+        // PUT /api/admin/assets/base-ground/active - Set the active base ground for the game
+        if (action === 'base-ground' && param1 === 'active' && method === 'PUT') {
+            const { asset_key } = await request.json();
+
+            if (!asset_key) {
+                return Response.json({ error: 'asset_key is required' }, { status: 400 });
+            }
+
+            // Clear all active flags for base_ground
+            await env.DB.prepare(`
+                UPDATE asset_configurations
+                SET is_active = FALSE
+                WHERE category = 'base_ground'
+            `).run();
+
+            // Set the new active one (create if doesn't exist)
+            await env.DB.prepare(`
+                INSERT INTO asset_configurations (category, asset_key, is_active)
+                VALUES ('base_ground', ?, TRUE)
+                ON CONFLICT (category, asset_key) DO UPDATE SET
+                    is_active = TRUE,
+                    updated_at = CURRENT_TIMESTAMP
+            `).bind(asset_key).run();
+
+            await logAudit(env, 'set_active_base_ground', null, user?.username, { asset_key });
+
+            return Response.json({ success: true, message: 'Active base ground updated.' });
+        }
+
+        // GET /api/admin/assets/base-ground/active - Get the current active base ground URL
+        if (action === 'base-ground' && param1 === 'active' && method === 'GET') {
+            const result = await env.DB.prepare(`
+                SELECT
+                    ac.asset_key,
+                    ga.r2_url as sprite_url
+                FROM asset_configurations ac
+                LEFT JOIN generated_assets ga ON ac.active_sprite_id = ga.id
+                WHERE ac.category = 'base_ground' AND ac.is_active = TRUE
+                LIMIT 1
+            `).first();
+
+            if (!result) {
+                return Response.json({ success: true, base_ground: null });
+            }
+
+            return Response.json({
+                success: true,
+                base_ground: {
+                    asset_key: result.asset_key,
+                    sprite_url: result.sprite_url
+                }
+            });
+        }
+
+        // GET /api/admin/assets/available-assets/:category - List available approved sprites for a category
+        if (action === 'available-assets' && method === 'GET' && param1) {
+            const category = param1;
+
+            // Map UI category to sprite category
+            const spriteCategoryMap = {
+                'buildings': 'building_sprite',
+                'npcs': 'npc',
+                'effects': 'effect',
+                'terrain': 'terrain',
+                'base_ground': 'terrain',
+            };
+
+            const spriteCategory = spriteCategoryMap[category] || category;
+
+            const assets = await env.DB.prepare(`
+                SELECT
+                    asset_key,
+                    COUNT(*) as sprite_count,
+                    MAX(r2_url) as sample_url
+                FROM generated_assets
+                WHERE category = ? AND status = 'approved'
+                GROUP BY asset_key
+                ORDER BY asset_key
+            `).bind(spriteCategory).all();
+
+            return Response.json({ success: true, assets: assets.results });
         }
 
         // Default: route not found

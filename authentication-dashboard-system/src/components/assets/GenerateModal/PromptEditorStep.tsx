@@ -1,7 +1,7 @@
 // src/components/assets/GenerateModal/PromptEditorStep.tsx
 
 import { useState, useEffect } from 'react';
-import { Loader2, RotateCcw, Save, FileText, Info } from 'lucide-react';
+import { Loader2, RotateCcw, Save, FileText, Info, ChevronRight } from 'lucide-react';
 import { clsx } from 'clsx';
 import { promptTemplateApi, PromptTemplate } from '../../../services/assetApi';
 import { useToast } from '../../ui/Toast';
@@ -21,8 +21,9 @@ export default function PromptEditorStep({
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [hasPromptChanged, setHasPromptChanged] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
-  const { category, assetKey, prompt, customDetails } = formData;
+  const { category, assetKey, prompt, customDetails, systemInstructions } = formData;
 
   // Load template when category/assetKey changes
   useEffect(() => {
@@ -31,14 +32,16 @@ export default function PromptEditorStep({
     }
   }, [category, assetKey]);
 
-  // Track if prompt has been modified from template
+  // Track if prompt or systemInstructions has been modified from template
   useEffect(() => {
-    if (template && prompt !== template.basePrompt) {
-      setHasPromptChanged(true);
-    } else {
+    if (!template) {
       setHasPromptChanged(false);
+      return;
     }
-  }, [prompt, template]);
+    const promptChanged = prompt !== template.basePrompt;
+    const systemInstructionsChanged = (systemInstructions || '') !== (template.systemInstructions || '');
+    setHasPromptChanged(promptChanged || systemInstructionsChanged);
+  }, [prompt, systemInstructions, template]);
 
   const loadTemplate = async () => {
     if (!category || !assetKey) return;
@@ -46,9 +49,16 @@ export default function PromptEditorStep({
     try {
       const tmpl = await promptTemplateApi.get(category, assetKey);
       setTemplate(tmpl);
-      // Set prompt if not already set
+      // Set prompt and systemInstructions if not already set
+      const updates: Partial<GenerateFormData> = {};
       if (!prompt) {
-        updateFormData({ prompt: tmpl.basePrompt });
+        updates.prompt = tmpl.basePrompt;
+      }
+      if (!systemInstructions && tmpl.systemInstructions) {
+        updates.systemInstructions = tmpl.systemInstructions;
+      }
+      if (Object.keys(updates).length > 0) {
+        updateFormData(updates);
       }
     } catch (error) {
       console.error('Failed to load template:', error);
@@ -61,7 +71,10 @@ export default function PromptEditorStep({
 
   const handleResetToDefault = () => {
     if (template) {
-      updateFormData({ prompt: template.basePrompt });
+      updateFormData({
+        prompt: template.basePrompt,
+        systemInstructions: template.systemInstructions || ''
+      });
       setHasPromptChanged(false);
       showToast('Prompt reset to default template', 'info');
     }
@@ -74,6 +87,7 @@ export default function PromptEditorStep({
       await promptTemplateApi.update(category, assetKey, {
         basePrompt: prompt,
         styleGuide: template?.styleGuide,
+        systemInstructions: systemInstructions || undefined,
         changeNotes: 'Updated from Generate Modal',
       });
       showToast('Template saved successfully!', 'success');
@@ -156,23 +170,6 @@ export default function PromptEditorStep({
         placeholder="Enter the generation prompt..."
       />
 
-      {/* Style guide info */}
-      {template?.styleGuide && (
-        <div className="bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-lg p-3">
-          <div className="flex items-start gap-2">
-            <Info className="w-4 h-4 text-gray-500 mt-0.5" />
-            <div>
-              <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Style Guide
-              </p>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
-                {template.styleGuide}
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Custom details */}
       <div>
         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -188,6 +185,60 @@ export default function PromptEditorStep({
         <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
           These details will be appended to the main prompt during generation.
         </p>
+      </div>
+
+      {/* Advanced Settings */}
+      <div className="border-t border-gray-200 dark:border-gray-700 pt-4 mt-4">
+        <button
+          type="button"
+          onClick={() => setShowAdvanced(!showAdvanced)}
+          className="flex items-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100 transition-colors"
+        >
+          <ChevronRight className={clsx('w-4 h-4 transition-transform', showAdvanced && 'rotate-90')} />
+          Advanced Settings
+        </button>
+
+        {showAdvanced && (
+          <div className="mt-4 space-y-4">
+            {/* System Instructions */}
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  System Instructions
+                </label>
+                <span className="text-xs text-gray-500 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded">
+                  Gemini system prompt
+                </span>
+              </div>
+              <textarea
+                value={systemInstructions}
+                onChange={(e) => updateFormData({ systemInstructions: e.target.value })}
+                className="w-full h-32 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm font-mono resize-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                placeholder="Set the AI's behavior and persona. This is sent as the system prompt to Gemini..."
+              />
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                System instructions define how the AI should behave. The base prompt above is the specific generation request.
+              </p>
+            </div>
+
+            {/* Style Guide */}
+            {template?.styleGuide && (
+              <div className="bg-gray-50 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-lg p-3">
+                <div className="flex items-start gap-2">
+                  <Info className="w-4 h-4 text-gray-500 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Style Guide
+                    </p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      {template.styleGuide}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* No template warning */}

@@ -120,6 +120,8 @@ export interface Asset {
   used_reference_image?: boolean;
   error_message?: string;
   is_active?: boolean;
+  auto_created?: boolean;  // Stage 8: Whether this was auto-created from a reference
+  generation_settings?: string | GenerationSettings;  // Stage 8: Gemini settings used for generation
   created_at: string;
   updated_at: string;
   approved_at?: string;
@@ -161,6 +163,7 @@ export interface GenerateParams {
   variant?: number;
   prompt?: string;                          // Custom prompt (optional, overrides template)
   custom_details?: string;                  // Additional details to append
+  system_instructions?: string;             // Custom system instructions (overrides template)
   reference_images?: ReferenceImageSpec[];  // Reference images to include
   generation_settings?: GenerationSettings; // Gemini settings
   parent_asset_id?: number;                 // Stage 5a: Link to parent reference
@@ -214,6 +217,17 @@ export interface RegenerateResponse {
 export interface PreviewUrlResponse {
   url: string;
   expires_at: string;
+}
+
+// Stage 8: Reference link for an asset
+export interface AssetReferenceLink {
+  id: number;
+  link_type: 'library' | 'approved_asset';
+  reference_image_id?: number;
+  approved_asset_id?: number;
+  thumbnailUrl?: string;
+  name: string;
+  sort_order: number;
 }
 
 // ============================================
@@ -315,6 +329,7 @@ class AssetAdminApi {
         variant: params.variant,
         prompt: params.prompt,
         custom_details: params.custom_details,
+        system_instructions: params.system_instructions,
         reference_images: params.reference_images,
         generation_settings: params.generation_settings,
         parent_asset_id: params.parent_asset_id,
@@ -384,6 +399,12 @@ class AssetAdminApi {
   async getRejections(assetId: string): Promise<Rejection[]> {
     const data = await this.fetch<{ rejections: Rejection[] }>(`/rejections/${assetId}`);
     return data.rejections || [];
+  }
+
+  // Stage 8: Get reference images used for an asset
+  async getReferenceLinks(assetId: string): Promise<AssetReferenceLink[]> {
+    const data = await this.fetch<{ referenceLinks: AssetReferenceLink[] }>(`/reference-links/${assetId}`);
+    return data.referenceLinks || [];
   }
 
   // Building Manager APIs
@@ -789,3 +810,153 @@ export const PROMPT_CATEGORIES = [
 ] as const;
 
 export type PromptCategory = typeof PROMPT_CATEGORIES[number];
+
+// ============================================
+// STAGE 10: ASSET CONFIGURATION TYPES AND API
+// ============================================
+
+// Asset configuration for non-building types
+export interface AssetConfiguration {
+  id?: number;
+  category: string;
+  asset_key: string;
+  active_sprite_id?: number | null;
+  config?: Record<string, unknown>;
+  is_active?: boolean;
+  is_published?: boolean;
+  published_at?: string;
+  published_by?: string;
+  sprite_url?: string;
+  available_sprites?: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
+// Building configuration (extended from existing)
+export interface BuildingConfiguration {
+  asset_key: string;
+  name: string;
+  active_sprite_id?: number | null;
+  cost_override?: number | null;
+  base_profit_override?: number | null;
+  default_cost?: number;
+  default_profit?: number;
+  effective_cost?: number;
+  effective_profit?: number;
+  is_published?: boolean;
+  published_at?: string;
+  published_by?: string;
+  sprite_url?: string;
+  available_sprites?: number;
+}
+
+// Available asset for configuration
+export interface AvailableAsset {
+  asset_key: string;
+  sprite_count: number;
+  sample_url?: string;
+}
+
+class AssetConfigurationApi {
+  private baseUrl = `${config.API_BASE_URL}/api/admin/assets`;
+
+  private async fetch<T>(path: string, options?: RequestInit): Promise<T> {
+    const token = localStorage.getItem('token');
+    const response = await fetch(`${this.baseUrl}${path}`, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+        ...options?.headers,
+      },
+    });
+    const data = await response.json();
+    if (!data.success) throw new Error(data.error || 'Request failed');
+    return data;
+  }
+
+  // Get configurations for a category
+  async getConfigurations(category: string): Promise<AssetConfiguration[] | BuildingConfiguration[]> {
+    const data = await this.fetch<{ configurations: AssetConfiguration[] | BuildingConfiguration[] }>(
+      `/configurations/${category}`
+    );
+    return data.configurations;
+  }
+
+  // Get available sprites for an asset
+  async getConfigurationSprites(category: string, assetKey: string): Promise<Asset[]> {
+    const data = await this.fetch<{ sprites: Asset[] }>(
+      `/configurations/${category}/${assetKey}/sprites`
+    );
+    return data.sprites;
+  }
+
+  // Update configuration for an asset
+  async updateConfiguration(
+    category: string,
+    assetKey: string,
+    updates: {
+      active_sprite_id?: number | null;
+      cost_override?: number | null;
+      base_profit_override?: number | null;
+      config?: Record<string, unknown>;
+      is_active?: boolean;
+    }
+  ): Promise<void> {
+    await this.fetch(`/configurations/${category}/${assetKey}`, {
+      method: 'PUT',
+      body: JSON.stringify(updates),
+    });
+  }
+
+  // Publish an asset configuration
+  async publishConfiguration(category: string, assetKey: string): Promise<void> {
+    await this.fetch(`/configurations/${category}/${assetKey}/publish`, {
+      method: 'POST',
+    });
+  }
+
+  // Unpublish an asset configuration
+  async unpublishConfiguration(category: string, assetKey: string): Promise<void> {
+    await this.fetch(`/configurations/${category}/${assetKey}/unpublish`, {
+      method: 'POST',
+    });
+  }
+
+  // Get available approved assets for a category
+  async getAvailableAssets(category: string): Promise<AvailableAsset[]> {
+    const data = await this.fetch<{ assets: AvailableAsset[] }>(
+      `/available-assets/${category}`
+    );
+    return data.assets;
+  }
+
+  // Set active base ground
+  async setActiveBaseGround(assetKey: string): Promise<void> {
+    await this.fetch('/base-ground/active', {
+      method: 'PUT',
+      body: JSON.stringify({ asset_key: assetKey }),
+    });
+  }
+
+  // Get active base ground
+  async getActiveBaseGround(): Promise<{ asset_key: string; sprite_url?: string } | null> {
+    const data = await this.fetch<{ base_ground: { asset_key: string; sprite_url?: string } | null }>(
+      '/base-ground/active'
+    );
+    return data.base_ground;
+  }
+}
+
+export const assetConfigApi = new AssetConfigurationApi();
+
+// Asset Manager categories (UI tabs)
+export const ASSET_MANAGER_CATEGORIES = [
+  { key: 'buildings', label: 'Buildings', hasPrice: true },
+  { key: 'npcs', label: 'NPCs', hasPrice: false },
+  { key: 'effects', label: 'Effects', hasPrice: false },
+  { key: 'terrain', label: 'Terrain', hasPrice: false },
+  { key: 'base_ground', label: 'Base Ground', hasPrice: false, singleActive: true },
+] as const;
+
+export type AssetManagerCategory = typeof ASSET_MANAGER_CATEGORIES[number]['key'];
