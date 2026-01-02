@@ -1,7 +1,7 @@
 // src/components/assets/GenerateModal/ReferenceImagesStep.tsx
 
 import { useState, useEffect } from 'react';
-import { Loader2, X, Library, FolderCheck, Upload, Link, Image as ImageIcon } from 'lucide-react';
+import { Loader2, X, Library, FolderCheck, Upload, Link } from 'lucide-react';
 import { clsx } from 'clsx';
 import {
   referenceLibraryApi,
@@ -14,6 +14,7 @@ import {
 } from '../../../services/assetApi';
 import ReferenceLibrary from '../ReferenceLibrary';
 import UploadDropzone from '../ReferenceLibrary/UploadDropzone';
+import ApprovedAssetCard from './ApprovedAssetCard';
 import { GenerateFormData, SPRITE_TO_REF_CATEGORY } from './types';
 
 interface ReferenceImagesStepProps {
@@ -272,65 +273,19 @@ export default function ReferenceImagesStep({
                   );
 
                   return (
-                    <button
+                    <ApprovedAssetCard
                       key={asset.id}
-                      type="button"
-                      onClick={() =>
+                      asset={asset}
+                      isSelected={isSelected}
+                      onToggle={(thumbnailUrl) =>
                         handleToggleReference({
                           type: 'approved_asset',
                           id: parseInt(asset.id),
-                          thumbnailUrl: asset.public_url,
+                          thumbnailUrl,
                           name: `${formatKey(asset.category)}/${formatKey(asset.asset_key)}`,
                         })
                       }
-                      className={clsx(
-                        'relative rounded-lg border-2 overflow-hidden transition-all text-left',
-                        isSelected
-                          ? 'border-purple-500 ring-2 ring-purple-500/20'
-                          : 'border-gray-200 dark:border-gray-700 hover:border-gray-400 dark:hover:border-gray-500'
-                      )}
-                    >
-                      <div className="aspect-square bg-gray-100 dark:bg-gray-800">
-                        {asset.public_url ? (
-                          <img
-                            src={asset.public_url}
-                            alt={asset.asset_key}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center">
-                            <ImageIcon className="w-8 h-8 text-gray-400" />
-                          </div>
-                        )}
-                        {isSelected && (
-                          <div className="absolute inset-0 bg-purple-500/20 flex items-center justify-center">
-                            <div className="bg-purple-500 rounded-full p-1">
-                              <svg
-                                className="w-5 h-5 text-white"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M5 13l4 4L19 7"
-                                />
-                              </svg>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                      <div className="p-2">
-                        <p className="text-xs font-medium text-gray-900 dark:text-gray-100 truncate">
-                          {formatKey(asset.asset_key)}
-                        </p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                          {formatKey(asset.category)}
-                        </p>
-                      </div>
-                    </button>
+                    />
                   );
                 })}
               </div>
