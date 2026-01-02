@@ -10,7 +10,7 @@ Implement the zoomed-in SimCity-style isometric building view with a two-mode in
 
 `[Requires: Stage 04 complete]` - Needs map viewer to extend.
 `[Requires: Stage 16a complete]` - Asset requirements documented.
-`[Requires: Stage 17 complete]` - Asset generation pipeline, assets generated and in R2.
+`[Requires: 17-asset-pipeline complete]` - Asset generation pipeline (in `/plans/notropolis-game/17-asset-pipeline/`), assets generated and in R2.
 
 ## Asset Sources
 
@@ -111,30 +111,30 @@ All visual assets are generated via the **Stage 17 Asset Pipeline** and stored i
 | `src/components/game/IsometricTile.tsx` | Individual tile/building render |
 | `src/utils/isometricRenderer.ts` | Isometric math utilities |
 | `src/hooks/useIsometricAssets.ts` | Asset preloading hook |
-| `migrations/0023_add_building_sprites.sql` | Sprite references in DB |
+| `migrations/0026_add_building_sprites.sql` | Sprite references in DB |
 
 ---
 
 ## Database Migration
 
 ```sql
--- 0023_add_building_sprites.sql
+-- 0026_add_building_sprites.sql
 
 -- Add sprite reference to building types
 ALTER TABLE building_types ADD COLUMN sprite_key TEXT;
 ALTER TABLE building_types ADD COLUMN sprite_height INTEGER DEFAULT 64;
 
--- Update building types with sprite keys
-UPDATE building_types SET sprite_key = 'buildings/building_market_stall.png', sprite_height = 48 WHERE id = 'market_stall';
-UPDATE building_types SET sprite_key = 'buildings/building_hot_dog_stand.png', sprite_height = 48 WHERE id = 'hot_dog_stand';
-UPDATE building_types SET sprite_key = 'buildings/building_campsite.png', sprite_height = 48 WHERE id = 'campsite';
-UPDATE building_types SET sprite_key = 'buildings/building_shop.png', sprite_height = 64 WHERE id = 'shop';
-UPDATE building_types SET sprite_key = 'buildings/building_burger_bar.png', sprite_height = 64 WHERE id = 'burger_bar';
-UPDATE building_types SET sprite_key = 'buildings/building_motel.png', sprite_height = 80 WHERE id = 'motel';
-UPDATE building_types SET sprite_key = 'buildings/building_high_street_store.png', sprite_height = 96 WHERE id = 'high_street_store';
-UPDATE building_types SET sprite_key = 'buildings/building_restaurant.png', sprite_height = 96 WHERE id = 'restaurant';
-UPDATE building_types SET sprite_key = 'buildings/building_manor.png', sprite_height = 112 WHERE id = 'manor';
-UPDATE building_types SET sprite_key = 'buildings/building_casino.png', sprite_height = 128 WHERE id = 'casino';
+-- Update building types with sprite keys (WebP format from public R2 bucket)
+UPDATE building_types SET sprite_key = 'buildings/building_market_stall.webp', sprite_height = 48 WHERE id = 'market_stall';
+UPDATE building_types SET sprite_key = 'buildings/building_hot_dog_stand.webp', sprite_height = 48 WHERE id = 'hot_dog_stand';
+UPDATE building_types SET sprite_key = 'buildings/building_campsite.webp', sprite_height = 48 WHERE id = 'campsite';
+UPDATE building_types SET sprite_key = 'buildings/building_shop.webp', sprite_height = 64 WHERE id = 'shop';
+UPDATE building_types SET sprite_key = 'buildings/building_burger_bar.webp', sprite_height = 64 WHERE id = 'burger_bar';
+UPDATE building_types SET sprite_key = 'buildings/building_motel.webp', sprite_height = 80 WHERE id = 'motel';
+UPDATE building_types SET sprite_key = 'buildings/building_high_street_store.webp', sprite_height = 96 WHERE id = 'high_street_store';
+UPDATE building_types SET sprite_key = 'buildings/building_restaurant.webp', sprite_height = 96 WHERE id = 'restaurant';
+UPDATE building_types SET sprite_key = 'buildings/building_manor.webp', sprite_height = 112 WHERE id = 'manor';
+UPDATE building_types SET sprite_key = 'buildings/building_casino.webp', sprite_height = 128 WHERE id = 'casino';
 
 -- Terrain sprite mapping (stored in code, not DB)
 -- Special buildings sprite mapping (temple, bank, police - stored in code)
@@ -157,22 +157,22 @@ export const VIEWPORT_TILES = 15; // Show ~15x15 tiles in view
 // Originals stored in /originals/, game loads from /sprites/
 export const SPRITE_BASE_URL = 'https://pub-874867b18f8b4b4882277d8a2b7dfe80.r2.dev/sprites';
 
-// Terrain sprite mapping
+// Terrain sprite mapping (WebP format from public R2 bucket)
 export const TERRAIN_SPRITES: Record<string, string> = {
-  free_land: 'terrain/terrain_grass.png',
-  water: 'terrain/terrain_water.png',
-  road: 'terrain/terrain_road.png',
-  dirt_track: 'terrain/terrain_dirt.png',
-  trees: 'terrain/terrain_trees.png',
-  mountain: 'terrain/terrain_mountain.png',
-  sand: 'terrain/terrain_sand.png',
+  free_land: 'terrain/terrain_grass.webp',
+  water: 'terrain/terrain_water.webp',
+  road: 'terrain/terrain_road.webp',
+  dirt_track: 'terrain/terrain_dirt.webp',
+  trees: 'terrain/terrain_trees.webp',
+  mountain: 'terrain/terrain_mountain.webp',
+  sand: 'terrain/terrain_sand.webp',
 };
 
-// Special building sprites
+// Special building sprites (WebP format from public R2 bucket)
 export const SPECIAL_SPRITES: Record<string, string> = {
-  temple: 'special/special_temple.png',
-  bank: 'special/special_bank.png',
-  police_station: 'special/special_police.png',
+  temple: 'special/special_temple.webp',
+  bank: 'special/special_bank.webp',
+  police_station: 'special/special_police.webp',
 };
 ```
 
@@ -820,7 +820,7 @@ export function TileInfo({ ..., actionsEnabled = true }: TileInfoProps) {
 # Use wrangler r2 or Cloudflare dashboard
 
 # 2. Run migration
-CLOUDFLARE_API_TOKEN="..." npx wrangler d1 execute notropolis-database --file=migrations/0023_add_building_sprites.sql --remote
+CLOUDFLARE_API_TOKEN="..." npx wrangler d1 execute notropolis-database --file=migrations/0026_add_building_sprites.sql --remote
 
 # 3. Deploy worker (if any API changes)
 cd worker && CLOUDFLARE_API_TOKEN="..." npx wrangler deploy && cd ..
@@ -840,14 +840,14 @@ Animated pedestrians and cars moving along roads to bring the city to life.
 
 | Asset | Filename | Dimensions | Frames | Description |
 |-------|----------|------------|--------|-------------|
-| Pedestrian Walk N | `npc/ped_walk_n.png` | 64x32 | 2 | Walking north - left foot, right foot |
-| Pedestrian Walk S | `npc/ped_walk_s.png` | 64x32 | 2 | Walking south - left foot, right foot |
-| Pedestrian Walk E | `npc/ped_walk_e.png` | 64x32 | 2 | Walking east - left foot, right foot |
-| Pedestrian Walk W | `npc/ped_walk_w.png` | 64x32 | 2 | Walking west - left foot, right foot |
-| Car Drive N | `npc/car_n.png` | 32x32 | 1 | Car facing north (static) |
-| Car Drive S | `npc/car_s.png` | 32x32 | 1 | Car facing south |
-| Car Drive E | `npc/car_e.png` | 32x32 | 1 | Car facing east |
-| Car Drive W | `npc/car_w.png` | 32x32 | 1 | Car facing west |
+| Pedestrian Walk N | `npc/ped_walk_n.webp` | 64x32 | 2 | Walking north - left foot, right foot |
+| Pedestrian Walk S | `npc/ped_walk_s.webp` | 64x32 | 2 | Walking south - left foot, right foot |
+| Pedestrian Walk E | `npc/ped_walk_e.webp` | 64x32 | 2 | Walking east - left foot, right foot |
+| Pedestrian Walk W | `npc/ped_walk_w.webp` | 64x32 | 2 | Walking west - left foot, right foot |
+| Car Drive N | `npc/car_n.webp` | 32x32 | 1 | Car facing north (static) |
+| Car Drive S | `npc/car_s.webp` | 32x32 | 1 | Car facing south |
+| Car Drive E | `npc/car_e.webp` | 32x32 | 1 | Car facing east |
+| Car Drive W | `npc/car_w.webp` | 32x32 | 1 | Car facing west |
 
 **Sprite sheet format:**
 - Pedestrians: 2-frame horizontal strip (64x32 total), each frame 32x32px

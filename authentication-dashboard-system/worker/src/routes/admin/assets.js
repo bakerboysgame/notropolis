@@ -420,50 +420,63 @@ This is the master reference for all avatar assets.`
 };
 
 // Vehicle reference features
+// VIEW: TOP-DOWN OVERHEAD (bird's eye view looking straight down) for all vehicles
 const VEHICLE_REF_FEATURES = {
-    car_sedan: `SEDAN CAR - generic city vehicle:
+    car_sedan: `SEDAN CAR - generic city vehicle (TOP-DOWN OVERHEAD VIEW):
 - 90s CGI SHAPES with PHOTOREALISTIC MODERN RENDERING
+- TOP-DOWN view showing roof, hood, trunk from directly above
 - Stocky, geometric proportions (90s game aesthetic) but rendered with PBR materials
-- 4-door sedan shape, compact and readable silhouette
+- 4-door sedan shape, compact and readable silhouette from above
 - PHOTOREALISTIC paint finish with clear coat reflections and metallic flake
-- Realistic chrome trim, door handles, mirrors with proper specular
-- Glass windows with accurate refraction and reflection
-- Detailed headlights with realistic lens materials
-- Visible tire treads, realistic rubber texture, chrome/alloy wheel details
+- Visible sunroof or roof details, windshield reflections
+- Wheels visible at corners, realistic rubber texture
 - Neutral color (gray/silver/dark blue) to show material quality
 - NO brand logos, badges, or text
-This establishes the car style for all vehicles - 90s SHAPES, MODERN RENDERING.`,
+This establishes the car style for all vehicles - 90s SHAPES, TOP-DOWN VIEW.`,
 
-    car_sports: `SPORTS CAR - flashy vehicle:
+    car_police: `POLICE CAR - law enforcement vehicle (TOP-DOWN OVERHEAD VIEW):
+- 90s CGI SHAPES with PHOTOREALISTIC MODERN RENDERING
+- TOP-DOWN view showing roof, light bar, hood from directly above
+- Black and white police livery clearly visible from above
+- LIGHT BAR on roof is the key feature - red and blue lights visible
+- "POLICE" text on roof or hood if visible from above
+- Same stocky sedan proportions as civilian cars
+- PHOTOREALISTIC paint finish, chrome/metallic details
+- Classic American police cruiser aesthetic
+- NO specific department markings
+This is the police variant - same 90s SHAPES, TOP-DOWN VIEW.`,
+
+    car_sports: `SPORTS CAR - flashy vehicle (TOP-DOWN OVERHEAD VIEW):
 - Same 90s CGI proportions as sedan but lower, sportier profile
-- 2-door coupe shape with aerodynamic lines
+- TOP-DOWN view showing sleek roof, spoiler from above
+- 2-door coupe shape with aerodynamic lines visible from above
 - PHOTOREALISTIC paint with candy apple red or metallic gold finish
 - Real specular highlights, clear coat depth, metallic flake visible
-- Carbon fiber texture on spoiler/accents with realistic weave pattern
-- Chrome exhaust tips with heat discoloration
-- Aggressive alloy wheels with realistic metallic finish
+- Spoiler visible from above, aggressive stance
+- Aggressive alloy wheels visible at corners
 - NO brand logos
-Sporty variant - same 90s SHAPES, MODERN PBR RENDERING.`,
+Sporty variant - same 90s SHAPES, TOP-DOWN VIEW.`,
 
-    car_van: `VAN/DELIVERY VEHICLE:
+    car_van: `VAN/DELIVERY VEHICLE (TOP-DOWN OVERHEAD VIEW):
 - Stocky, boxy 90s proportions with photorealistic surfaces
-- Taller than sedan, utility shape
+- TOP-DOWN view showing large roof from directly above
+- Taller than sedan, utility shape, larger roof footprint
 - PHOTOREALISTIC white paint with realistic dust/dirt accumulation
-- Metal panel seams, realistic rivets and hardware
-- Rubber door seals, textured grip handles
+- Roof rack or vents visible from above
 - Side panel (could have generic "DELIVERY" text)
-- Realistic tire treads, steel wheels with road wear
+- Realistic tire treads, steel wheels visible at corners
 - NO specific company branding
-Work/utility vehicle - 90s SHAPES, MODERN RENDERING.`,
+Work/utility vehicle - 90s SHAPES, TOP-DOWN VIEW.`,
 
-    car_taxi: `TAXI CAB:
+    car_taxi: `TAXI CAB (TOP-DOWN OVERHEAD VIEW):
 - Same proportions as sedan
+- TOP-DOWN view showing roof and "TAXI" sign from above
 - Distinctive yellow color
-- "TAXI" sign on roof (lit)
+- "TAXI" sign on roof (lit) - key identifying feature from above
 - Checkered stripe optional
 - Generic taxi appearance
 - NO specific city/company markings
-City taxi variant.`
+City taxi variant - TOP-DOWN VIEW.`
 };
 
 // Effect reference features
@@ -694,17 +707,17 @@ const WATER_TILE_DESCRIPTIONS = {
     water_inner_sw: `Small shore in SW corner only. Water everywhere else.`
 };
 
-// Road tile descriptions - MUST match reference road width exactly
+// Road tile descriptions - tell Gemini which tile from the 5-tile reference sheet
 const ROAD_TILE_DESCRIPTIONS = {
-    road_straight: `Horizontal road. Same style as reference but rotated 90 degrees. Sidewalk on top and bottom edges.`,
+    road_straight: `Extract the 1st tile (STRAIGHT) from the reference. Vertical road through center of square.`,
 
-    road_corner: `Road curves from LEFT edge to BOTTOM edge. SAME width as reference. Smooth curve. White/empty in top-right. No grass.`,
+    road_corner: `Extract the 2nd tile (CORNER) from the reference. L-shaped 90 degree turn.`,
 
-    road_tjunction: `Roads on LEFT, RIGHT, and BOTTOM edges. SAME width as reference. White strip at TOP only. No grass.`,
+    road_tjunction: `Extract the 3rd tile (T-JUNCTION) from the reference. Three-way intersection.`,
 
-    road_crossroad: `Roads on ALL 4 edges. SAME width as reference. Small white squares in corners. No grass.`,
+    road_crossroad: `Extract the 4th tile (CROSSROAD) from the reference. Four-way intersection.`,
 
-    road_deadend: `Road from BOTTOM edge, ends in semicircle at top. SAME width as reference. White on sides. No grass.`
+    road_deadend: `Extract the 5th tile (DEAD-END) from the reference. Cul-de-sac with U-turn.`
 };
 
 // Simple dirt path descriptions
@@ -801,7 +814,7 @@ CRITICAL ALIGNMENT: Road exits at exactly 50% (middle) of each tile edge. Road w
 
 5 TILES left to right:
 1. STRAIGHT - vertical road through center
-2. CORNER - curve from center of LEFT edge to center of BOTTOM edge. Empty/transparent in top-right.
+2. CORNER - L-SHAPE 90° turn (NOT S-curve). Road enters LEFT edge center, turns RIGHT ANGLE, exits BOTTOM edge center. Top-right is empty.
 3. T-JUNCTION - road at center of LEFT, RIGHT, BOTTOM edges. Empty at top.
 4. CROSSROAD - road at center of all 4 edges
 5. DEAD-END - road from center of BOTTOM edge, U-turn at top
@@ -867,8 +880,8 @@ Background: white or light gray.${customDetails ? `\n\n${customDetails}` : ''}`;
 // NPC/Vehicle directional sprite mappings
 // When base character/vehicle reference is approved, auto-generate all direction variants
 const DIRECTIONAL_SPRITE_VARIANTS = {
-    // Pedestrian: 4 directions × 2 animation frames = 8 sprites (as 4 sprite strips)
-    pedestrian: ['ped_walk_n', 'ped_walk_s', 'ped_walk_e', 'ped_walk_w'],
+    // Pedestrian: 4 directions × 2 animation frames = 8 separate sprites
+    pedestrian: ['ped_walk_n_1', 'ped_walk_n_2', 'ped_walk_s_1', 'ped_walk_s_2', 'ped_walk_e_1', 'ped_walk_e_2', 'ped_walk_w_1', 'ped_walk_w_2'],
 
     // Car: 4 directions × 1 sprite = 4 sprites
     car: ['car_n', 'car_s', 'car_e', 'car_w']
@@ -1173,10 +1186,11 @@ ${customDetails ? `ADDITIONAL NOTES:\n${customDetails}` : ''}`;
 
 const NPC_FEATURES = {
     // === PEDESTRIAN DIRECTIONAL WALK CYCLES ===
-    // Each direction gets a 2-frame sprite strip (64x32 = 2 frames of 32x32 side by side)
+    // Each direction gets 2 separate sprites (frame 1 and frame 2) for walk animation
     // Frame 1: Left foot forward, right foot back
     // Frame 2: Right foot forward, left foot back
     // Game alternates between frames to create walking animation
+    // VIEW: TOP-DOWN OVERHEAD (bird's eye view looking straight down)
     //
     // CHARACTER PROPORTIONS (CRITICAL - NOT ROBLOX/CHIBI):
     // - Normal human proportions (7-8 heads tall), NOT blocky or stubby
@@ -1185,47 +1199,89 @@ const NPC_FEATURES = {
     // - Arms and legs are normal length, NOT short stumpy limbs
     // - Head is normal size relative to body, NOT oversized
 
-    ped_walk_n: `SPRITE STRIP: Two 32x32 frames placed SIDE BY SIDE (total image: 64 wide x 32 tall).
-Pedestrian walking AWAY from camera (NORTH direction in isometric). Back of character visible.
-- FRAME 1 (LEFT HALF of image, pixels 0-31): Left leg forward, right leg back - mid-stride pose
-- FRAME 2 (RIGHT HALF of image, pixels 32-63): Right leg forward, left leg back - opposite mid-stride pose
-Both frames show the EXACT SAME character from the EXACT SAME angle - ONLY the leg positions differ.
-REALISTIC human proportions (7-8 heads tall like a real person). Business casual clothing. Arms swing naturally opposite to legs.
-NOT blocky, NOT stubby, NOT Roblox-style. Normal adult human body proportions with 90s CGI stylized rendering.`,
+    ped_walk_n_1: `SINGLE SPRITE: 32x32 pixels.
+TOP-DOWN OVERHEAD VIEW (bird's eye, looking straight down from above).
+Pedestrian walking UP (NORTH - toward top of screen). Top of head and shoulders visible from above.
+FRAME 1 of walk cycle: Left leg forward, right leg back - mid-stride pose.
+Business casual clothing visible from above. Left arm back, right arm forward (opposite to legs).
+90s CGI stylized rendering. NOT isometric, NOT angled - pure top-down overhead view.`,
 
-    ped_walk_s: `SPRITE STRIP: Two 32x32 frames placed SIDE BY SIDE (total image: 64 wide x 32 tall).
-Pedestrian walking TOWARD camera (SOUTH direction in isometric). Front of character visible.
-- FRAME 1 (LEFT HALF of image, pixels 0-31): Left leg forward, right leg back - mid-stride pose
-- FRAME 2 (RIGHT HALF of image, pixels 32-63): Right leg forward, left leg back - opposite mid-stride pose
-Both frames show the EXACT SAME character from the EXACT SAME angle - ONLY the leg positions differ.
-REALISTIC human proportions (7-8 heads tall like a real person). Business casual clothing. Arms swing naturally opposite to legs.
-NOT blocky, NOT stubby, NOT Roblox-style. Normal adult human body proportions with 90s CGI stylized rendering.`,
+    ped_walk_n_2: `SINGLE SPRITE: 32x32 pixels.
+TOP-DOWN OVERHEAD VIEW (bird's eye, looking straight down from above).
+Pedestrian walking UP (NORTH - toward top of screen). Top of head and shoulders visible from above.
+FRAME 2 of walk cycle: Right leg forward, left leg back - opposite mid-stride pose.
+Business casual clothing visible from above. Right arm back, left arm forward (opposite to legs).
+90s CGI stylized rendering. NOT isometric, NOT angled - pure top-down overhead view.`,
 
-    ped_walk_e: `SPRITE STRIP: Two 32x32 frames placed SIDE BY SIDE (total image: 64 wide x 32 tall).
-Pedestrian walking RIGHT (EAST direction in isometric). Side profile, character facing right.
-- FRAME 1 (LEFT HALF of image, pixels 0-31): Left leg forward, right leg back - mid-stride pose
-- FRAME 2 (RIGHT HALF of image, pixels 32-63): Right leg forward, left leg back - opposite mid-stride pose
-Both frames show the EXACT SAME character from the EXACT SAME angle - ONLY the leg positions differ.
-REALISTIC human proportions (7-8 heads tall like a real person). Business casual clothing. Arms swing naturally opposite to legs.
-NOT blocky, NOT stubby, NOT Roblox-style. Normal adult human body proportions with 90s CGI stylized rendering.`,
+    ped_walk_s_1: `SINGLE SPRITE: 32x32 pixels.
+TOP-DOWN OVERHEAD VIEW (bird's eye, looking straight down from above).
+Pedestrian walking DOWN (SOUTH - toward bottom of screen). Top of head and shoulders visible from above.
+FRAME 1 of walk cycle: Left leg forward, right leg back - mid-stride pose.
+Business casual clothing visible from above. Left arm back, right arm forward (opposite to legs).
+90s CGI stylized rendering. NOT isometric, NOT angled - pure top-down overhead view.`,
 
-    ped_walk_w: `SPRITE STRIP: Two 32x32 frames placed SIDE BY SIDE (total image: 64 wide x 32 tall).
-Pedestrian walking LEFT (WEST direction in isometric). Side profile, character facing left.
-- FRAME 1 (LEFT HALF of image, pixels 0-31): Left leg forward, right leg back - mid-stride pose
-- FRAME 2 (RIGHT HALF of image, pixels 32-63): Right leg forward, left foot back - opposite mid-stride pose
-Both frames show the EXACT SAME character from the EXACT SAME angle - ONLY the leg positions differ.
-REALISTIC human proportions (7-8 heads tall like a real person). Business casual clothing. Arms swing naturally opposite to legs.
-NOT blocky, NOT stubby, NOT Roblox-style. Normal adult human body proportions with 90s CGI stylized rendering.`,
+    ped_walk_s_2: `SINGLE SPRITE: 32x32 pixels.
+TOP-DOWN OVERHEAD VIEW (bird's eye, looking straight down from above).
+Pedestrian walking DOWN (SOUTH - toward bottom of screen). Top of head and shoulders visible from above.
+FRAME 2 of walk cycle: Right leg forward, left leg back - opposite mid-stride pose.
+Business casual clothing visible from above. Right arm back, left arm forward (opposite to legs).
+90s CGI stylized rendering. NOT isometric, NOT angled - pure top-down overhead view.`,
+
+    ped_walk_e_1: `SINGLE SPRITE: 32x32 pixels.
+TOP-DOWN OVERHEAD VIEW (bird's eye, looking straight down from above).
+Pedestrian walking RIGHT (EAST - toward right of screen). Top of head and shoulders visible from above.
+FRAME 1 of walk cycle: Left leg forward, right leg back - mid-stride pose.
+Business casual clothing visible from above. Left arm back, right arm forward (opposite to legs).
+90s CGI stylized rendering. NOT isometric, NOT angled - pure top-down overhead view.`,
+
+    ped_walk_e_2: `SINGLE SPRITE: 32x32 pixels.
+TOP-DOWN OVERHEAD VIEW (bird's eye, looking straight down from above).
+Pedestrian walking RIGHT (EAST - toward right of screen). Top of head and shoulders visible from above.
+FRAME 2 of walk cycle: Right leg forward, left leg back - opposite mid-stride pose.
+Business casual clothing visible from above. Right arm back, left arm forward (opposite to legs).
+90s CGI stylized rendering. NOT isometric, NOT angled - pure top-down overhead view.`,
+
+    ped_walk_w_1: `SINGLE SPRITE: 32x32 pixels.
+TOP-DOWN OVERHEAD VIEW (bird's eye, looking straight down from above).
+Pedestrian walking LEFT (WEST - toward left of screen). Top of head and shoulders visible from above.
+FRAME 1 of walk cycle: Left leg forward, right leg back - mid-stride pose.
+Business casual clothing visible from above. Left arm back, right arm forward (opposite to legs).
+90s CGI stylized rendering. NOT isometric, NOT angled - pure top-down overhead view.`,
+
+    ped_walk_w_2: `SINGLE SPRITE: 32x32 pixels.
+TOP-DOWN OVERHEAD VIEW (bird's eye, looking straight down from above).
+Pedestrian walking LEFT (WEST - toward left of screen). Top of head and shoulders visible from above.
+FRAME 2 of walk cycle: Right leg forward, left leg back - opposite mid-stride pose.
+Business casual clothing visible from above. Right arm back, left arm forward (opposite to legs).
+90s CGI stylized rendering. NOT isometric, NOT angled - pure top-down overhead view.`,
 
     // === CAR DIRECTIONAL SPRITES ===
-    // Each direction is a single sprite showing the car facing that direction
-    car_n: `Car viewed from isometric angle, pointing AWAY (NORTH). Rear of car visible, front pointing away from camera. Chunky, toy-like 90s proportions. Generic sedan. No brand markings.`,
+    // Each direction is a single 32x32 sprite showing the car facing that direction
+    // Car can drive forwards or backwards using the same sprite (game handles direction)
+    // VIEW: TOP-DOWN OVERHEAD (bird's eye view looking straight down)
+    car_n: `SINGLE SPRITE: 32x32 pixels.
+TOP-DOWN OVERHEAD VIEW (bird's eye, looking straight down from above).
+Car pointing UP (NORTH - toward top of screen). Roof and hood visible from above, front of car at top.
+Chunky, toy-like 90s proportions. Generic sedan. No brand markings.
+90s CGI stylized rendering. NOT isometric, NOT angled - pure top-down overhead view.`,
 
-    car_s: `Car viewed from isometric angle, pointing TOWARD camera (SOUTH). Front of car visible, facing the camera. Chunky, toy-like 90s proportions. Generic sedan. No brand markings.`,
+    car_s: `SINGLE SPRITE: 32x32 pixels.
+TOP-DOWN OVERHEAD VIEW (bird's eye, looking straight down from above).
+Car pointing DOWN (SOUTH - toward bottom of screen). Roof and trunk visible from above, front of car at bottom.
+Chunky, toy-like 90s proportions. Generic sedan. No brand markings.
+90s CGI stylized rendering. NOT isometric, NOT angled - pure top-down overhead view.`,
 
-    car_e: `Car viewed from isometric angle, pointing RIGHT (EAST). Side profile, car facing right. Chunky, toy-like 90s proportions. Generic sedan. No brand markings.`,
+    car_e: `SINGLE SPRITE: 32x32 pixels.
+TOP-DOWN OVERHEAD VIEW (bird's eye, looking straight down from above).
+Car pointing RIGHT (EAST - toward right of screen). Roof visible from above, car oriented horizontally, front at right.
+Chunky, toy-like 90s proportions. Generic sedan. No brand markings.
+90s CGI stylized rendering. NOT isometric, NOT angled - pure top-down overhead view.`,
 
-    car_w: `Car viewed from isometric angle, pointing LEFT (WEST). Side profile, car facing left. Chunky, toy-like 90s proportions. Generic sedan. No brand markings.`,
+    car_w: `SINGLE SPRITE: 32x32 pixels.
+TOP-DOWN OVERHEAD VIEW (bird's eye, looking straight down from above).
+Car pointing LEFT (WEST - toward left of screen). Roof visible from above, car oriented horizontally, front at left.
+Chunky, toy-like 90s proportions. Generic sedan. No brand markings.
+90s CGI stylized rendering. NOT isometric, NOT angled - pure top-down overhead view.`,
 
     // === LEGACY AND ADDITIONAL PEDESTRIAN TYPES ===
     // All pedestrians use REALISTIC human proportions (7-8 heads tall), NOT blocky/Roblox style
@@ -1247,13 +1303,26 @@ Frame 4: Feet together, upright
 Corporate businessman/businesswoman type. Briefcase optional.
 NOT blocky, NOT stubby, NOT Roblox-style. Normal adult human body with 90s CGI stylized rendering.`,
 
-    car_sedan: `Generic sedan car from isometric 45-degree view. Chunky, slightly toy-like proportions. Solid neutral color (gray, blue, or silver). No brand markings.`,
+    car_sedan: `Generic sedan car from TOP-DOWN OVERHEAD VIEW (bird's eye, looking straight down).
+Chunky, slightly toy-like 90s proportions. Solid neutral color (gray, blue, or silver). No brand markings.
+NOT isometric, NOT angled - pure top-down overhead view.`,
 
-    car_sports: `Sports car from isometric 45-degree view. Sleek but chunky 90s CGI style. Bold color (red or yellow). No brand markings.`,
+    car_police: `Police car from TOP-DOWN OVERHEAD VIEW (bird's eye, looking straight down).
+Black and white police livery. Light bar on roof visible from above. "POLICE" text on roof if visible.
+Chunky, toy-like 90s proportions. Classic police cruiser shape.
+NOT isometric, NOT angled - pure top-down overhead view.`,
 
-    car_van: `Delivery/utility van from isometric 45-degree view. Boxy, chunky proportions. White or neutral color. No brand text.`,
+    car_sports: `Sports car from TOP-DOWN OVERHEAD VIEW (bird's eye, looking straight down).
+Sleek but chunky 90s CGI style. Bold color (red or yellow). No brand markings.
+NOT isometric, NOT angled - pure top-down overhead view.`,
 
-    car_taxi: `Taxi cab from isometric 45-degree view. Yellow with "TAXI" sign on roof. Chunky proportions. Generic taxi appearance.`
+    car_van: `Delivery/utility van from TOP-DOWN OVERHEAD VIEW (bird's eye, looking straight down).
+Boxy, chunky proportions. White or neutral color. No brand text.
+NOT isometric, NOT angled - pure top-down overhead view.`,
+
+    car_taxi: `Taxi cab from TOP-DOWN OVERHEAD VIEW (bird's eye, looking straight down).
+Yellow with "TAXI" sign on roof visible from above. Chunky proportions. Generic taxi appearance.
+NOT isometric, NOT angled - pure top-down overhead view.`
 };
 
 /**
@@ -1264,6 +1333,7 @@ function buildNPCPrompt(npcType, customDetails = '') {
     const features = NPC_FEATURES[npcType];
 
     // Detect sprite type for proper sizing
+    // ped_walk_n_1, ped_walk_n_2, etc. - individual frames
     const isPedWalk = npcType.startsWith('ped_walk_');
     const isCarDirection = ['car_n', 'car_s', 'car_e', 'car_w'].includes(npcType);
     const isPedestrian = npcType.startsWith('pedestrian_') || isPedWalk;
@@ -1275,9 +1345,9 @@ function buildNPCPrompt(npcType, customDetails = '') {
     // Size specifications based on type
     let sizeSpec;
     if (isPedWalk) {
-        sizeSpec = 'Sprite strip: 64x32 pixels (2 frames of 32x32 each for walk animation)';
+        sizeSpec = 'Single sprite: 32x32 pixels (one animation frame)';
     } else if (isCarDirection) {
-        sizeSpec = 'Single sprite: 64x32 pixels (one car facing specific direction)';
+        sizeSpec = 'Single sprite: 32x32 pixels (one car facing specific direction)';
     } else if (isPedestrian) {
         sizeSpec = 'Sprite strip: 128x32 pixels (4 frames of 32x32 each) OR single 32x32 for idle';
     } else {
@@ -1287,22 +1357,31 @@ function buildNPCPrompt(npcType, customDetails = '') {
     // Direction info for directional sprites
     let directionNote = '';
     if (isPedWalk || isCarDirection) {
-        const direction = npcType.split('_').pop().toUpperCase();
+        // Extract direction from npcType (e.g., ped_walk_n_1 -> n, car_n -> n)
+        const parts = npcType.split('_');
+        let direction;
+        if (isPedWalk) {
+            // ped_walk_n_1 -> parts[2] = 'n'
+            direction = parts[2].toUpperCase();
+        } else {
+            // car_n -> parts[1] = 'n'
+            direction = parts[1].toUpperCase();
+        }
         const directionMap = {
-            'N': 'NORTH (away from camera, back visible)',
-            'S': 'SOUTH (toward camera, front visible)',
-            'E': 'EAST (facing right)',
-            'W': 'WEST (facing left)'
+            'N': 'NORTH (toward top of screen)',
+            'S': 'SOUTH (toward bottom of screen)',
+            'E': 'EAST (toward right of screen)',
+            'W': 'WEST (toward left of screen)'
         };
         directionNote = `\nDIRECTION: ${directionMap[direction] || direction}
 - The ${isPedWalk ? 'character' : 'vehicle'} must be clearly facing/moving in the ${direction} direction
-- When placed on the isometric map, this sprite shows movement toward ${direction}`;
+- TOP-DOWN OVERHEAD VIEW - looking straight down from above`;
     }
 
     return `Create an ambient NPC sprite: ${npcName}.
 
 FORMAT REQUIREMENTS:
-- 45-degree isometric view
+- TOP-DOWN OVERHEAD VIEW (bird's eye, looking straight down from above)
 - ${sizeSpec}
 - Background: TRANSPARENT (PNG-ready)
 - Purpose: ${isPedestrian ? 'Pedestrians walking on sidewalks' : 'Vehicles driving on roads'}
@@ -1828,7 +1907,8 @@ const SPRITE_TO_REF_CATEGORY = {
     'building_sprite': 'building_ref',
     'npc': 'character_ref',      // pedestrians use character_ref
     'effect': 'effect_ref',
-    'avatar': 'character_ref'    // avatars use character_ref (avatar_base)
+    'avatar': 'character_ref',   // avatars use character_ref (avatar_base)
+    'terrain': 'terrain_ref'     // terrain sprites use terrain_ref (road, water, etc.)
 };
 
 // Get the reference sheet asset_key for a sprite
@@ -1848,6 +1928,10 @@ function getRefAssetKey(category, assetKey) {
     }
     if (category === 'avatar') {
         return 'avatar_base'; // All avatar items use the avatar_base character ref
+    }
+    if (category === 'terrain') {
+        // Terrain sprites map to their base type: road_straight → road, water_n → water
+        return assetKey.split('_')[0]; // road, water, dirt, grass
     }
     // For building_sprite and effect, the asset_key is the same
     return assetKey;
@@ -2144,7 +2228,12 @@ export async function handleAssetRoutes(request, env, path, method, user) {
                         parentAssetId = refAsset.id;
 
                         // Prepend instruction to use the reference image
-                        fullPrompt = `REFERENCE IMAGE ATTACHED: Use the attached reference sheet image as your style guide. The sprite you generate MUST match the exact design, colors, and details shown in this reference sheet. Extract and render only the 45-degree isometric view as a standalone sprite.\n\n${fullPrompt}`;
+                        if (category === 'terrain') {
+                            // Terrain tiles are top-down squares, NOT isometric
+                            fullPrompt = `REFERENCE IMAGE ATTACHED: This shows 5 road tiles. Extract ONLY the specific tile you are generating. Output a single SQUARE tile with TRANSPARENT background. Copy the EXACT style, road width, and colors from the reference.\n\n${fullPrompt}`;
+                        } else {
+                            fullPrompt = `REFERENCE IMAGE ATTACHED: Use the attached reference sheet image as your style guide. The sprite you generate MUST match the exact design, colors, and details shown in this reference sheet. Extract and render only the 45-degree isometric view as a standalone sprite.\n\n${fullPrompt}`;
+                        }
                     }
                 }
 
@@ -2526,6 +2615,64 @@ ${fullPrompt}`;
             `).bind(user?.username || 'admin', id).run();
 
             await logAudit(env, 'approve', parseInt(id), user?.username, { set_active: true });
+
+            // Auto-remove background for terrain and building sprites on approval
+            let backgroundRemoved = false;
+            if (asset.category === 'terrain' || asset.category === 'building_sprite') {
+                try {
+                    // Get full asset details
+                    const fullAsset = await env.DB.prepare(`
+                        SELECT * FROM generated_assets WHERE id = ?
+                    `).bind(id).first();
+
+                    if (fullAsset && fullAsset.r2_key_private && !fullAsset.background_removed) {
+                        // Fetch from R2
+                        const imageObject = await env.R2_PRIVATE.get(fullAsset.r2_key_private);
+                        if (imageObject) {
+                            const imageBuffer = await imageObject.arrayBuffer();
+
+                            // Call Slazzer API
+                            const formData = new FormData();
+                            formData.append('source_image_file', new Blob([imageBuffer], { type: 'image/png' }), 'image.png');
+                            formData.append('crop', 'true');
+
+                            const slazzerResponse = await fetch('https://api.slazzer.com/v2.0/remove_image_background', {
+                                method: 'POST',
+                                headers: { 'API-KEY': env.SLAZZER_API_KEY },
+                                body: formData
+                            });
+
+                            if (slazzerResponse.ok) {
+                                const transparentBuffer = await slazzerResponse.arrayBuffer();
+                                const newR2Key = fullAsset.r2_key_private.replace('.png', '_transparent.png');
+                                await env.R2_PRIVATE.put(newR2Key, transparentBuffer, {
+                                    httpMetadata: { contentType: 'image/png' }
+                                });
+                                await env.DB.prepare(`
+                                    UPDATE generated_assets
+                                    SET background_removed = TRUE, r2_key_private = ?, updated_at = CURRENT_TIMESTAMP
+                                    WHERE id = ?
+                                `).bind(newR2Key, id).run();
+                                backgroundRemoved = true;
+
+                                // Auto-publish to public bucket as WebP
+                                const gameReadyKey = `sprites/${asset.category}/${asset.asset_key}_v${fullAsset.variant}.webp`;
+                                await env.R2_PUBLIC.put(gameReadyKey, transparentBuffer, {
+                                    httpMetadata: { contentType: 'image/webp' }
+                                });
+                                const gameReadyUrl = `https://assets.notropolis.net/${gameReadyKey}`;
+                                await env.DB.prepare(`
+                                    UPDATE generated_assets
+                                    SET r2_key_public = ?, r2_url = ?, updated_at = CURRENT_TIMESTAMP
+                                    WHERE id = ?
+                                `).bind(gameReadyKey, gameReadyUrl, id).run();
+                            }
+                        }
+                    }
+                } catch (err) {
+                    console.error('Auto background removal failed:', err);
+                }
+            }
 
             // Check if this is a terrain_ref that should auto-generate terrain sprite variations
             let autoGeneratedVariations = [];
@@ -3011,7 +3158,7 @@ Please address the above feedback in this generation.`;
                 ORDER BY ga.created_at DESC
             `).bind(buildingType, buildingType).all();
 
-            return Response.json({ sprites: sprites.results });
+            return Response.json({ success: true, sprites: sprites.results });
         }
 
         // PUT /api/admin/assets/buildings/:buildingType - Update building configuration
@@ -3340,39 +3487,58 @@ Please address the above feedback in this generation.`;
         // PUT /api/admin/assets/scenes/templates/:sceneId - Create/update scene template
         if (action === 'scenes' && param1 === 'templates' && method === 'PUT' && param2) {
             const sceneId = param2;
-            const { name, description, background_r2_key, foreground_r2_key, avatar_slot, width, height } = await request.json();
+            const body = await request.json();
+            const { name, description, background_r2_key, foreground_r2_key, avatar_slot, width, height } = body;
 
-            if (!name || !background_r2_key || !avatar_slot) {
+            // Check if template already exists
+            const existing = await env.DB.prepare(`
+                SELECT * FROM scene_templates WHERE id = ?
+            `).bind(sceneId).first();
+
+            // If no existing template, require all fields for creation
+            if (!existing && (!name || !background_r2_key || !avatar_slot)) {
                 return Response.json({
-                    error: 'name, background_r2_key, and avatar_slot are required'
+                    error: 'name, background_r2_key, and avatar_slot are required for new templates'
                 }, { status: 400 });
             }
 
-            // Validate avatar_slot JSON structure
-            const slot = typeof avatar_slot === 'string' ? JSON.parse(avatar_slot) : avatar_slot;
-            if (typeof slot.x !== 'number' || typeof slot.y !== 'number' ||
-                typeof slot.width !== 'number' || typeof slot.height !== 'number') {
-                return Response.json({
-                    error: 'avatar_slot must have x, y, width, height as numbers'
-                }, { status: 400 });
+            // If avatar_slot is provided, validate it
+            let avatarSlotJson = null;
+            if (avatar_slot) {
+                const slot = typeof avatar_slot === 'string' ? JSON.parse(avatar_slot) : avatar_slot;
+                if (typeof slot.x !== 'number' || typeof slot.y !== 'number' ||
+                    typeof slot.width !== 'number' || typeof slot.height !== 'number') {
+                    return Response.json({
+                        error: 'avatar_slot must have x, y, width, height as numbers'
+                    }, { status: 400 });
+                }
+                avatarSlotJson = JSON.stringify(slot);
             }
 
-            const avatarSlotJson = JSON.stringify(slot);
+            if (existing) {
+                // Partial update for existing template
+                const updates = [];
+                const params = [];
+                if (name !== undefined) { updates.push('name = ?'); params.push(name); }
+                if (description !== undefined) { updates.push('description = ?'); params.push(description); }
+                if (background_r2_key !== undefined) { updates.push('background_r2_key = ?'); params.push(background_r2_key); }
+                if (foreground_r2_key !== undefined) { updates.push('foreground_r2_key = ?'); params.push(foreground_r2_key); }
+                if (avatarSlotJson !== null) { updates.push('avatar_slot = ?'); params.push(avatarSlotJson); }
+                if (width !== undefined) { updates.push('width = ?'); params.push(width); }
+                if (height !== undefined) { updates.push('height = ?'); params.push(height); }
+                updates.push('updated_at = CURRENT_TIMESTAMP');
+                params.push(sceneId);
 
-            await env.DB.prepare(`
-                INSERT INTO scene_templates (id, name, description, background_r2_key, foreground_r2_key, avatar_slot, width, height)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT(id)
-                DO UPDATE SET
-                    name = excluded.name,
-                    description = excluded.description,
-                    background_r2_key = excluded.background_r2_key,
-                    foreground_r2_key = excluded.foreground_r2_key,
-                    avatar_slot = excluded.avatar_slot,
-                    width = COALESCE(excluded.width, width),
-                    height = COALESCE(excluded.height, height),
-                    updated_at = CURRENT_TIMESTAMP
-            `).bind(sceneId, name, description, background_r2_key, foreground_r2_key, avatarSlotJson, width || 1920, height || 1080).run();
+                await env.DB.prepare(`
+                    UPDATE scene_templates SET ${updates.join(', ')} WHERE id = ?
+                `).bind(...params).run();
+            } else {
+                // Insert new template
+                await env.DB.prepare(`
+                    INSERT INTO scene_templates (id, name, description, background_r2_key, foreground_r2_key, avatar_slot, width, height)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                `).bind(sceneId, name, description, background_r2_key, foreground_r2_key, avatarSlotJson, width || 1920, height || 1080).run();
+            }
 
             // Invalidate all cached scenes for this template
             await env.DB.prepare(`
@@ -3381,10 +3547,34 @@ Please address the above feedback in this generation.`;
 
             await logAudit(env, 'scene_template_updated', null, user?.username, {
                 scene_id: sceneId,
-                name
+                name: name || existing?.name
             });
 
             return Response.json({ success: true, message: 'Scene template saved.' });
+        }
+
+        // POST /api/admin/assets/scenes/templates/:sceneId/publish - Publish scene template
+        if (action === 'scenes' && param1 === 'templates' && method === 'POST' && param2 && param3 === 'publish') {
+            const sceneId = param2;
+
+            const template = await env.DB.prepare(`
+                SELECT * FROM scene_templates WHERE id = ?
+            `).bind(sceneId).first();
+
+            if (!template) {
+                return Response.json({ error: 'Scene template not found' }, { status: 404 });
+            }
+
+            await env.DB.prepare(`
+                UPDATE scene_templates SET is_active = TRUE, updated_at = CURRENT_TIMESTAMP WHERE id = ?
+            `).bind(sceneId).run();
+
+            await logAudit(env, 'scene_template_published', null, user?.username, {
+                scene_id: sceneId,
+                name: template.name
+            });
+
+            return Response.json({ success: true, message: 'Scene template published.' });
         }
 
         // GET /api/admin/assets/scenes/compose/:sceneId/:companyId - Get composed scene

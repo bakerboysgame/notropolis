@@ -273,19 +273,19 @@ class AssetAdminApi {
 
   // Scene Template APIs
   async getSceneTemplates(): Promise<SceneTemplate[]> {
-    const data = await this.fetch<{ templates: SceneTemplate[] }>('/scene-templates');
+    const data = await this.fetch<{ templates: SceneTemplate[] }>('/scenes/templates');
     return data.templates || [];
   }
 
   async updateSceneTemplate(id: string, data: Partial<SceneTemplateUpdate>): Promise<{ success: boolean }> {
-    return this.fetch(`/scene-templates/${id}`, {
+    return this.fetch(`/scenes/templates/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     });
   }
 
   async publishSceneTemplate(id: string): Promise<{ success: boolean }> {
-    return this.fetch(`/scene-templates/${id}/publish`, { method: 'POST' });
+    return this.fetch(`/scenes/templates/${id}/publish`, { method: 'POST' });
   }
 
   // Avatar composite preview

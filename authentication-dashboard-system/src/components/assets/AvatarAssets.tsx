@@ -123,9 +123,11 @@ export function AvatarAssets() {
           if (url) {
             const img = await loadImage(url);
             ctx.drawImage(img, 0, 0, 512, 512);
+          } else {
+            console.warn(`No URL available for layer ${layer.id}:`, asset.asset_key);
           }
-        } catch {
-          // Skip failed images
+        } catch (err) {
+          console.error(`Failed to load image for layer ${layer.id}:`, asset.asset_key, err);
         }
       }
     }
@@ -172,8 +174,16 @@ export function AvatarAssets() {
   };
 
   const handleLayerSelect = (layerId: string, assetId: string) => {
-    const asset = approvedLayers[layerId]?.find((a) => a.id === assetId);
-    setPreviewLayers((prev) => ({ ...prev, [layerId]: asset || null }));
+    if (!assetId) {
+      // User selected "None"
+      setPreviewLayers((prev) => ({ ...prev, [layerId]: null }));
+      return;
+    }
+    // Find asset by string comparison to handle potential type mismatches
+    const asset = approvedLayers[layerId]?.find((a) => String(a.id) === String(assetId));
+    if (asset) {
+      setPreviewLayers((prev) => ({ ...prev, [layerId]: asset }));
+    }
   };
 
   const handleLayerToggle = (layerId: string, enabled: boolean) => {
@@ -267,13 +277,13 @@ export function AvatarAssets() {
                     className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
                   />
                   <select
-                    value={previewLayers[lt.id]?.id || ''}
+                    value={previewLayers[lt.id] ? String(previewLayers[lt.id]!.id) : ''}
                     onChange={(e) => handleLayerSelect(lt.id, e.target.value)}
                     className="flex-1 text-sm border border-gray-300 dark:border-gray-600 rounded px-2 py-1 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                   >
                     <option value="">{lt.name}: None</option>
                     {approvedLayers[lt.id]?.map((asset) => (
-                      <option key={asset.id} value={asset.id}>
+                      <option key={String(asset.id)} value={String(asset.id)}>
                         {asset.asset_key.replace('avatar_', '')}
                       </option>
                     ))}

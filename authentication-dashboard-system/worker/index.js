@@ -58,6 +58,11 @@ import {
   updateAvatar,
   getAvatarImage,
 } from './src/routes/game/avatar.js';
+import {
+  getAchievements,
+  checkAchievements,
+  getUserBadges,
+} from './src/routes/game/achievements.js';
 import { handleAssetRoutes } from './src/routes/admin/assets.js';
 
 // Helper to get active company from request (used by social endpoints)
@@ -587,6 +592,40 @@ export default {
 
           const result = await getAvatarImage(env, companyId);
           return new Response(JSON.stringify({ success: true, data: result }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        // ==================== ACHIEVEMENT ENDPOINTS ====================
+        case path === '/api/game/achievements' && method === 'GET': {
+          const authHeader = request.headers.get('Authorization');
+          const token = authHeader.split(' ')[1];
+          const { user } = await authService.getUserFromToken(token);
+
+          const result = await getAchievements(env, user.id);
+          return new Response(JSON.stringify({ success: true, ...result }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        case path === '/api/game/achievements/check' && method === 'POST': {
+          const authHeader = request.headers.get('Authorization');
+          const token = authHeader.split(' ')[1];
+          const { user } = await authService.getUserFromToken(token);
+
+          const result = await checkAchievements(env, user.id);
+          return new Response(JSON.stringify({ success: true, ...result }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        case path === '/api/game/achievements/badges' && method === 'GET': {
+          const authHeader = request.headers.get('Authorization');
+          const token = authHeader.split(' ')[1];
+          const { user } = await authService.getUserFromToken(token);
+
+          const result = await getUserBadges(env, user.id);
+          return new Response(JSON.stringify({ success: true, ...result }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }
           });
         }

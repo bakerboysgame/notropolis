@@ -20,15 +20,22 @@ Implement the trophy and badge system for heroic achievements, country completio
 | `authentication-dashboard-system/src/pages/Achievements.tsx` | Achievements display page |
 | `authentication-dashboard-system/src/components/game/AchievementCard.tsx` | Individual achievement |
 | `authentication-dashboard-system/src/components/game/AchievementUnlock.tsx` | Unlock notification |
-| `authentication-dashboard-system/src/worker/routes/game/achievements.ts` | Achievement API |
-| `authentication-dashboard-system/migrations/0021_create_achievements.sql` | Achievement tables |
+| `authentication-dashboard-system/src/hooks/useAchievements.ts` | Achievement data hook |
+| `authentication-dashboard-system/worker/src/routes/game/achievements.js` | Achievement API |
+| `authentication-dashboard-system/migrations/0025_create_achievements.sql` | Achievement tables |
+
+## Files to Modify
+
+| File | Purpose |
+|------|---------|
+| `authentication-dashboard-system/worker/index.js` | Register achievement routes |
 
 ## Implementation Details
 
 ### Database Migration
 
 ```sql
--- 0021_create_achievements.sql
+-- 0025_create_achievements.sql
 
 -- Achievement definitions
 CREATE TABLE achievements (
@@ -280,9 +287,52 @@ export const ACHIEVEMENTS = [
 
 ### Achievement Checker
 
-```typescript
-// worker/routes/game/achievements.ts
-export async function checkAchievements(env: Env, userId: string) {
+```javascript
+// worker/src/routes/game/achievements.js
+
+/**
+ * GET /api/game/achievements
+ * Get all achievements with user progress
+ */
+export async function getAchievements(request, env, userId) {
+  const achievements = await env.DB.prepare(
+    'SELECT * FROM achievements ORDER BY category, sort_order'
+  ).all();
+
+  const userProgress = await env.DB.prepare(
+    'SELECT * FROM user_achievements WHERE user_id = ?'
+  ).bind(userId).all();
+
+  const progressMap = new Map(userProgress.results.map(p => [p.achievement_id, p]));
+
+  const result = achievements.results.map(a => {
+    const progress = progressMap.get(a.id);
+    return {
+      ...a,
+      conditions: JSON.parse(a.conditions),
+      rewards: a.rewards ? JSON.parse(a.rewards) : null,
+      progress: progress?.progress || 0,
+      completed: progress?.completed === 1,
+      completed_at: progress?.completed_at,
+      claimed: progress?.claimed === 1,
+    };
+  });
+
+  return {
+    success: true,
+    achievements: result,
+    summary: {
+      total: achievements.results.length,
+      completed: result.filter(a => a.completed).length,
+      points: result.filter(a => a.completed).reduce((sum, a) => sum + a.points, 0),
+    },
+  };
+}
+
+/**
+ * Check all achievements for a user and grant any newly completed ones
+ */
+export async function checkAchievements(env, userId) {
   const achievements = await env.DB.prepare(
     'SELECT * FROM achievements'
   ).all();
@@ -293,7 +343,7 @@ export async function checkAchievements(env: Env, userId: string) {
 
   const progressMap = new Map(userProgress.results.map(p => [p.achievement_id, p]));
 
-  const newlyCompleted: any[] = [];
+  const newlyCompleted = [];
 
   for (const achievement of achievements.results) {
     const existing = progressMap.get(achievement.id);
@@ -345,11 +395,7 @@ export async function checkAchievements(env: Env, userId: string) {
   return newlyCompleted;
 }
 
-async function evaluateCondition(
-  env: Env,
-  userId: string,
-  condition: AchievementCondition
-): Promise<{ completed: boolean; progress: number }> {
+async function evaluateCondition(env, userId, condition) {
   switch (condition.type) {
     case 'hero_count': {
       const result = await env.DB.prepare(`
@@ -417,7 +463,7 @@ async function evaluateCondition(
   }
 }
 
-async function grantRewards(env: Env, userId: string, rewards: AchievementReward) {
+async function grantRewards(env, userId, rewards) {
   if (rewards.badge_id) {
     await env.DB.prepare(`
       INSERT OR IGNORE INTO user_badges (id, user_id, badge_id)
@@ -427,22 +473,65 @@ async function grantRewards(env: Env, userId: string, rewards: AchievementReward
 
   if (rewards.avatar_items) {
     for (const itemId of rewards.avatar_items) {
-      // Get first company to unlock for (or create user-level unlock)
-      const company = await env.DB.prepare(
-        'SELECT id FROM game_companies WHERE user_id = ? LIMIT 1'
-      ).bind(userId).first();
-
-      if (company) {
-        await env.DB.prepare(`
-          INSERT OR IGNORE INTO avatar_unlocks (id, company_id, item_id)
-          VALUES (?, ?, ?)
-        `).bind(crypto.randomUUID(), company.id, itemId).run();
-      }
+      // Avatar unlocks are user-level (not company-level)
+      await env.DB.prepare(`
+        INSERT OR IGNORE INTO avatar_unlocks (id, user_id, item_id)
+        VALUES (?, ?, ?)
+      `).bind(crypto.randomUUID(), userId, itemId).run();
     }
   }
 
   // NOTE: No offshore_bonus handling - offshore can ONLY be increased by heroing a location
 }
+```
+
+### Route Registration (worker/index.js)
+
+Add to imports at the top:
+```javascript
+import {
+  getAchievements,
+  checkAchievements,
+} from './src/routes/game/achievements.js';
+```
+
+Add routes in the switch statement (user-authenticated section):
+```javascript
+// Achievements
+case path === '/api/game/achievements' && method === 'GET':
+  return json(await getAchievements(request, env, user.id));
+```
+
+### Achievement Hook
+
+```typescript
+// hooks/useAchievements.ts
+import { useQuery } from '@tanstack/react-query';
+import { api } from '@/lib/api';
+
+export function useAchievements(userId: string | undefined) {
+  return useQuery({
+    queryKey: ['achievements', userId],
+    queryFn: async () => {
+      const response = await api.get('/game/achievements');
+      return response.data;
+    },
+    enabled: !!userId,
+  });
+}
+```
+
+### Constants
+
+```typescript
+// utils/achievementConstants.ts
+export const RARITY_COLORS: Record<string, string> = {
+  common: '#9CA3AF',    // gray-400
+  uncommon: '#10B981',  // green-500
+  rare: '#3B82F6',      // blue-500
+  epic: '#8B5CF6',      // purple-500
+  legendary: '#F59E0B', // amber-500
+};
 ```
 
 ### Achievements Page
@@ -626,13 +715,48 @@ export function AchievementUnlock({ achievement, onDismiss }) {
 ## Deployment
 
 ```bash
-CLOUDFLARE_API_TOKEN="..." npx wrangler d1 execute notropolis-database --file=migrations/0021_create_achievements.sql --remote
+# From authentication-dashboard-system directory:
 
-# Seed achievements
-# (Run SQL to insert achievement definitions)
+# 1. Run migration
+CLOUDFLARE_API_TOKEN="..." npx wrangler d1 execute notropolis-database --file=migrations/0025_create_achievements.sql --remote
 
-npm run build
+# 2. Seed achievements (SQL file with INSERT statements)
+CLOUDFLARE_API_TOKEN="..." npx wrangler d1 execute notropolis-database --file=migrations/0025a_seed_achievements.sql --remote
+
+# 3. Build and deploy worker
+cd worker && npm run build
+CLOUDFLARE_API_TOKEN="..." npx wrangler deploy
+
+# 4. Build and deploy frontend
+cd .. && npm run build
 CLOUDFLARE_API_TOKEN="..." CLOUDFLARE_ACCOUNT_ID="..." npx wrangler pages deploy ./dist --project-name=notropolis-dashboard
+```
+
+### Seed Achievements SQL (0025a_seed_achievements.sql)
+
+```sql
+-- Seed initial achievement and badge definitions
+INSERT INTO badges (id, name, icon_r2_key, description, rarity) VALUES
+('first_hero_badge', 'First Hero', 'badges/first_hero.png', 'Completed your first hero', 'common'),
+('capital_hero', 'Capital Conqueror', 'badges/capital_hero.png', 'Hero of a capital city', 'epic'),
+('national_hero', 'National Hero', 'badges/national_hero.png', 'Completed all locations in a country', 'legendary'),
+('billionaire', 'Billionaire', 'badges/billionaire.png', 'Accumulated 1 billion in offshore', 'legendary');
+
+INSERT INTO achievements (id, category, name, description, icon, rarity, points, conditions, rewards, sort_order) VALUES
+('first_hero', 'hero', 'First Hero', 'Hero out of your first town', '🏆', 'common', 50, '{"type":"hero_count","count":1}', '{"badge_id":"first_hero_badge"}', 1),
+('hero_10', 'hero', 'Serial Hero', 'Hero out of 10 locations', '🏅', 'rare', 200, '{"type":"hero_count","count":10}', '{"avatar_items":["gold_cape"]}', 2),
+('hero_city', 'hero', 'City Slicker', 'Hero out of a city', '🌆', 'uncommon', 100, '{"type":"hero_location_type","location_type":"city"}', NULL, 3),
+('hero_capital', 'hero', 'Capital Conqueror', 'Hero out of a capital', '🏛️', 'epic', 500, '{"type":"hero_location_type","location_type":"capital"}', '{"avatar_items":["crown"],"badge_id":"capital_hero"}', 4),
+('hero_country', 'hero', 'National Hero', 'Hero all locations in a country', '🎖️', 'legendary', 1000, '{"type":"hero_country_complete"}', '{"badge_id":"national_hero","avatar_items":["national_hero_outfit"]}', 5),
+('first_attack', 'combat', 'First Strike', 'Perform your first attack', '💥', 'common', 10, '{"type":"attack_count","count":1}', NULL, 1),
+('attack_100', 'combat', 'War Machine', 'Perform 100 attacks', '🔥', 'rare', 100, '{"type":"attack_count","count":100}', NULL, 2),
+('collapse_building', 'combat', 'Demolition Expert', 'Collapse an enemy building', '💀', 'uncommon', 50, '{"type":"buildings_collapsed","count":1}', NULL, 3),
+('never_caught', 'combat', 'Ghost', 'Perform 50 attacks without being caught', '👻', 'epic', 300, '{"type":"attack_streak_uncaught","count":50}', NULL, 4),
+('millionaire', 'wealth', 'Millionaire', 'Accumulate $1,000,000 in cash', '💵', 'common', 25, '{"type":"max_cash","amount":1000000}', NULL, 1),
+('billionaire', 'wealth', 'Billionaire', 'Accumulate $1,000,000,000 in offshore', '💎', 'legendary', 1000, '{"type":"offshore","amount":1000000000}', '{"badge_id":"billionaire","avatar_items":["diamond_suit"]}', 2),
+('property_mogul', 'wealth', 'Property Mogul', 'Own 50 buildings simultaneously', '🏢', 'rare', 150, '{"type":"buildings_owned","count":50}', NULL, 3),
+('first_post', 'social', 'Hello World', 'Post your first message', '📝', 'common', 5, '{"type":"messages_posted","count":1}', NULL, 1),
+('generous_donor', 'social', 'Generous Donor', 'Donate $1,000,000 to temples', '🙏', 'rare', 100, '{"type":"total_donated","amount":1000000}', NULL, 2);
 ```
 
 ## Handoff Notes

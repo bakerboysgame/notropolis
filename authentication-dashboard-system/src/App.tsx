@@ -26,6 +26,7 @@ import { MessageBoard } from './pages/MessageBoard';
 import { Temple } from './pages/Temple';
 import { Casino } from './pages/Casino';
 import { Avatar } from './pages/Avatar';
+import { Achievements } from './pages/Achievements';
 import { ProtectedPageRoute } from './components/ProtectedPageRoute';
 import { api, apiHelpers } from './services/api';
 
@@ -273,6 +274,15 @@ function App() {
                 <ProtectedRoute>
                   <Layout>
                     <Avatar />
+                  </Layout>
+                </ProtectedRoute>
+              } />
+
+              {/* Achievements Route */}
+              <Route path="/achievements" element={
+                <ProtectedRoute>
+                  <Layout>
+                    <Achievements />
                   </Layout>
                 </ProtectedRoute>
               } />
