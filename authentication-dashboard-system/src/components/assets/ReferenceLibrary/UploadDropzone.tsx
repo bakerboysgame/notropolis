@@ -87,6 +87,8 @@ export default function UploadDropzone({
         width: result.width,
         height: result.height,
         file_size: result.fileSize,
+        source_type: result.sourceType || 'upload',
+        uploaded_by: result.uploadedBy,
         created_at: new Date().toISOString(),
       };
 

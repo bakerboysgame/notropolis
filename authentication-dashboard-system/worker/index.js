@@ -370,14 +370,28 @@ export default {
 
         // ==================== ADMIN ASSET PIPELINE ENDPOINTS ====================
         // PUBLIC: Reference library serve endpoint (no auth required for displaying images)
-        case path.startsWith('/api/admin/assets/reference-library/serve/'):
-          const publicServeResponse = await handleAssetRoutes(request, env, path, method, null, ctx);
-          const publicServeHeaders = new Headers(publicServeResponse.headers);
-          Object.entries(corsHeaders).forEach(([key, value]) => publicServeHeaders.set(key, value));
-          return new Response(publicServeResponse.body, {
-            status: publicServeResponse.status,
-            headers: publicServeHeaders
-          });
+        case path.startsWith('/api/admin/assets/reference-library/serve/'): {
+          // Extract R2 key from path: /api/admin/assets/reference-library/serve/{encoded-key}
+          const servePrefix = '/api/admin/assets/reference-library/serve/';
+          const encodedKey = path.slice(servePrefix.length);
+          const r2Key = decodeURIComponent(encodedKey);
+
+          const imageObject = await env.R2_PRIVATE.get(r2Key);
+
+          if (!imageObject) {
+            return new Response(JSON.stringify({ success: false, error: 'Image not found' }), {
+              status: 404,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            });
+          }
+
+          // Return the image directly with appropriate headers
+          const imageHeaders = new Headers(corsHeaders);
+          imageHeaders.set('Content-Type', imageObject.httpMetadata?.contentType || 'image/png');
+          imageHeaders.set('Cache-Control', 'public, max-age=86400'); // Cache for 24 hours
+
+          return new Response(imageObject.body, { headers: imageHeaders });
+        }
 
         case path.startsWith('/api/admin/assets'):
           // Get user from token for audit logging

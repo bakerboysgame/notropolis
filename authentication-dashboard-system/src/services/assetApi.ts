@@ -543,6 +543,8 @@ export const assetApi = new AssetAdminApi();
 // REFERENCE LIBRARY TYPES AND API
 // ============================================
 
+export type ReferenceImageSourceType = 'upload' | 'external_url' | 'generated' | 'imported';
+
 export interface ReferenceImage {
   id: number;
   name: string;
@@ -558,6 +560,7 @@ export interface ReferenceImage {
   mime_type?: string;
   usage_count?: number;
   uploaded_by?: string;
+  source_type?: ReferenceImageSourceType;
   created_at: string;
   updated_at?: string;
   is_archived?: boolean;
@@ -580,6 +583,8 @@ export interface ReferenceImageUploadResponse {
   width: number;
   height: number;
   fileSize: number;
+  sourceType: ReferenceImageSourceType;
+  uploadedBy?: string;
 }
 
 class ReferenceLibraryApi {
@@ -592,19 +597,35 @@ class ReferenceLibraryApi {
     };
   }
 
-  // List all reference images
-  async list(params?: { category?: string; search?: string; archived?: boolean }): Promise<ReferenceImage[]> {
+  // List all reference images with optional filter data
+  async list(params?: { category?: string; search?: string; archived?: boolean; source_type?: ReferenceImageSourceType }): Promise<ReferenceImage[]> {
+    const result = await this.listWithFilters(params);
+    return result.images;
+  }
+
+  // List with filter options for UI
+  async listWithFilters(params?: { category?: string; search?: string; archived?: boolean; source_type?: ReferenceImageSourceType }): Promise<{
+    images: ReferenceImage[];
+    filters: {
+      categories: string[];
+      sourceTypes: ReferenceImageSourceType[];
+    };
+  }> {
     const queryParams = new URLSearchParams();
     if (params?.category) queryParams.set('category', params.category);
     if (params?.search) queryParams.set('search', params.search);
     if (params?.archived) queryParams.set('archived', 'true');
+    if (params?.source_type) queryParams.set('source_type', params.source_type);
 
     const response = await fetch(`${this.baseUrl}?${queryParams}`, {
       headers: this.getAuthHeaders()
     });
     const data = await response.json();
     if (!data.success) throw new Error(data.error || 'Failed to list reference images');
-    return data.images;
+    return {
+      images: data.images,
+      filters: data.filters || { categories: [], sourceTypes: [] }
+    };
   }
 
   // Get single reference image

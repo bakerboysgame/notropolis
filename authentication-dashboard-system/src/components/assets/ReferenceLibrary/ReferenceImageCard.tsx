@@ -1,14 +1,38 @@
 // src/components/assets/ReferenceLibrary/ReferenceImageCard.tsx
 
-import { Check, Eye, Image as ImageIcon } from 'lucide-react';
+import { Check, Eye, Image as ImageIcon, Upload, Link, Sparkles, Download, User, Calendar } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useState } from 'react';
-import { ReferenceImage, referenceLibraryApi } from '../../../services/assetApi';
+import { ReferenceImage, referenceLibraryApi, ReferenceImageSourceType } from '../../../services/assetApi';
 
 interface ReferenceImageCardProps {
   image: ReferenceImage;
   isSelected: boolean;
   onToggle: () => void;
+}
+
+const SOURCE_TYPE_CONFIG: Record<ReferenceImageSourceType, { icon: React.ReactNode; label: string; color: string }> = {
+  upload: { icon: <Upload className="w-3 h-3" />, label: 'Upload', color: 'text-green-600 dark:text-green-400' },
+  external_url: { icon: <Link className="w-3 h-3" />, label: 'URL', color: 'text-blue-600 dark:text-blue-400' },
+  generated: { icon: <Sparkles className="w-3 h-3" />, label: 'AI', color: 'text-purple-600 dark:text-purple-400' },
+  imported: { icon: <Download className="w-3 h-3" />, label: 'Import', color: 'text-orange-600 dark:text-orange-400' },
+};
+
+function formatDate(dateString: string): string {
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+  if (diffDays === 0) {
+    return 'Today';
+  } else if (diffDays === 1) {
+    return 'Yesterday';
+  } else if (diffDays < 7) {
+    return `${diffDays} days ago`;
+  } else {
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  }
 }
 
 export default function ReferenceImageCard({
@@ -19,6 +43,9 @@ export default function ReferenceImageCard({
   const [isHovered, setIsHovered] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isLoadingPreview, setIsLoadingPreview] = useState(false);
+
+  const sourceType = image.source_type || 'upload';
+  const sourceConfig = SOURCE_TYPE_CONFIG[sourceType] || SOURCE_TYPE_CONFIG.upload;
 
   const handlePreviewClick = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -65,6 +92,18 @@ export default function ReferenceImageCard({
           </div>
         )}
 
+        {/* Source type badge */}
+        <div
+          className={clsx(
+            'absolute top-1 left-1 px-1.5 py-0.5 rounded text-xs font-medium flex items-center gap-1',
+            'bg-white/90 dark:bg-gray-900/90 shadow-sm',
+            sourceConfig.color
+          )}
+          title={`Source: ${sourceConfig.label}`}
+        >
+          {sourceConfig.icon}
+        </div>
+
         {/* Selection overlay */}
         {isSelected && (
           <div className="absolute inset-0 bg-purple-500/20 flex items-center justify-center">
@@ -79,7 +118,7 @@ export default function ReferenceImageCard({
           <button
             onClick={handlePreviewClick}
             disabled={isLoadingPreview}
-            className="absolute top-2 right-2 p-1.5 bg-white/90 dark:bg-gray-800/90 rounded-full shadow-sm hover:bg-white dark:hover:bg-gray-700 transition-colors"
+            className="absolute top-1 right-1 p-1.5 bg-white/90 dark:bg-gray-800/90 rounded-full shadow-sm hover:bg-white dark:hover:bg-gray-700 transition-colors"
           >
             <Eye className="w-4 h-4 text-gray-600 dark:text-gray-300" />
           </button>
@@ -87,15 +126,36 @@ export default function ReferenceImageCard({
       </div>
 
       {/* Info */}
-      <div className="p-2">
+      <div className="p-2 space-y-1">
         <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
           {image.name}
         </p>
+
+        {/* Category */}
         {image.category && (
           <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
             {image.category}
           </p>
         )}
+
+        {/* Metadata row */}
+        <div className="flex items-center gap-2 text-xs text-gray-400 dark:text-gray-500">
+          {/* Date */}
+          {image.created_at && (
+            <span className="flex items-center gap-0.5" title={new Date(image.created_at).toLocaleString()}>
+              <Calendar className="w-3 h-3" />
+              {formatDate(image.created_at)}
+            </span>
+          )}
+
+          {/* Uploader */}
+          {image.uploaded_by && (
+            <span className="flex items-center gap-0.5 truncate" title={`Uploaded by ${image.uploaded_by}`}>
+              <User className="w-3 h-3" />
+              <span className="truncate max-w-[60px]">{image.uploaded_by}</span>
+            </span>
+          )}
+        </div>
       </div>
     </div>
   );

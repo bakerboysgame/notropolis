@@ -5181,12 +5181,13 @@ Please address the above feedback in this generation.`;
             const category = url.searchParams.get('category');
             const search = url.searchParams.get('search');
             const archived = url.searchParams.get('archived') === 'true';
+            const sourceType = url.searchParams.get('source_type');
 
             let query = `
                 SELECT
                     id, name, description, category, tags,
-                    thumbnail_r2_key, width, height, file_size,
-                    usage_count, uploaded_by, created_at
+                    thumbnail_r2_key, width, height, file_size, mime_type,
+                    usage_count, uploaded_by, source_type, created_at
                 FROM reference_images
                 WHERE is_archived = ?
             `;
@@ -5195,6 +5196,11 @@ Please address the above feedback in this generation.`;
             if (category) {
                 query += ` AND category = ?`;
                 params.push(category);
+            }
+
+            if (sourceType) {
+                query += ` AND source_type = ?`;
+                params.push(sourceType);
             }
 
             if (search) {
@@ -5206,6 +5212,14 @@ Please address the above feedback in this generation.`;
             query += ` ORDER BY created_at DESC`;
 
             const results = await env.DB.prepare(query).bind(...params).all();
+
+            // Get distinct categories and source types for filter UI
+            const categoriesResult = await env.DB.prepare(`
+                SELECT DISTINCT category FROM reference_images WHERE is_archived = FALSE AND category IS NOT NULL ORDER BY category
+            `).all();
+            const sourceTypesResult = await env.DB.prepare(`
+                SELECT DISTINCT source_type FROM reference_images WHERE is_archived = FALSE AND source_type IS NOT NULL ORDER BY source_type
+            `).all();
 
             // Generate thumbnail URLs for each image (using R2 key path through worker)
             const serverUrl = env.SERVER_URL || 'https://api.notropolis.net';
@@ -5220,7 +5234,11 @@ Please address the above feedback in this generation.`;
             return Response.json({
                 success: true,
                 images,
-                count: images.length
+                count: images.length,
+                filters: {
+                    categories: (categoriesResult.results || []).map(r => r.category),
+                    sourceTypes: (sourceTypesResult.results || []).map(r => r.source_type)
+                }
             });
         }
 
@@ -5334,27 +5352,31 @@ Please address the above feedback in this generation.`;
                 // Get image dimensions
                 const dimensions = getImageDimensions(buffer);
 
+                // Get source_type from form data (default to 'upload')
+                const sourceType = formData.get('source_type') || 'upload';
+                const uploadedBy = user?.username || 'system';
+
                 // Insert database record
                 const result = await env.DB.prepare(`
                     INSERT INTO reference_images (
                         name, description, category, tags,
                         r2_key, thumbnail_r2_key,
                         width, height, file_size, mime_type,
-                        uploaded_by
+                        uploaded_by, source_type
                     )
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     RETURNING id
                 `).bind(
                     name, description, category, tags,
                     r2Key, thumbnailKey,
                     dimensions.width, dimensions.height, buffer.length, file.type,
-                    user?.username || 'system'
+                    uploadedBy, sourceType
                 ).first();
 
                 // Log audit (null for asset_id since this is a reference image, not a generated asset)
-                await logAudit(env, 'upload_reference_image', null, user?.username, {
+                await logAudit(env, 'upload_reference_image', null, uploadedBy, {
                     reference_image_id: result.id,
-                    name, category, file_size: buffer.length
+                    name, category, file_size: buffer.length, source_type: sourceType
                 });
 
                 return Response.json({
@@ -5367,7 +5389,9 @@ Please address the above feedback in this generation.`;
                         thumbnailKey,
                         width: dimensions.width,
                         height: dimensions.height,
-                        fileSize: buffer.length
+                        fileSize: buffer.length,
+                        sourceType,
+                        uploadedBy
                     }
                 });
 

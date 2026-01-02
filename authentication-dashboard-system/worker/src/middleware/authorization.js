@@ -8,6 +8,10 @@ const ENDPOINT_AUTHORIZATION = [
   // ==================== AUTH ENDPOINTS ====================
   { pattern: '/api/auth/*', roles: null, companyIsolation: false },
 
+  // ==================== PUBLIC ASSET ENDPOINTS ====================
+  // Reference library images need to be publicly accessible for img src tags
+  { pattern: '/api/admin/assets/reference-library/serve/*', roles: null, companyIsolation: false },
+
   // ==================== MASTER ADMIN ONLY ====================
   { pattern: '/api/health', roles: ['master_admin'], companyIsolation: false },
   { pattern: '/api/admin/*', roles: ['master_admin'], companyIsolation: false },

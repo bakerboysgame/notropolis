@@ -8,6 +8,7 @@ import {
   assetApi,
   ReferenceImage,
   ReferenceImageSpec,
+  ReferenceImageSourceType,
   Asset,
   AssetCategory,
 } from '../../../services/assetApi';
@@ -32,6 +33,8 @@ export default function ReferenceImagesStep({
   const [approvedAssets, setApprovedAssets] = useState<Asset[]>([]);
   const [isLoadingLibrary, setIsLoadingLibrary] = useState(false);
   const [isLoadingApproved, setIsLoadingApproved] = useState(false);
+  const [availableCategories, setAvailableCategories] = useState<string[]>([]);
+  const [availableSourceTypes, setAvailableSourceTypes] = useState<ReferenceImageSourceType[]>([]);
 
   const isSprite = category ? !!SPRITE_TO_REF_CATEGORY[category] : false;
 
@@ -50,8 +53,10 @@ export default function ReferenceImagesStep({
   const loadLibraryImages = async () => {
     setIsLoadingLibrary(true);
     try {
-      const images = await referenceLibraryApi.list();
-      setLibraryImages(images);
+      const result = await referenceLibraryApi.listWithFilters();
+      setLibraryImages(result.images);
+      setAvailableCategories(result.filters.categories);
+      setAvailableSourceTypes(result.filters.sourceTypes);
     } catch (error) {
       console.error('Failed to load library:', error);
     } finally {
@@ -237,6 +242,8 @@ export default function ReferenceImagesStep({
               })
             }
             isLoading={isLoadingLibrary}
+            availableCategories={availableCategories}
+            availableSourceTypes={availableSourceTypes}
           />
         )}
 
