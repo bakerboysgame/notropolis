@@ -1,7 +1,7 @@
 // src/components/assets/GenerateModal/ReferenceImagesStep.tsx
 
-import { useState, useEffect } from 'react';
-import { Loader2, X, Library, FolderCheck, Upload, Link } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { Loader2, X, Library, FolderCheck, Upload, Link, Filter } from 'lucide-react';
 import { clsx } from 'clsx';
 import {
   referenceLibraryApi,
@@ -36,8 +36,30 @@ export default function ReferenceImagesStep({
   const [isLoadingApproved, setIsLoadingApproved] = useState(false);
   const [availableCategories, setAvailableCategories] = useState<string[]>([]);
   const [availableSourceTypes, setAvailableSourceTypes] = useState<ReferenceImageSourceType[]>([]);
+  const [approvedCategoryFilter, setApprovedCategoryFilter] = useState<AssetCategory | null>(null);
 
   const isSprite = category ? !!SPRITE_TO_REF_CATEGORY[category] : false;
+
+  // Get unique categories from approved assets for filtering
+  const approvedAssetCategories = useMemo(() => {
+    const cats = [...new Set(approvedAssets.map(a => a.category))];
+    return cats.sort();
+  }, [approvedAssets]);
+
+  // Filter approved assets by selected category
+  const filteredApprovedAssets = useMemo(() => {
+    if (!approvedCategoryFilter) return approvedAssets;
+    return approvedAssets.filter(a => a.category === approvedCategoryFilter);
+  }, [approvedAssets, approvedCategoryFilter]);
+
+  // Category display names
+  const categoryLabels: Record<string, string> = {
+    building_ref: 'Buildings',
+    character_ref: 'Characters',
+    vehicle_ref: 'Vehicles',
+    effect_ref: 'Effects',
+    terrain_ref: 'Terrain',
+  };
 
   // Load library images on mount
   useEffect(() => {
@@ -249,7 +271,7 @@ export default function ReferenceImagesStep({
         )}
 
         {activeTab === 'approved' && (
-          <div>
+          <div className="space-y-4">
             {isLoadingApproved ? (
               <div className="flex flex-col items-center justify-center py-12 text-gray-500 dark:text-gray-400">
                 <Loader2 className="w-8 h-8 animate-spin mb-3" />
@@ -264,31 +286,74 @@ export default function ReferenceImagesStep({
                 </p>
               </div>
             ) : (
-              <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
-                {approvedAssets.map((asset) => {
-                  const isSelected = referenceImages.some(
-                    (r) =>
-                      r.type === 'approved_asset' &&
-                      r.id === parseInt(asset.id)
-                  );
+              <>
+                {/* Filter bar */}
+                {approvedAssetCategories.length > 1 && (
+                  <div className="flex flex-wrap items-center gap-2 pb-3 border-b border-gray-200 dark:border-gray-700">
+                    <Filter className="w-4 h-4 text-gray-400" />
+                    <span className="text-xs text-gray-500 dark:text-gray-400 mr-2">Filter:</span>
 
-                  return (
-                    <ApprovedAssetCard
-                      key={asset.id}
-                      asset={asset}
-                      isSelected={isSelected}
-                      onToggle={(thumbnailUrl) =>
-                        handleToggleReference({
-                          type: 'approved_asset',
-                          id: parseInt(asset.id),
-                          thumbnailUrl,
-                          name: `${formatKey(asset.category)}/${formatKey(asset.asset_key)}`,
-                        })
-                      }
-                    />
-                  );
-                })}
-              </div>
+                    {approvedAssetCategories.map((cat) => (
+                      <button
+                        key={cat}
+                        type="button"
+                        onClick={() => setApprovedCategoryFilter(approvedCategoryFilter === cat ? null : cat)}
+                        className={clsx(
+                          'px-2 py-1 text-xs rounded-full transition-colors',
+                          approvedCategoryFilter === cat
+                            ? 'bg-purple-500 text-white'
+                            : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                        )}
+                      >
+                        {categoryLabels[cat] || formatKey(cat)}
+                      </button>
+                    ))}
+
+                    {approvedCategoryFilter && (
+                      <button
+                        type="button"
+                        onClick={() => setApprovedCategoryFilter(null)}
+                        className="ml-2 px-2 py-1 text-xs text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 flex items-center gap-1"
+                      >
+                        <X className="w-3 h-3" />
+                        Clear
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {/* Results count */}
+                <div className="text-xs text-gray-500 dark:text-gray-400">
+                  Showing {filteredApprovedAssets.length} of {approvedAssets.length} assets
+                </div>
+
+                {/* Asset grid */}
+                <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+                  {filteredApprovedAssets.map((asset) => {
+                    const isSelected = referenceImages.some(
+                      (r) =>
+                        r.type === 'approved_asset' &&
+                        r.id === parseInt(asset.id)
+                    );
+
+                    return (
+                      <ApprovedAssetCard
+                        key={asset.id}
+                        asset={asset}
+                        isSelected={isSelected}
+                        onToggle={(thumbnailUrl) =>
+                          handleToggleReference({
+                            type: 'approved_asset',
+                            id: parseInt(asset.id),
+                            thumbnailUrl,
+                            name: `${formatKey(asset.category)}/${formatKey(asset.asset_key)}`,
+                          })
+                        }
+                      />
+                    );
+                  })}
+                </div>
+              </>
             )}
           </div>
         )}
