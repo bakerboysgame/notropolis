@@ -4644,30 +4644,41 @@ Please address the above feedback in this generation.`;
             }
 
             // Build combined prompt for 2 walking frames
-            const batchPrompt = `Generate 2 SEPARATE IMAGES - two walking animation frames for a pedestrian sprite.
-Use the provided character reference sheet to match the character's appearance exactly.
+            const batchPrompt = `Generate 2 SEPARATE IMAGES for a walking animation cycle - a pedestrian viewed from DIRECTLY ABOVE.
 
-BOTH IMAGES MUST BE:
-- 32x32 pixels each
-- TOP-DOWN OVERHEAD VIEW (bird's eye, looking straight down from above)
-- Same character, same clothing, same style
-- 90s CGI stylized rendering (Toy Story/early Pixar aesthetic)
-- NOT isometric, NOT angled - pure top-down overhead view
+REFERENCE: Use the provided character reference sheet to match the character's appearance, clothing, and colors exactly.
 
-IMAGE 1 (Frame 1):
-- Right leg forward, left leg back - mid-stride walking pose
-- Right arm back, left arm forward (opposite to legs)
-- Top of head and shoulders visible from above
+=== TOP-DOWN VIEW EXPLAINED ===
+You are looking STRAIGHT DOWN from above, like a bird flying over the character.
+- You see the TOP OF THE HEAD (hair/hat), NOT the face
+- Shoulders form an oval shape below the head
+- Arms and legs extend outward from the body
+- You can see the full body layout from above
+- The character should look like a small person seen from a helicopter
 
-IMAGE 2 (Frame 2):
-- Left leg forward, right leg back - opposite mid-stride pose
-- Left arm back, right arm forward (opposite to legs)
-- Top of head and shoulders visible from above
+=== TECHNICAL REQUIREMENTS ===
+- Each image: 32x32 pixels, square format
+- Style: 90s CGI (Toy Story/early Pixar aesthetic)
+- Background: Transparent or solid color (will be removed)
+- Both frames must be IDENTICAL except for leg/arm positions
 
-These frames will alternate in-game to create walking animation.
-The sprite will be rotated for different walking directions.
+=== FRAME 1 (Walk Pose A) ===
+- RIGHT leg extended forward (toward top of image)
+- LEFT leg extended backward (toward bottom of image)
+- LEFT arm swings forward, RIGHT arm swings backward
+- This is the mid-stride pose
 
-CRITICAL: Generate exactly 2 separate images, not a sprite sheet.`;
+=== FRAME 2 (Walk Pose B) ===
+- LEFT leg extended forward (toward top of image)
+- RIGHT leg extended backward (toward bottom of image)
+- RIGHT arm swings forward, LEFT arm swings backward
+- This is the opposite mid-stride pose
+
+=== ANIMATION PURPOSE ===
+When these two frames alternate rapidly (Frame 1 → Frame 2 → Frame 1...), they create a walking animation.
+The game will rotate these sprites to show walking in any direction (north, south, east, west).
+
+CRITICAL: Generate exactly 2 SEPARATE images (not a sprite sheet). Each image shows the same character in a different walking pose.`;
 
             // Generate both frames with numberOfImages: 2
             const batchSettings = validateGenerationSettings({ numberOfImages: 2 }, 'npc');

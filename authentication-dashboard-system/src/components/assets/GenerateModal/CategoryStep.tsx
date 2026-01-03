@@ -18,6 +18,7 @@ import { GenerateFormData, SPRITE_TO_REF_CATEGORY } from './types';
 interface CategoryStepProps {
   formData: GenerateFormData;
   updateFormData: (updates: Partial<GenerateFormData>) => void;
+  isPedestrianSprite?: boolean;
 }
 
 // Category labels for display
@@ -41,6 +42,7 @@ const CATEGORY_LABELS: Record<AssetCategory, string> = {
 export default function CategoryStep({
   formData,
   updateFormData,
+  isPedestrianSprite,
 }: CategoryStepProps) {
   const [approvedRefs, setApprovedRefs] = useState<Asset[]>([]);
   const [spriteStatus, setSpriteStatus] = useState<SpriteStatusResponse | null>(null);
@@ -241,7 +243,33 @@ export default function CategoryStep({
           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             Sprite Variant
           </label>
-          {isLoadingStatus ? (
+          {/* Show batch mode info for pedestrians */}
+          {isPedestrianSprite && formData.generateBothFrames ? (
+            <div className="p-4 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-700 rounded-lg">
+              <div className="flex items-center gap-2 mb-2">
+                <CheckCircle2 className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                <span className="font-medium text-purple-700 dark:text-purple-300">
+                  Batch Mode Enabled
+                </span>
+              </div>
+              <p className="text-sm text-purple-600 dark:text-purple-400">
+                Both walk frames (walk_1 and walk_2) will be generated together in a single API call.
+              </p>
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <div className="p-2 bg-white dark:bg-gray-800 rounded border border-purple-200 dark:border-purple-700">
+                  <span className="text-sm font-medium text-gray-900 dark:text-gray-100">Walk Frame 1</span>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Right leg forward</p>
+                </div>
+                <div className="p-2 bg-white dark:bg-gray-800 rounded border border-purple-200 dark:border-purple-700">
+                  <span className="text-sm font-medium text-gray-900 dark:text-gray-100">Walk Frame 2</span>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">Left leg forward</p>
+                </div>
+              </div>
+              <p className="text-xs text-purple-500 dark:text-purple-400 mt-2">
+                You can disable batch mode in the Review step to generate frames individually.
+              </p>
+            </div>
+          ) : isLoadingStatus ? (
             <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
               <Loader2 className="w-4 h-4 animate-spin" />
               Loading sprite status...

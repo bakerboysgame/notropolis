@@ -29,12 +29,12 @@ All visual assets are generated via the **Stage 17 Asset Pipeline** and stored i
 
 | Category | Path | Example Files |
 |----------|------|---------------|
-| Terrain | `/sprites/terrain/` | `terrain_grass.webp` (64×32) |
+| Terrain | `/sprites/terrain/` | `terrain_grass.webp` (64×64) |
 | Buildings | `/sprites/buildings/` | `building_restaurant.webp` (128-320px) |
 | Effects | `/sprites/effects/` | `status_fire.webp`, `dirty_trick_arson.webp` |
-| Overlays | `/sprites/overlays/` | `overlay_owned_self.webp` (64×32) |
+| Overlays | `/sprites/overlays/` | `overlay_owned_self.webp` (64×64) |
 | UI | `/sprites/ui/` | `ui_minimap_player.webp` (8×8) |
-| NPCs | `/sprites/npc/` | `ped_walk_n.webp` (64×32 strip) |
+| NPCs | `/sprites/npc/` | `ped_walk_n.webp` (64×64 strip) |
 | Scenes | `/scenes/` | `scene_prison.webp` (1280×720) |
 
 **Private bucket stores:**
@@ -176,8 +176,8 @@ UPDATE building_types SET sprite_key = 'buildings/building_casino.webp', sprite_
 ```typescript
 // utils/isometricRenderer.ts
 
-export const ISO_TILE_WIDTH = 64;
-export const ISO_TILE_HEIGHT = 32;
+// Square tiles - sprites are centered on tile position
+export const TILE_SIZE = 64; // Square tiles, same width and height
 export const VIEWPORT_TILES = 15; // Show ~15x15 tiles in view
 
 // R2 base URL for game-ready sprites
@@ -217,7 +217,7 @@ export const SPECIAL_SPRITES: Record<string, string> = {
 ### Coordinate Conversion
 
 ```typescript
-// Grid (x,y) to screen position
+// Grid (x,y) to screen position - simple square tile math
 export function gridToScreen(
   gridX: number,
   gridY: number,
@@ -225,16 +225,14 @@ export function gridToScreen(
   centerY: number,
   zoom: number = 1
 ): { screenX: number; screenY: number } {
-  const isoX = (gridX - gridY) * (ISO_TILE_WIDTH / 2) * zoom;
-  const isoY = (gridX + gridY) * (ISO_TILE_HEIGHT / 2) * zoom;
+  // Square tiles: direct x/y mapping
+  const screenX = centerX + gridX * TILE_SIZE * zoom;
+  const screenY = centerY + gridY * TILE_SIZE * zoom;
 
-  return {
-    screenX: centerX + isoX,
-    screenY: centerY + isoY,
-  };
+  return { screenX, screenY };
 }
 
-// Screen position to grid (x,y)
+// Screen position to grid (x,y) - simple square tile math
 export function screenToGrid(
   screenX: number,
   screenY: number,
@@ -245,8 +243,8 @@ export function screenToGrid(
   const relX = (screenX - centerX) / zoom;
   const relY = (screenY - centerY) / zoom;
 
-  const gridX = Math.floor((relX / (ISO_TILE_WIDTH / 2) + relY / (ISO_TILE_HEIGHT / 2)) / 2);
-  const gridY = Math.floor((relY / (ISO_TILE_HEIGHT / 2) - relX / (ISO_TILE_WIDTH / 2)) / 2);
+  const gridX = Math.floor(relX / TILE_SIZE);
+  const gridY = Math.floor(relY / TILE_SIZE);
 
   return { gridX, gridY };
 }
@@ -490,16 +488,18 @@ export function IsometricView({
 
       const { screenX, screenY } = gridToScreen(relX, relY, screenCenterX, screenCenterY, zoom);
 
-      // Draw terrain
+      const tileSize = TILE_SIZE * zoom;
+
+      // Draw terrain - sprite centered on tile
       const terrainKey = TERRAIN_SPRITES[tile.terrain_type] || TERRAIN_SPRITES.free_land;
       const terrainSprite = sprites.get(terrainKey);
       if (terrainSprite) {
         ctx.drawImage(
           terrainSprite,
-          screenX - (ISO_TILE_WIDTH * zoom) / 2,
-          screenY,
-          ISO_TILE_WIDTH * zoom,
-          ISO_TILE_HEIGHT * zoom
+          screenX - tileSize / 2,
+          screenY - tileSize / 2,
+          tileSize,
+          tileSize
         );
       }
 
@@ -508,21 +508,22 @@ export function IsometricView({
         ctx.fillStyle = tile.owner_company_id === activeCompanyId
           ? 'rgba(34, 197, 94, 0.3)'
           : 'rgba(239, 68, 68, 0.3)';
-        drawIsoDiamond(ctx, screenX, screenY, ISO_TILE_WIDTH * zoom, ISO_TILE_HEIGHT * zoom);
+        ctx.fillRect(screenX - tileSize / 2, screenY - tileSize / 2, tileSize, tileSize);
       }
 
-      // Draw building
+      // Draw building - centered on tile, extends upward
       const building = buildingMap.get(tile.id);
       if (building && building.sprite_key) {
         const buildingSprite = sprites.get(building.sprite_key);
         if (buildingSprite) {
           const spriteHeight = (building.sprite_height || 64) * zoom;
-          const spriteWidth = ISO_TILE_WIDTH * zoom;
+          const spriteWidth = tileSize;
 
+          // Building sprite is centered horizontally, bottom aligned to tile center
           ctx.drawImage(
             buildingSprite,
             screenX - spriteWidth / 2,
-            screenY - spriteHeight + (ISO_TILE_HEIGHT * zoom),
+            screenY - spriteHeight + tileSize / 2,
             spriteWidth,
             spriteHeight
           );
@@ -532,7 +533,7 @@ export function IsometricView({
             ctx.fillStyle = `rgba(0, 0, 0, ${building.damage_percent / 200})`;
             ctx.fillRect(
               screenX - spriteWidth / 2,
-              screenY - spriteHeight + (ISO_TILE_HEIGHT * zoom),
+              screenY - spriteHeight + tileSize / 2,
               spriteWidth,
               spriteHeight
             );
@@ -543,7 +544,7 @@ export function IsometricView({
             ctx.fillStyle = 'rgba(255, 100, 0, 0.4)';
             ctx.fillRect(
               screenX - spriteWidth / 2,
-              screenY - spriteHeight + (ISO_TILE_HEIGHT * zoom),
+              screenY - spriteHeight + tileSize / 2,
               spriteWidth,
               spriteHeight
             );
@@ -555,7 +556,7 @@ export function IsometricView({
       if (selectedTile && x === selectedTile.x && y === selectedTile.y) {
         ctx.strokeStyle = '#fbbf24';
         ctx.lineWidth = 3;
-        drawIsoDiamondOutline(ctx, screenX, screenY, ISO_TILE_WIDTH * zoom, ISO_TILE_HEIGHT * zoom);
+        ctx.strokeRect(screenX - tileSize / 2, screenY - tileSize / 2, tileSize, tileSize);
       }
     }
   }, [visibleTiles, sprites, spritesLoading, tileMap, buildingMap, activeCompanyId, centerTile, zoom, panOffset, selectedTile, map.width, map.height]);
@@ -588,7 +589,7 @@ export function IsometricView({
     setDragStart({ x: e.clientX, y: e.clientY });
 
     // Update center tile when panned far enough
-    const threshold = ISO_TILE_WIDTH * zoom;
+    const threshold = TILE_SIZE * zoom;
     if (Math.abs(panOffset.x) > threshold || Math.abs(panOffset.y) > threshold) {
       const tileShiftX = Math.round(panOffset.x / threshold);
       const tileShiftY = Math.round(panOffset.y / threshold);
@@ -662,39 +663,8 @@ export function IsometricView({
   );
 }
 
-// Helper: Draw filled isometric diamond
-function drawIsoDiamond(
-  ctx: CanvasRenderingContext2D,
-  centerX: number,
-  centerY: number,
-  width: number,
-  height: number
-) {
-  ctx.beginPath();
-  ctx.moveTo(centerX, centerY);
-  ctx.lineTo(centerX + width / 2, centerY + height / 2);
-  ctx.lineTo(centerX, centerY + height);
-  ctx.lineTo(centerX - width / 2, centerY + height / 2);
-  ctx.closePath();
-  ctx.fill();
-}
-
-// Helper: Draw outlined isometric diamond
-function drawIsoDiamondOutline(
-  ctx: CanvasRenderingContext2D,
-  centerX: number,
-  centerY: number,
-  width: number,
-  height: number
-) {
-  ctx.beginPath();
-  ctx.moveTo(centerX, centerY);
-  ctx.lineTo(centerX + width / 2, centerY + height / 2);
-  ctx.lineTo(centerX, centerY + height);
-  ctx.lineTo(centerX - width / 2, centerY + height / 2);
-  ctx.closePath();
-  ctx.stroke();
-}
+// Note: Square tiles use standard ctx.fillRect() and ctx.strokeRect()
+// No custom diamond drawing functions needed
 ```
 
 ---
@@ -1022,21 +992,21 @@ Animated pedestrians and cars moving along roads to bring the city to life.
 
 | Asset | Filename | Dimensions | Frames | Description |
 |-------|----------|------------|--------|-------------|
-| Pedestrian Walk N | `npc/ped_walk_n.webp` | 64x32 | 2 | Walking north - left foot, right foot |
-| Pedestrian Walk S | `npc/ped_walk_s.webp` | 64x32 | 2 | Walking south - left foot, right foot |
-| Pedestrian Walk E | `npc/ped_walk_e.webp` | 64x32 | 2 | Walking east - left foot, right foot |
-| Pedestrian Walk W | `npc/ped_walk_w.webp` | 64x32 | 2 | Walking west - left foot, right foot |
+| Pedestrian Walk N | `npc/ped_walk_n.webp` | 64x64 | 2 | Walking north - left foot, right foot |
+| Pedestrian Walk S | `npc/ped_walk_s.webp` | 64x64 | 2 | Walking south - left foot, right foot |
+| Pedestrian Walk E | `npc/ped_walk_e.webp` | 64x64 | 2 | Walking east - left foot, right foot |
+| Pedestrian Walk W | `npc/ped_walk_w.webp` | 64x64 | 2 | Walking west - left foot, right foot |
 | Car Drive N | `npc/car_n.webp` | 32x32 | 1 | Car facing north (static) |
 | Car Drive S | `npc/car_s.webp` | 32x32 | 1 | Car facing south |
 | Car Drive E | `npc/car_e.webp` | 32x32 | 1 | Car facing east |
 | Car Drive W | `npc/car_w.webp` | 32x32 | 1 | Car facing west |
 
 **Sprite sheet format:**
-- Pedestrians: 2-frame horizontal strip (64x32 total), each frame 32x32px
+- Pedestrians: 2-frame horizontal strip (128x64 total), each frame 64x64px
 - Frame 1: Left foot forward, right arm forward
 - Frame 2: Right foot forward, left arm forward
 - Toggle between frames every 200ms for natural walk cycle
-- PNG with transparency, isometric perspective
+- PNG with transparency, 3D perspective matching building style
 
 ### Implementation Approach
 

@@ -56,24 +56,21 @@ https://pub-874867b18f8b4b4882277d8a2b7dfe80.r2.dev/
 
 ---
 
-## Isometric Grid System
+## Square Tile Grid System
 
-The game uses a **diamond isometric** projection (also called "2:1 isometric"):
+The game uses **square tiles** with centered sprites:
 
 ```
-        /\
-       /  \
-      /    \
-     /      \
-    <   64   >  width = 64px
-     \      /
-      \    /
-       \  /
-        \/
-        32      height = 32px (half of width)
+    ┌────────────────┐
+    │                │
+    │                │
+    │   64 × 64 px   │
+    │                │
+    │                │
+    └────────────────┘
 ```
 
-All tiles are diamond-shaped when viewed from above. Buildings sit on top of tiles and extend upward.
+All tiles are 64×64 pixel squares. Sprites (terrain, buildings) are centered on tile positions. Buildings extend upward from the tile center.
 
 ---
 
@@ -107,7 +104,7 @@ Roads use 5 base tiles that can be **rotated in code** (0°, 90°, 180°, 270°)
 | `road_crossroad` | Crossroad | ┼ | `terrain_road_crossroad.webp` | None needed |
 | `road_end` | Dead End | ╷ | `terrain_road_end.webp` | 0°, 90°, 180°, 270° |
 
-**Size:** 64×32 px (isometric diamond)
+**Size:** 64×64 px (square tile)
 
 #### Dirt Track Tiles - Rotatable System (5)
 
@@ -121,7 +118,7 @@ Same structure as roads, different visual style.
 | `dirt_crossroad` | Crossroad | `terrain_dirt_crossroad.webp` | None needed |
 | `dirt_end` | Dead End | `terrain_dirt_end.webp` | 0°, 90°, 180°, 270° |
 
-**Size:** 64×32 px (isometric diamond)
+**Size:** 64×64 px (square tile)
 
 #### Water Tiles - Edge System (13)
 
@@ -143,7 +140,7 @@ Water uses an edge-based system. Naming indicates which sides have land.
 | `water_inner_se` | Inner corner (concave SE) | `terrain_water_inner_se.webp` |
 | `water_inner_sw` | Inner corner (concave SW) | `terrain_water_inner_sw.webp` |
 
-**Size:** 64×32 px (isometric diamond)
+**Size:** 64×64 px (square tile)
 
 ---
 
@@ -613,77 +610,77 @@ Effects/overlays:
 
 ### GRASS TILE
 ```
-Create a single isometric terrain tile for GRASS.
+Create a single terrain tile for GRASS.
 
-Format: Diamond/rhombus shaped tile viewed from above at 45-degree isometric angle
-Dimensions: The tile should be a flat diamond that would fit a 64x32 pixel canvas (2:1 ratio)
+Format: Square tile viewed from above at a slight 3D angle
+Dimensions: 64x64 pixel canvas
 Background: TRANSPARENT (PNG-ready)
 
 The grass tile: Lush green grass with subtle variation in shade. Small tufts and texture visible but not overwhelming. Natural, well-maintained lawn appearance.
 
 Style: 90s CGI aesthetic with modern render quality. Clean, slightly stylized grass texture. Soft shadows suggesting gentle undulation. The tile must seamlessly connect when placed adjacent to identical tiles.
 
-This is a FLAT ground tile, not a 3D object. Show only the top surface as if looking down at an angle.
+This is a ground tile showing the top surface with subtle 3D depth.
 ```
 
 ### WATER TILE
 ```
-Create a single isometric terrain tile for WATER.
+Create a single terrain tile for WATER.
 
-Format: Diamond/rhombus shaped tile viewed from above at 45-degree isometric angle
-Dimensions: The tile should be a flat diamond that would fit a 64x32 pixel canvas (2:1 ratio)
+Format: Square tile viewed from above at a slight 3D angle
+Dimensions: 64x64 pixel canvas
 Background: TRANSPARENT (PNG-ready)
 
 The water tile: Blue water with subtle ripple texture. Gentle reflective quality suggesting calm water surface. Light caustic patterns optional.
 
 Style: 90s CGI aesthetic with modern render quality. Clean, stylized water surface. Subtle specular highlights. The tile must seamlessly connect when placed adjacent to identical tiles.
 
-This is a FLAT ground tile, not a 3D object. Show only the top surface as if looking down at an angle.
+This is a ground tile showing the top surface with subtle 3D depth.
 ```
 
 ### ROAD TILE
 ```
-Create a single isometric terrain tile for a ROAD WITH SIDEWALKS.
+Create a single terrain tile for a ROAD WITH SIDEWALKS.
 
-Format: Diamond/rhombus shaped tile viewed from above at 45-degree isometric angle
-Dimensions: The tile should be a flat diamond that would fit a 64x32 pixel canvas (2:1 ratio)
+Format: Square tile viewed from above at a slight 3D angle
+Dimensions: 64x64 pixel canvas
 Background: TRANSPARENT (PNG-ready)
 
-The road tile: Dark gray asphalt road running through the center of the tile. Light gray/beige sidewalks on both edges of the diamond. Clear visual distinction between road surface (for vehicles) and sidewalk areas (for pedestrians). Road runs corner-to-corner diagonally.
+The road tile: Dark gray asphalt road running through the center of the tile. Light gray/beige sidewalks on both edges. Clear visual distinction between road surface (for vehicles) and sidewalk areas (for pedestrians).
 
 Style: 90s CGI aesthetic with modern render quality. Clean surfaces with subtle texture. Asphalt should have fine grain texture, sidewalks should look like concrete/paving. The tile must seamlessly connect when placed adjacent to identical tiles.
 
-This is a FLAT ground tile, not a 3D object. Show only the top surface as if looking down at an angle.
+This is a ground tile showing the top surface with subtle 3D depth.
 ```
 
 ### DIRT TRACK TILE
 ```
-Create a single isometric terrain tile for a DIRT TRACK.
+Create a single terrain tile for a DIRT TRACK.
 
-Format: Diamond/rhombus shaped tile viewed from above at 45-degree isometric angle
-Dimensions: The tile should be a flat diamond that would fit a 64x32 pixel canvas (2:1 ratio)
+Format: Square tile viewed from above at a slight 3D angle
+Dimensions: 64x64 pixel canvas
 Background: TRANSPARENT (PNG-ready)
 
 The dirt track tile: Brown/tan compacted dirt path. Visible texture suggesting worn earth - small pebbles, subtle tire/foot track impressions. Earthy, natural appearance.
 
 Style: 90s CGI aesthetic with modern render quality. Warm brown tones with variation. The tile must seamlessly connect when placed adjacent to identical tiles.
 
-This is a FLAT ground tile, not a 3D object. Show only the top surface as if looking down at an angle.
+This is a ground tile showing the top surface with subtle 3D depth.
 ```
 
 ### TREES/FOREST TILE
 ```
-Create a single isometric terrain tile for TREES/FOREST.
+Create a single terrain tile for TREES/FOREST.
 
-Format: Diamond/rhombus shaped tile viewed from above at 45-degree isometric angle
-Dimensions: The tile should be a flat diamond that would fit a 64x32 pixel canvas (2:1 ratio) but trees extend upward
+Format: Square tile with 3D tree extending upward
+Dimensions: 64x64 pixel canvas (trees extend above the base)
 Background: TRANSPARENT (PNG-ready)
 
-The trees tile: Dense cluster of trees viewed from above and the side. Chunky, stylized tree canopy with visible foliage masses. Mix of greens. Trees should extend above the base diamond footprint.
+The trees tile: Dense cluster of trees viewed from a 3D angle. Chunky, stylized tree canopy with visible foliage masses. Mix of greens. Trees should extend above the base tile footprint.
 
 Style: 90s CGI aesthetic with modern render quality - chunky, polygonal tree shapes like early 3D games. Soft shadows between trees. Ambient occlusion in foliage depths. The base footprint should tile seamlessly.
 
-Show trees as 3D objects sitting on the diamond base, extending upward.
+Show trees as 3D objects sitting on the square base, extending upward.
 ```
 
 ### MOUNTAIN TILE

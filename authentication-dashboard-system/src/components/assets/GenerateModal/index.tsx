@@ -231,6 +231,7 @@ export function GenerateModal({
         return (
           <CategoryStep
             {...props}
+            isPedestrianSprite={isPedestrianSprite}
             // Don't lock - let user change category even if pre-filled
           />
         );
