@@ -59,7 +59,7 @@ All visual assets are generated via the **Stage 17 Asset Pipeline** and stored i
 ### Zoomed Mode (New IsometricView)
 - Shows ~15x15 tile area in isometric perspective
 - Isometric building sprites rendered on tiles
-- **ALL ACTIONS AVAILABLE** - buy land, build, attack, etc.
+- **Clicking a tile opens a Property Modal** with all available actions
 - Pan/scroll to move around the map
 - **Map wraps** at edges (continuous scrolling)
 - "Back to Overview" button to return
@@ -80,18 +80,45 @@ All visual assets are generated via the **Stage 17 Asset Pipeline** and stored i
                            ↓
 ┌─────────────────────────────────────────────────────────────┐
 │                      ZOOMED MODE                             │
-│  ┌───────────────────────────────────┐ ┌──────────────────┐ │
-│  │                                    │ │   Tile Info      │ │
-│  │    Isometric View (~15x15)        │ │   - Buy Land     │ │
-│  │    Centered on (45,30)            │ │   - Build        │ │
-│  │                                    │ │   - Attack       │ │
-│  │    [Pan/Scroll - Wraps at edges]  │ │   - Sell         │ │
-│  │                                    │ │                  │ │
-│  │    [Click tile for actions]       │ │   [Back to       │ │
-│  │                                    │ │    Overview]     │ │
-│  └───────────────────────────────────┘ └──────────────────┘ │
+│  ┌─────────────────────────────────────────────────────────┐│
+│  │                                                          ││
+│  │              Isometric View (FULL SCREEN)               ││
+│  │              Centered on (45,30)                        ││
+│  │                                                          ││
+│  │    [Back to Overview]     [Pan/Scroll - Wraps at edges] ││
+│  │                                                          ││
+│  │                    [Click any tile]                      ││
+│  │                           ↓                              ││
+│  │                ┌─────────────────────┐                   ││
+│  │                │ PROPERTY MODAL  [X] │                   ││
+│  │                │                     │                   ││
+│  │                │  🏪 Building Name   │                   ││
+│  │                │  Owner: CompanyName │                   ││
+│  │                │  Health: 85%        │                   ││
+│  │                │                     │                   ││
+│  │                │  ┌───────────────┐  │                   ││
+│  │                │  │   Action 1    │  │                   ││
+│  │                │  └───────────────┘  │                   ││
+│  │                │  ┌───────────────┐  │                   ││
+│  │                │  │   Action 2    │  │                   ││
+│  │                │  └───────────────┘  │                   ││
+│  │                └─────────────────────┘                   ││
+│  │                                                          ││
+│  └─────────────────────────────────────────────────────────┘│
 └─────────────────────────────────────────────────────────────┘
 ```
+
+### Property Modal - Context-Dependent Actions
+
+| Tile State | Modal Shows |
+|------------|-------------|
+| Unclaimed land | Terrain info, Buy Land button with price |
+| Your property (empty) | Build options (list of available buildings) |
+| Your property (building) | Building stats, Upgrade, Repair, Sell buttons |
+| Enemy property | Building stats (if visible), Attack options, Spy |
+| Special building (Bank) | Deposit/Withdraw interface |
+| Special building (Temple) | Donate interface |
+| Special building (Police) | Info only |
 
 ---
 
@@ -99,9 +126,8 @@ All visual assets are generated via the **Stage 17 Asset Pipeline** and stored i
 
 | File | Changes |
 |------|---------|
-| `src/pages/GameMap.tsx` | Add view mode state, handle transitions |
+| `src/pages/GameMap.tsx` | Add view mode state, handle transitions, remove side panel |
 | `src/components/game/MapCanvas.tsx` | Disable actions, add "click to zoom" behavior |
-| `src/components/game/TileInfo.tsx` | Only show actions in zoomed mode |
 
 ## Files to Create
 
@@ -109,6 +135,7 @@ All visual assets are generated via the **Stage 17 Asset Pipeline** and stored i
 |------|---------|
 | `src/components/game/IsometricView.tsx` | Zoomed isometric canvas renderer |
 | `src/components/game/IsometricTile.tsx` | Individual tile/building render |
+| `src/components/game/PropertyModal.tsx` | Modal for tile actions (replaces side panel) |
 | `src/utils/isometricRenderer.ts` | Isometric math utilities |
 | `src/hooks/useIsometricAssets.ts` | Asset preloading hook |
 | `migrations/0026_add_building_sprites.sql` | Sprite references in DB |
@@ -255,24 +282,30 @@ export function GameMap(): JSX.Element {
   // View mode: 'overview' (grid) or 'zoomed' (isometric)
   const [viewMode, setViewMode] = useState<'overview' | 'zoomed'>('overview');
   const [zoomCenter, setZoomCenter] = useState<{ x: number; y: number } | null>(null);
-  const [selectedTile, setSelectedTile] = useState<{ x: number; y: number } | null>(null);
+
+  // Modal state - tile coordinates when modal is open, null when closed
+  const [modalTile, setModalTile] = useState<{ x: number; y: number } | null>(null);
 
   // Handle click in overview mode - transition to zoomed
   const handleOverviewClick = (coords: { x: number; y: number }) => {
     setZoomCenter(coords);
-    setSelectedTile(coords);
     setViewMode('zoomed');
   };
 
-  // Handle click in zoomed mode - select tile for actions
+  // Handle click in zoomed mode - open property modal
   const handleZoomedClick = (coords: { x: number; y: number }) => {
-    setSelectedTile(coords);
+    setModalTile(coords);
+  };
+
+  // Close modal
+  const handleCloseModal = () => {
+    setModalTile(null);
   };
 
   // Return to overview
   const handleBackToOverview = () => {
     setViewMode('overview');
-    setSelectedTile(null);
+    setModalTile(null);
   };
 
   // ... loading/error handling ...
@@ -280,7 +313,7 @@ export function GameMap(): JSX.Element {
   const { map, tiles, buildings, playerTileCount, totalFreeLand } = mapData;
 
   return (
-    <div className="flex h-screen bg-gray-900">
+    <div className="h-screen bg-gray-900 relative">
       {/* Prison status banner */}
       {activeCompany.is_in_prison && (
         <div className="absolute top-0 left-0 right-0 z-50 p-4">
@@ -288,8 +321,8 @@ export function GameMap(): JSX.Element {
         </div>
       )}
 
-      {/* Main map area */}
-      <div className="flex-1 relative overflow-hidden">
+      {/* Full-screen map area */}
+      <div className="h-full w-full relative overflow-hidden">
         {viewMode === 'overview' ? (
           <>
             <MapCanvas
@@ -298,7 +331,7 @@ export function GameMap(): JSX.Element {
               buildings={buildings}
               activeCompanyId={activeCompany.id}
               onTileClick={handleOverviewClick}
-              readOnly={true} // Disable actions in overview
+              readOnly={true}
             />
             <div className="absolute bottom-4 left-4 bg-gray-800/90 px-4 py-2 rounded-lg">
               <p className="text-gray-300 text-sm">Click any tile to zoom in</p>
@@ -312,7 +345,7 @@ export function GameMap(): JSX.Element {
               buildings={buildings}
               activeCompanyId={activeCompany.id}
               centerTile={zoomCenter!}
-              selectedTile={selectedTile}
+              selectedTile={modalTile}
               onTileClick={handleZoomedClick}
               onCenterChange={setZoomCenter}
             />
@@ -330,31 +363,20 @@ export function GameMap(): JSX.Element {
         <MapLegend />
       </div>
 
-      {/* Side panel - only show actions in zoomed mode */}
-      <div className="w-80 bg-gray-800 border-l border-gray-700 overflow-y-auto">
-        {viewMode === 'zoomed' && selectedTile ? (
-          <TileInfo
-            mapId={map.id}
-            x={selectedTile.x}
-            y={selectedTile.y}
-            map={map}
-            onClose={() => setSelectedTile(null)}
-            onRefresh={refetch}
-            actionsEnabled={true}
-          />
-        ) : viewMode === 'overview' ? (
-          <MapOverview
-            map={map}
-            totalTiles={tiles.length}
-            ownedTiles={playerTileCount}
-            totalFreeLand={totalFreeLand}
-          />
-        ) : (
-          <div className="p-4 text-gray-400">
-            <p>Click a tile to see details and actions</p>
-          </div>
-        )}
-      </div>
+      {/* Property Modal - opens when tile is clicked in zoomed mode */}
+      {modalTile && (
+        <PropertyModal
+          mapId={map.id}
+          x={modalTile.x}
+          y={modalTile.y}
+          map={map}
+          tiles={tiles}
+          buildings={buildings}
+          activeCompany={activeCompany}
+          onClose={handleCloseModal}
+          onRefresh={refetch}
+        />
+      )}
     </div>
   );
 }
@@ -731,48 +753,189 @@ async function loadImage(url: string): Promise<HTMLImageElement> {
 
 ---
 
-## TileInfo Changes
+## PropertyModal Component
 
 ```tsx
-// components/game/TileInfo.tsx - Updated
-interface TileInfoProps {
-  // ... existing props
-  actionsEnabled?: boolean; // New prop
+// components/game/PropertyModal.tsx
+interface PropertyModalProps {
+  mapId: string;
+  x: number;
+  y: number;
+  map: GameMap;
+  tiles: Tile[];
+  buildings: BuildingInstance[];
+  activeCompany: Company;
+  onClose: () => void;
+  onRefresh: () => void;
 }
 
-export function TileInfo({ ..., actionsEnabled = true }: TileInfoProps) {
-  // ... existing code
+export function PropertyModal({
+  mapId,
+  x,
+  y,
+  map,
+  tiles,
+  buildings,
+  activeCompany,
+  onClose,
+  onRefresh,
+}: PropertyModalProps): JSX.Element {
+  // Find tile and building at this location
+  const tile = tiles.find(t => t.x === x && t.y === y);
+  const building = buildings.find(b => b.tile_id === tile?.id);
 
-  // Only show action buttons if actionsEnabled is true
+  // Determine ownership state
+  const isOwned = tile?.owner_company_id === activeCompany.id;
+  const isEnemyOwned = tile?.owner_company_id && tile.owner_company_id !== activeCompany.id;
+  const isUnclaimed = !tile?.owner_company_id;
+  const isSpecialBuilding = building?.building_type_id &&
+    ['temple', 'bank', 'police_station'].includes(building.building_type_id);
+
+  // Close on backdrop click
+  const handleBackdropClick = (e: React.MouseEvent) => {
+    if (e.target === e.currentTarget) onClose();
+  };
+
+  // Close on Escape key
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleEscape);
+    return () => window.removeEventListener('keydown', handleEscape);
+  }, [onClose]);
+
   return (
-    <div className="p-4">
-      {/* Tile info display - always shown */}
-      <div className="mb-4">
-        <h3>{tile.terrain_type}</h3>
-        <p>Owner: {tile.owner_company_id || 'Unclaimed'}</p>
-        {/* etc */}
-      </div>
-
-      {/* Actions - only in zoomed mode */}
-      {actionsEnabled && (
-        <div className="space-y-2">
-          {/* Buy Land button */}
-          {/* Build button */}
-          {/* Attack button */}
-          {/* Sell button */}
-          {/* etc */}
+    <div
+      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+      onClick={handleBackdropClick}
+    >
+      <div className="bg-gray-800 rounded-lg shadow-xl max-w-md w-full mx-4 overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 border-b border-gray-700">
+          <div>
+            <h2 className="text-lg font-bold text-white">
+              {building ? building.name : tile?.terrain_type || 'Unknown'}
+            </h2>
+            <p className="text-sm text-gray-400">
+              Position: ({x}, {y})
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-3 -mr-2 hover:bg-gray-700 rounded-full transition-colors"
+            aria-label="Close modal"
+          >
+            <X className="w-6 h-6 text-white" />
+          </button>
         </div>
-      )}
 
-      {!actionsEnabled && (
-        <p className="text-gray-500 text-sm italic">
-          Click tile to zoom in and access actions
-        </p>
-      )}
+        {/* Content */}
+        <div className="p-4 space-y-4">
+          {/* Tile/Building Info */}
+          <div className="space-y-2">
+            {tile?.owner_company_id && (
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-400">Owner:</span>
+                <span className={isOwned ? 'text-green-400' : 'text-red-400'}>
+                  {isOwned ? 'You' : 'Enemy'}
+                </span>
+              </div>
+            )}
+            {building && (
+              <>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-400">Health:</span>
+                  <span className="text-white">{100 - (building.damage_percent || 0)}%</span>
+                </div>
+                {building.income_per_tick && (
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-400">Income:</span>
+                    <span className="text-green-400">${building.income_per_tick}/tick</span>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+
+          {/* Actions - Context Dependent */}
+          <div className="space-y-2 pt-2 border-t border-gray-700">
+            {/* Unclaimed Land */}
+            {isUnclaimed && (
+              <button className="w-full py-3 px-4 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors">
+                Buy Land - ${map.land_price}
+              </button>
+            )}
+
+            {/* Your Empty Property */}
+            {isOwned && !building && (
+              <button className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors">
+                Build...
+              </button>
+            )}
+
+            {/* Your Property with Building */}
+            {isOwned && building && !isSpecialBuilding && (
+              <>
+                {building.damage_percent > 0 && (
+                  <button className="w-full py-3 px-4 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg font-medium transition-colors">
+                    Repair - ${Math.ceil(building.damage_percent * 10)}
+                  </button>
+                )}
+                <button className="w-full py-3 px-4 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition-colors">
+                  Upgrade
+                </button>
+                <button className="w-full py-3 px-4 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors">
+                  Sell
+                </button>
+              </>
+            )}
+
+            {/* Enemy Property */}
+            {isEnemyOwned && (
+              <>
+                <button className="w-full py-3 px-4 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors">
+                  Attack...
+                </button>
+                <button className="w-full py-3 px-4 bg-gray-600 hover:bg-gray-700 text-white rounded-lg font-medium transition-colors">
+                  Spy
+                </button>
+              </>
+            )}
+
+            {/* Special Buildings */}
+            {isSpecialBuilding && building?.building_type_id === 'bank' && (
+              <>
+                <button className="w-full py-3 px-4 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors">
+                  Deposit
+                </button>
+                <button className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors">
+                  Withdraw
+                </button>
+              </>
+            )}
+
+            {isSpecialBuilding && building?.building_type_id === 'temple' && (
+              <button className="w-full py-3 px-4 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition-colors">
+                Donate
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
 ```
+
+### Modal Benefits
+
+- **Mobile-first**: Large touch targets (44px+), no side panel eating screen space
+- **Prominent X button**: Visible white icon in header, easy to tap
+- **Focused interaction**: User attention on the selected property
+- **Full map visible**: Map remains full-screen behind the modal
+- **Easy dismiss**: Tap X, tap backdrop, or press Escape key
+- **Context-aware**: Shows only relevant actions based on tile state
 
 ---
 
@@ -781,13 +944,18 @@ export function TileInfo({ ..., actionsEnabled = true }: TileInfoProps) {
 | Test | Input | Expected Output |
 |------|-------|-----------------|
 | Overview click | Click tile at (45,30) | Transitions to zoomed mode centered on (45,30) |
-| Zoomed select | Click different tile | Selection moves, TileInfo updates |
+| Zoomed tile click | Click tile in zoomed mode | Property modal opens with tile info |
+| Modal backdrop click | Click outside modal | Modal closes |
+| Modal escape key | Press Escape while modal open | Modal closes |
+| Modal X button | Tap X button in header | Modal closes |
+| Unclaimed land modal | Open modal on unclaimed tile | Shows "Buy Land" button |
+| Own property modal | Open modal on your building | Shows Upgrade, Repair, Sell buttons |
+| Enemy property modal | Open modal on enemy building | Shows Attack, Spy buttons |
+| Special building modal | Open modal on Bank | Shows Deposit, Withdraw buttons |
 | Pan right | Drag right | View shifts left, center updates |
 | Pan wrap | Pan past edge | Map wraps seamlessly |
 | Zoom in | Scroll up | Tiles get larger |
-| Back button | Click "Back to Overview" | Returns to grid view |
-| Actions disabled | In overview mode | No action buttons shown |
-| Actions enabled | In zoomed mode | All action buttons available |
+| Back button | Click "Back to Overview" | Returns to grid view, closes any open modal |
 | Building sprite | Tile has building | Isometric building rendered |
 | Ownership color | Owned tile | Green (self) or red (enemy) tint |
 
@@ -798,16 +966,19 @@ export function TileInfo({ ..., actionsEnabled = true }: TileInfoProps) {
 - [ ] Overview mode shows colored grid (existing)
 - [ ] Overview mode is read-only (no actions)
 - [ ] Click in overview transitions to zoomed mode
-- [ ] Zoomed mode shows isometric tiles
+- [ ] Zoomed mode shows isometric tiles (full-screen, no side panel)
 - [ ] Buildings render as sprites on tiles
 - [ ] Tiles sorted back-to-front correctly
 - [ ] Ownership tint visible
 - [ ] Damage/fire effects visible
-- [ ] Selection highlight works
+- [ ] Selection highlight works on clicked tile
 - [ ] Pan/scroll works with wrapping
 - [ ] Click detection works in isometric view
-- [ ] Actions available in zoomed mode
-- [ ] "Back to Overview" button works
+- [ ] **Property modal opens on tile click**
+- [ ] **Modal shows correct context-dependent actions**
+- [ ] **Modal closes on X button tap, backdrop click, or Escape key**
+- [ ] **Modal shows building stats (health, income, owner)**
+- [ ] "Back to Overview" button works (and closes modal if open)
 - [ ] Sprites preload with loading indicator
 - [ ] Zoom in/out works
 
@@ -954,12 +1125,14 @@ This ensures pedestrians walking between two buildings render correctly - behind
 
 ## Handoff Notes
 
-- **Two-mode model:** Overview = read-only, Zoomed = actions
+- **Two-mode model:** Overview = read-only, Zoomed = full-screen with modal for actions
+- **Property Modal:** Opens on tile click, shows context-dependent actions, dismissible via backdrop/Escape/button
+- **No side panel:** Zoomed mode uses full screen, modal overlays when needed (mobile-friendly)
 - **Map wrapping:** Uses modulo arithmetic for seamless edge wrapping
 - **Tile sorting:** Critical for proper isometric depth - back-to-front render order
 - **Asset loading:** Async with loading state - don't render until sprites loaded
 - **Performance:** Only render visible tiles (~15x15 viewport + buffer)
 - **Fallback:** If sprite fails to load, skip it (don't crash)
-- **Touch support:** Consider adding touch pan/pinch-zoom for mobile (future)
+- **Touch support:** Modal works well on touch; consider adding touch pan/pinch-zoom (future)
 - **Event scenes:** Removed from this stage - can add later as Stage 16b
 - **Ambient NPCs:** Optional enhancement - adds visual life but not required for MVP

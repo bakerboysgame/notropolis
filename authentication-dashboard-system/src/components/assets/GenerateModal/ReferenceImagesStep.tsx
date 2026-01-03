@@ -48,7 +48,7 @@ function formatKey(key: string): string {
 }
 
 // Convert approved asset to ReferenceImage format
-function assetToReferenceImage(asset: Asset): ReferenceImage & { assetId: string } {
+function assetToReferenceImage(asset: Asset): ReferenceImage & { assetId: string; hasPublicWebP?: boolean } {
   return {
     id: parseInt(asset.id), // Use negative ID to avoid conflicts with library images
     assetId: asset.id, // Keep original asset ID for reference
@@ -59,6 +59,8 @@ function assetToReferenceImage(asset: Asset): ReferenceImage & { assetId: string
     uploaded_by: asset.approved_by,
     // Thumbnail will be fetched dynamically
     thumbnailUrl: undefined,
+    // Has optimized WebP if public_url exists
+    hasPublicWebP: !!asset.public_url,
   };
 }
 

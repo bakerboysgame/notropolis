@@ -1,6 +1,6 @@
 // src/components/assets/ReferenceLibrary/ReferenceImageCard.tsx
 
-import { Check, Eye, Image as ImageIcon, Upload, Link, Sparkles, Download, User, Calendar, Loader2 } from 'lucide-react';
+import { Check, Eye, Image as ImageIcon, Upload, Link, Sparkles, Download, User, Calendar, Loader2, Star, HardDrive } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useState, useEffect } from 'react';
 import { ReferenceImage, referenceLibraryApi, assetApi, ReferenceImageSourceType } from '../../../services/assetApi';
@@ -8,6 +8,8 @@ import { ReferenceImage, referenceLibraryApi, assetApi, ReferenceImageSourceType
 // Extended ReferenceImage that may include assetId for generated assets
 export interface ExtendedReferenceImage extends ReferenceImage {
   assetId?: string;
+  hasPublicWebP?: boolean;  // True if asset has optimized WebP version (for faster generation)
+  fileSize?: number;        // File size in bytes (if available)
 }
 
 interface ReferenceImageCardProps {
@@ -38,6 +40,12 @@ function formatDate(dateString: string): string {
   } else {
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   }
+}
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 export default function ReferenceImageCard({
@@ -150,6 +158,16 @@ export default function ReferenceImageCard({
           {sourceConfig.icon}
         </div>
 
+        {/* WebP optimized badge - star indicator */}
+        {image.hasPublicWebP && (
+          <div
+            className="absolute top-1 left-8 px-1.5 py-0.5 rounded text-xs font-medium flex items-center gap-0.5 bg-yellow-400/90 dark:bg-yellow-500/90 text-yellow-900 shadow-sm"
+            title="Optimized WebP available (faster generation)"
+          >
+            <Star className="w-3 h-3 fill-current" />
+          </div>
+        )}
+
         {/* Selection overlay */}
         {isSelected && (
           <div className="absolute inset-0 bg-purple-500/20 flex items-center justify-center">
@@ -185,7 +203,21 @@ export default function ReferenceImageCard({
         )}
 
         {/* Metadata row */}
-        <div className="flex items-center gap-2 text-xs text-gray-400 dark:text-gray-500">
+        <div className="flex items-center gap-2 text-xs text-gray-400 dark:text-gray-500 flex-wrap">
+          {/* File size */}
+          {image.fileSize && (
+            <span
+              className={clsx(
+                "flex items-center gap-0.5",
+                image.hasPublicWebP ? "text-green-600 dark:text-green-400" : "text-orange-500 dark:text-orange-400"
+              )}
+              title={image.hasPublicWebP ? "Optimized WebP size" : "Original file size (larger)"}
+            >
+              <HardDrive className="w-3 h-3" />
+              {formatFileSize(image.fileSize)}
+            </span>
+          )}
+
           {/* Date */}
           {image.created_at && (
             <span className="flex items-center gap-0.5" title={new Date(image.created_at).toLocaleString()}>

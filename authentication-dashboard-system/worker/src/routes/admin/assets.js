@@ -36,14 +36,8 @@ const SPRITE_REQUIREMENTS = {
         { spriteCategory: 'terrain', variant: 'end', displayName: 'Dead End', required: true }
     ],
     character_ref: [
-        { spriteCategory: 'npc', variant: 'n', displayName: 'North', required: true },
-        { spriteCategory: 'npc', variant: 'ne', displayName: 'North-East', required: true },
-        { spriteCategory: 'npc', variant: 'e', displayName: 'East', required: true },
-        { spriteCategory: 'npc', variant: 'se', displayName: 'South-East', required: true },
-        { spriteCategory: 'npc', variant: 's', displayName: 'South', required: true },
-        { spriteCategory: 'npc', variant: 'sw', displayName: 'South-West', required: true },
-        { spriteCategory: 'npc', variant: 'w', displayName: 'West', required: true },
-        { spriteCategory: 'npc', variant: 'nw', displayName: 'North-West', required: true }
+        { spriteCategory: 'npc', variant: 'walk_1', displayName: 'Walk Frame 1', required: true },
+        { spriteCategory: 'npc', variant: 'walk_2', displayName: 'Walk Frame 2', required: true }
     ],
     vehicle_ref: [
         { spriteCategory: 'vehicle', variant: 'n', displayName: 'North', required: true },
@@ -135,6 +129,58 @@ async function resizeViaCloudflare(env, imageBuffer, tempKey, width, height) {
         // Clean up on error
         await env.R2_PUBLIC.delete(tempKey).catch(() => {});
         throw err;
+    }
+}
+
+/**
+ * Fetch and resize a reference image for generation
+ * Uses Cloudflare Image Transformations to reduce large images
+ * @param {Object} env - Worker environment
+ * @param {string} r2Key - R2 key in private bucket
+ * @param {number} maxSize - Maximum dimension (width or height), default 1024
+ * @returns {Promise<{ buffer: Uint8Array, mimeType: string }>}
+ */
+async function fetchResizedReferenceImage(env, r2Key, maxSize = 1024) {
+    // Get original from private bucket
+    const object = await env.R2_PRIVATE.get(r2Key);
+    if (!object) {
+        throw new Error(`Reference image not found: ${r2Key}`);
+    }
+
+    const originalBuffer = await object.arrayBuffer();
+    const originalSize = originalBuffer.byteLength;
+
+    // If image is small enough (< 500KB), use it directly
+    if (originalSize < 500 * 1024) {
+        console.log(`Reference image small enough (${(originalSize / 1024).toFixed(1)}KB), using directly`);
+        return {
+            buffer: new Uint8Array(originalBuffer),
+            mimeType: object.httpMetadata?.contentType || 'image/png'
+        };
+    }
+
+    // Image is large - resize via Cloudflare
+    console.log(`Resizing large reference image (${(originalSize / 1024 / 1024).toFixed(2)}MB) to ${maxSize}px`);
+
+    // Create a unique temp key
+    const tempKey = `temp/ref_resize_${Date.now()}_${Math.random().toString(36).slice(2)}.png`;
+
+    try {
+        // Use existing resize function
+        const resizedBuffer = await resizeViaCloudflare(env, originalBuffer, tempKey, maxSize, maxSize);
+        console.log(`Resized reference: ${(originalSize / 1024 / 1024).toFixed(2)}MB -> ${(resizedBuffer.byteLength / 1024).toFixed(1)}KB`);
+
+        return {
+            buffer: new Uint8Array(resizedBuffer),
+            mimeType: 'image/webp'
+        };
+    } catch (err) {
+        console.error('Reference resize failed, using original:', err.message);
+        // Fall back to original if resize fails
+        return {
+            buffer: new Uint8Array(originalBuffer),
+            mimeType: object.httpMetadata?.contentType || 'image/png'
+        };
     }
 }
 
@@ -1267,10 +1313,11 @@ Background: white or light gray.${customDetails ? `\n\n${customDetails}` : ''}`;
 // NPC/Vehicle directional sprite mappings
 // When base character/vehicle reference is approved, auto-generate all direction variants
 const DIRECTIONAL_SPRITE_VARIANTS = {
-    // Pedestrian: 4 directions × 2 animation frames = 8 separate sprites
-    pedestrian: ['ped_walk_n_1', 'ped_walk_n_2', 'ped_walk_s_1', 'ped_walk_s_2', 'ped_walk_e_1', 'ped_walk_e_2', 'ped_walk_w_1', 'ped_walk_w_2'],
+    // Pedestrian: 2 animation frames (can be rotated/flipped for any direction in-game)
+    // These become {refAssetKey}_walk_1, {refAssetKey}_walk_2 (e.g., pedestrian_walk_1)
+    pedestrian: ['walk_1', 'walk_2'],
 
-    // Car: 4 directions × 1 sprite = 4 sprites
+    // Car: 4 directions × 1 sprite = 4 sprites (cars look different from each angle)
     car: ['car_n', 'car_s', 'car_e', 'car_w']
 };
 
@@ -1601,61 +1648,22 @@ const NPC_FEATURES = {
     // - Arms and legs are normal length, NOT short stumpy limbs
     // - Head is normal size relative to body, NOT oversized
 
-    ped_walk_n_1: `SINGLE SPRITE: 32x32 pixels.
+    // Pedestrian walk sprites - only 2 frames needed, game rotates/flips for direction
+    walk_1: `SINGLE SPRITE: 32x32 pixels.
 TOP-DOWN OVERHEAD VIEW (bird's eye, looking straight down from above).
-Pedestrian walking UP (NORTH - toward top of screen). Top of head and shoulders visible from above.
-FRAME 1 of walk cycle: Left leg forward, right leg back - mid-stride pose.
-Business casual clothing visible from above. Left arm back, right arm forward (opposite to legs).
-90s CGI stylized rendering. NOT isometric, NOT angled - pure top-down overhead view.`,
-
-    ped_walk_n_2: `SINGLE SPRITE: 32x32 pixels.
-TOP-DOWN OVERHEAD VIEW (bird's eye, looking straight down from above).
-Pedestrian walking UP (NORTH - toward top of screen). Top of head and shoulders visible from above.
-FRAME 2 of walk cycle: Right leg forward, left leg back - opposite mid-stride pose.
+Pedestrian walking. Top of head and shoulders visible from above.
+FRAME 1 of walk cycle: Right leg forward, left leg back - mid-stride pose.
 Business casual clothing visible from above. Right arm back, left arm forward (opposite to legs).
-90s CGI stylized rendering. NOT isometric, NOT angled - pure top-down overhead view.`,
+90s CGI stylized rendering. NOT isometric, NOT angled - pure top-down overhead view.
+This sprite will be rotated in-game for different walking directions.`,
 
-    ped_walk_s_1: `SINGLE SPRITE: 32x32 pixels.
+    walk_2: `SINGLE SPRITE: 32x32 pixels.
 TOP-DOWN OVERHEAD VIEW (bird's eye, looking straight down from above).
-Pedestrian walking DOWN (SOUTH - toward bottom of screen). Top of head and shoulders visible from above.
-FRAME 1 of walk cycle: Left leg forward, right leg back - mid-stride pose.
+Pedestrian walking. Top of head and shoulders visible from above.
+FRAME 2 of walk cycle: Left leg forward, right leg back - opposite mid-stride pose.
 Business casual clothing visible from above. Left arm back, right arm forward (opposite to legs).
-90s CGI stylized rendering. NOT isometric, NOT angled - pure top-down overhead view.`,
-
-    ped_walk_s_2: `SINGLE SPRITE: 32x32 pixels.
-TOP-DOWN OVERHEAD VIEW (bird's eye, looking straight down from above).
-Pedestrian walking DOWN (SOUTH - toward bottom of screen). Top of head and shoulders visible from above.
-FRAME 2 of walk cycle: Right leg forward, left leg back - opposite mid-stride pose.
-Business casual clothing visible from above. Right arm back, left arm forward (opposite to legs).
-90s CGI stylized rendering. NOT isometric, NOT angled - pure top-down overhead view.`,
-
-    ped_walk_e_1: `SINGLE SPRITE: 32x32 pixels.
-TOP-DOWN OVERHEAD VIEW (bird's eye, looking straight down from above).
-Pedestrian walking RIGHT (EAST - toward right of screen). Top of head and shoulders visible from above.
-FRAME 1 of walk cycle: Left leg forward, right leg back - mid-stride pose.
-Business casual clothing visible from above. Left arm back, right arm forward (opposite to legs).
-90s CGI stylized rendering. NOT isometric, NOT angled - pure top-down overhead view.`,
-
-    ped_walk_e_2: `SINGLE SPRITE: 32x32 pixels.
-TOP-DOWN OVERHEAD VIEW (bird's eye, looking straight down from above).
-Pedestrian walking RIGHT (EAST - toward right of screen). Top of head and shoulders visible from above.
-FRAME 2 of walk cycle: Right leg forward, left leg back - opposite mid-stride pose.
-Business casual clothing visible from above. Right arm back, left arm forward (opposite to legs).
-90s CGI stylized rendering. NOT isometric, NOT angled - pure top-down overhead view.`,
-
-    ped_walk_w_1: `SINGLE SPRITE: 32x32 pixels.
-TOP-DOWN OVERHEAD VIEW (bird's eye, looking straight down from above).
-Pedestrian walking LEFT (WEST - toward left of screen). Top of head and shoulders visible from above.
-FRAME 1 of walk cycle: Left leg forward, right leg back - mid-stride pose.
-Business casual clothing visible from above. Left arm back, right arm forward (opposite to legs).
-90s CGI stylized rendering. NOT isometric, NOT angled - pure top-down overhead view.`,
-
-    ped_walk_w_2: `SINGLE SPRITE: 32x32 pixels.
-TOP-DOWN OVERHEAD VIEW (bird's eye, looking straight down from above).
-Pedestrian walking LEFT (WEST - toward left of screen). Top of head and shoulders visible from above.
-FRAME 2 of walk cycle: Right leg forward, left leg back - opposite mid-stride pose.
-Business casual clothing visible from above. Right arm back, left arm forward (opposite to legs).
-90s CGI stylized rendering. NOT isometric, NOT angled - pure top-down overhead view.`,
+90s CGI stylized rendering. NOT isometric, NOT angled - pure top-down overhead view.
+This sprite will be rotated in-game for different walking directions.`,
 
     // === CAR DIRECTIONAL SPRITES ===
     // Each direction is a single 32x32 sprite showing the car facing that direction
@@ -2507,8 +2515,9 @@ async function fetchReferenceImages(env, referenceSpecs = []) {
 
             } else if (spec.type === 'approved_asset') {
                 // Fetch from generated_assets table
+                // Prefer r2_url (public WebP - much smaller) over r2_key_private (raw PNG)
                 const asset = await env.DB.prepare(`
-                    SELECT r2_key_private, asset_key, category FROM generated_assets
+                    SELECT r2_key_private, r2_url, asset_key, category FROM generated_assets
                     WHERE id = ? AND status = 'approved'
                 `).bind(spec.id).first();
 
@@ -2516,28 +2525,62 @@ async function fetchReferenceImages(env, referenceSpecs = []) {
                     console.warn(`Approved asset ${spec.id} not found`);
                     continue;
                 }
-                r2Key = asset.r2_key_private;
+
                 name = `${asset.category}/${asset.asset_key}`;
+
+                // Try to use public WebP first (much smaller, ~100KB vs ~6MB)
+                if (asset.r2_url) {
+                    // Extract R2 key from URL: https://assets.notropolis.net/{key} -> {key}
+                    const publicKey = asset.r2_url.replace(R2_PUBLIC_URL + '/', '');
+                    const publicObject = await env.R2_PUBLIC.get(publicKey);
+                    if (publicObject) {
+                        const buffer = new Uint8Array(await publicObject.arrayBuffer());
+                        images.push({
+                            buffer,
+                            mimeType: publicObject.httpMetadata?.contentType || 'image/webp',
+                            name
+                        });
+                        console.log(`Fetched reference (public WebP): ${name} (${buffer.length} bytes)`);
+                        continue;
+                    }
+                    console.warn(`Public asset not found: ${publicKey}, falling back to private`);
+                }
+
+                // Fall back to private raw PNG - resize if large
+                if (asset.r2_key_private) {
+                    try {
+                        const resized = await fetchResizedReferenceImage(env, asset.r2_key_private, 1024);
+                        images.push({
+                            buffer: resized.buffer,
+                            mimeType: resized.mimeType,
+                            name
+                        });
+                        console.log(`Fetched reference (private, resized): ${name} (${resized.buffer.length} bytes)`);
+                        continue;
+                    } catch (err) {
+                        console.error(`Failed to fetch/resize private asset: ${err.message}`);
+                    }
+                }
+
+                console.warn(`No image found for approved asset ${spec.id}`);
+                continue;
             } else {
                 console.warn(`Unknown reference type: ${spec.type}`);
                 continue;
             }
 
-            // Fetch image from R2
-            const object = await env.R2_PRIVATE.get(r2Key);
-            if (!object) {
-                console.warn(`R2 object not found: ${r2Key}`);
-                continue;
+            // Fetch image from R2 (for library type only) - resize if large
+            try {
+                const resized = await fetchResizedReferenceImage(env, r2Key, 1024);
+                images.push({
+                    buffer: resized.buffer,
+                    mimeType: resized.mimeType,
+                    name
+                });
+                console.log(`Fetched reference (library): ${name} (${resized.buffer.length} bytes)`);
+            } catch (err) {
+                console.warn(`Failed to fetch library image: ${err.message}`);
             }
-
-            const buffer = new Uint8Array(await object.arrayBuffer());
-            images.push({
-                buffer,
-                mimeType: object.httpMetadata?.contentType || 'image/png',
-                name
-            });
-
-            console.log(`Fetched reference: ${name} (${buffer.length} bytes)`);
 
         } catch (err) {
             console.error(`Error fetching reference ${spec.type}/${spec.id}:`, err);
@@ -2805,21 +2848,42 @@ export async function handleAssetRoutes(request, env, path, method, user, ctx = 
                     `).bind(item.asset_id).run();
 
                     // Get parent reference image if this is a child asset
+                    // Prefer public WebP (much smaller) over private PNG
                     let referenceImage = null;
                     if (item.parent_asset_id) {
                         const parentAsset = await env.DB.prepare(`
-                            SELECT r2_key_private FROM generated_assets WHERE id = ?
+                            SELECT r2_key_private, r2_url FROM generated_assets WHERE id = ?
                         `).bind(item.parent_asset_id).first();
 
-                        if (parentAsset?.r2_key_private) {
-                            const refObject = await env.R2_PRIVATE.get(parentAsset.r2_key_private);
-                            if (refObject) {
-                                const refBuffer = await refObject.arrayBuffer();
-                                referenceImage = {
-                                    buffer: new Uint8Array(refBuffer),
-                                    mimeType: 'image/png',
-                                    name: 'reference'
-                                };
+                        if (parentAsset) {
+                            // Try public WebP first (much smaller)
+                            if (parentAsset.r2_url) {
+                                const publicKey = parentAsset.r2_url.replace(R2_PUBLIC_URL + '/', '');
+                                const publicObject = await env.R2_PUBLIC.get(publicKey);
+                                if (publicObject) {
+                                    const refBuffer = await publicObject.arrayBuffer();
+                                    referenceImage = {
+                                        buffer: new Uint8Array(refBuffer),
+                                        mimeType: publicObject.httpMetadata?.contentType || 'image/webp',
+                                        name: 'reference'
+                                    };
+                                    console.log(`Queue: Fetched parent ref (public WebP): ${refBuffer.byteLength} bytes`);
+                                }
+                            }
+
+                            // Fall back to private PNG - resize if large
+                            if (!referenceImage && parentAsset.r2_key_private) {
+                                try {
+                                    const resized = await fetchResizedReferenceImage(env, parentAsset.r2_key_private, 1024);
+                                    referenceImage = {
+                                        buffer: resized.buffer,
+                                        mimeType: resized.mimeType,
+                                        name: 'reference'
+                                    };
+                                    console.log(`Queue: Fetched parent ref (resized): ${resized.buffer.length} bytes`);
+                                } catch (err) {
+                                    console.error(`Queue: Failed to fetch/resize parent ref: ${err.message}`);
+                                }
                             }
                         }
                     }
@@ -2876,19 +2940,33 @@ export async function handleAssetRoutes(request, env, path, method, user, ctx = 
         if (action === 'preview' && method === 'GET' && param1) {
             const assetId = param1;
             const asset = await env.DB.prepare(`
-                SELECT * FROM generated_assets WHERE id = ?
+                SELECT id, r2_key_private, r2_url FROM generated_assets WHERE id = ?
             `).bind(assetId).first();
 
             if (!asset) {
                 return Response.json({ success: false, error: 'Asset not found' }, { status: 404 });
             }
 
-            // Get the object from R2 private bucket and create a signed URL
-            // Since Cloudflare R2 doesn't support presigned URLs directly in Workers,
-            // we'll return the image data as a data URL or use a proxy approach
-            const r2Key = asset.r2_key_private;
-            const object = await env.R2_PRIVATE.get(r2Key);
+            // OPTIMIZATION: If public URL exists, return it directly (no base64 encoding needed!)
+            // This is much faster and avoids CPU limits for large images
+            if (asset.r2_url) {
+                return Response.json({
+                    success: true,
+                    data: {
+                        url: asset.r2_url,
+                        source: 'public',
+                        expires_at: null // Public URLs don't expire
+                    }
+                });
+            }
 
+            // Fall back to base64 for private-only assets (reference sheets, raw sprites)
+            const r2Key = asset.r2_key_private;
+            if (!r2Key) {
+                return Response.json({ success: false, error: 'No image available' }, { status: 404 });
+            }
+
+            const object = await env.R2_PRIVATE.get(r2Key);
             if (!object) {
                 return Response.json({ success: false, error: 'Image not found in storage' }, { status: 404 });
             }
@@ -2910,6 +2988,7 @@ export async function handleAssetRoutes(request, env, path, method, user, ctx = 
                 success: true,
                 data: {
                     url: dataUrl,
+                    source: 'private',
                     expires_at: new Date(Date.now() + 3600000).toISOString() // 1 hour (not really used for data URLs)
                 }
             });
@@ -3113,28 +3192,25 @@ export async function handleAssetRoutes(request, env, path, method, user, ctx = 
             let fullPrompt;
 
             if (customPrompt) {
-                // For reference sheets, always use the database template (with system_instructions)
-                // and treat the custom prompt as additional details. This ensures the 6-panel layout
-                // and style instructions are always included.
-                if (category.endsWith('_ref')) {
-                    const combinedDetails = customPrompt + (custom_details ? `\n\n${custom_details}` : '');
+                // Always try to use the database template (with system_instructions)
+                // and treat the custom prompt as additional details. This ensures
+                // style instructions are always included for all asset types.
+                const combinedDetails = customPrompt + (custom_details ? `\n\n${custom_details}` : '');
+                try {
+                    // Use database template which includes system_instructions
+                    fullPrompt = await getPromptForGeneration(env, category, asset_key, combinedDetails);
+                    console.log(`Using template with custom details for ${category} (${fullPrompt.length} chars)`);
+                    console.log(`Prompt preview: ${fullPrompt.substring(0, 300)}...`);
+                } catch (err) {
+                    // Fall back to buildAssetPrompt if no database template
                     try {
-                        // Use database template which includes system_instructions
-                        fullPrompt = await getPromptForGeneration(env, category, asset_key, combinedDetails);
-                        console.log(`Using reference sheet template with custom details (${fullPrompt.length} chars)`);
-                        console.log(`Prompt preview: ${fullPrompt.substring(0, 300)}...`);
-                    } catch (err) {
-                        // Fall back to buildAssetPrompt if no database template
                         fullPrompt = buildAssetPrompt(category, asset_key, combinedDetails);
-                        console.log(`Using fallback ref sheet prompt (${fullPrompt.length} chars)`);
+                        console.log(`Using fallback buildAssetPrompt for ${category} (${fullPrompt.length} chars)`);
+                    } catch (buildErr) {
+                        // Last resort: use custom prompt directly
+                        fullPrompt = combinedDetails;
+                        console.log(`Using custom prompt directly for ${category} (${fullPrompt.length} chars)`);
                     }
-                } else {
-                    // For non-reference categories, use custom prompt directly
-                    fullPrompt = customPrompt;
-                    if (custom_details) {
-                        fullPrompt += `\n\n${custom_details}`;
-                    }
-                    console.log(`Using custom prompt (${fullPrompt.length} chars)`);
                 }
             } else {
                 // Stage 3: Get prompt from database template (no custom prompt provided)
@@ -3182,25 +3258,47 @@ export async function handleAssetRoutes(request, env, path, method, user, ctx = 
                 // This is a sprite category that needs a reference sheet
                 const refAssetKey = getRefAssetKey(category, asset_key);
 
-                // Look for an approved reference sheet
+                // Look for an approved reference sheet - prefer public WebP (smaller)
                 const refAsset = await env.DB.prepare(`
-                    SELECT id, r2_key_private FROM generated_assets
+                    SELECT id, r2_key_private, r2_url FROM generated_assets
                     WHERE category = ? AND asset_key = ? AND status = 'approved'
                     ORDER BY variant DESC
                     LIMIT 1
                 `).bind(refCategory, refAssetKey).first();
 
-                if (refAsset && refAsset.r2_key_private) {
-                    // Fetch the reference image from R2
-                    const refObject = await env.R2_PRIVATE.get(refAsset.r2_key_private);
-                    if (refObject) {
-                        const buffer = await refObject.arrayBuffer();
-                        referenceImage = {
-                            buffer: new Uint8Array(buffer),
-                            mimeType: 'image/png'
-                        };
-                        parentAssetId = refAsset.id;
+                if (refAsset) {
+                    // Try public WebP first (much smaller, ~100KB vs ~6MB)
+                    if (refAsset.r2_url) {
+                        const publicKey = refAsset.r2_url.replace(R2_PUBLIC_URL + '/', '');
+                        const publicObject = await env.R2_PUBLIC.get(publicKey);
+                        if (publicObject) {
+                            const buffer = await publicObject.arrayBuffer();
+                            referenceImage = {
+                                buffer: new Uint8Array(buffer),
+                                mimeType: publicObject.httpMetadata?.contentType || 'image/webp'
+                            };
+                            parentAssetId = refAsset.id;
+                            console.log(`Fetched parent ref (public WebP): ${refCategory}/${refAssetKey} (${buffer.byteLength} bytes)`);
+                        }
+                    }
 
+                    // Fall back to private PNG if no public version - resize if large
+                    if (!referenceImage && refAsset.r2_key_private) {
+                        try {
+                            // Use resize function to handle large reference sheets
+                            const resized = await fetchResizedReferenceImage(env, refAsset.r2_key_private, 1024);
+                            referenceImage = {
+                                buffer: resized.buffer,
+                                mimeType: resized.mimeType
+                            };
+                            parentAssetId = refAsset.id;
+                            console.log(`Fetched parent ref (resized): ${refCategory}/${refAssetKey} (${resized.buffer.length} bytes)`);
+                        } catch (err) {
+                            console.error(`Failed to fetch parent ref: ${err.message}`);
+                        }
+                    }
+
+                    if (referenceImage) {
                         // Prepend instruction to use the reference image
                         if (category === 'terrain') {
                             // Terrain tiles are top-down squares, NOT isometric
@@ -3228,10 +3326,10 @@ export async function handleAssetRoutes(request, env, path, method, user, ctx = 
                 // Large buildings (TALL/VERY_TALL): restaurant, manor, police_station, casino, temple, bank
                 const largeBuildings = ['restaurant', 'manor', 'police_station', 'casino', 'temple', 'bank'];
 
-                // Fetch one of each size class if available
+                // Fetch one of each size class if available - include r2_url for smaller WebP
                 const buildingSprites = await env.DB.prepare(`
-                    SELECT id, r2_key_private, asset_key FROM generated_assets
-                    WHERE category = 'building_sprite' AND status = 'approved' AND r2_key_private IS NOT NULL
+                    SELECT id, r2_key_private, r2_url, asset_key FROM generated_assets
+                    WHERE category = 'building_sprite' AND status = 'approved' AND (r2_url IS NOT NULL OR r2_key_private IS NOT NULL)
                     AND (
                         asset_key IN (${smallBuildings.map(() => '?').join(',')})
                         OR asset_key IN (${mediumBuildings.map(() => '?').join(',')})
@@ -3267,6 +3365,22 @@ export async function handleAssetRoutes(request, env, path, method, user, ctx = 
                 }
 
                 for (const sprite of selectedSprites) {
+                    // Try public WebP first (much smaller)
+                    if (sprite.r2_url) {
+                        const publicKey = sprite.r2_url.replace(R2_PUBLIC_URL + '/', '');
+                        const publicObject = await env.R2_PUBLIC.get(publicKey);
+                        if (publicObject) {
+                            const buffer = await publicObject.arrayBuffer();
+                            buildingReferenceImages.push({
+                                buffer: new Uint8Array(buffer),
+                                mimeType: publicObject.httpMetadata?.contentType || 'image/webp',
+                                name: sprite.asset_key
+                            });
+                            console.log(`Fetched building ref (public WebP): ${sprite.asset_key} (${buffer.byteLength} bytes)`);
+                            continue;
+                        }
+                    }
+                    // Fall back to private PNG
                     if (sprite.r2_key_private) {
                         const spriteObject = await env.R2_PRIVATE.get(sprite.r2_key_private);
                         if (spriteObject) {
@@ -3276,6 +3390,7 @@ export async function handleAssetRoutes(request, env, path, method, user, ctx = 
                                 mimeType: 'image/png',
                                 name: sprite.asset_key
                             });
+                            console.log(`Fetched building ref (private PNG): ${sprite.asset_key} (${buffer.byteLength} bytes)`);
                         }
                     }
                 }
@@ -3316,10 +3431,10 @@ ${fullPrompt}`;
                 if (terrainType === 'road') {
                     // For road tiles, prioritize road_straight as the master, then follow chain order
                     siblingQuery = await env.DB.prepare(`
-                        SELECT id, r2_key_private, asset_key FROM generated_assets
+                        SELECT id, r2_key_private, r2_url, asset_key FROM generated_assets
                         WHERE category = 'terrain'
                         AND status = 'approved'
-                        AND r2_key_private IS NOT NULL
+                        AND (r2_url IS NOT NULL OR r2_key_private IS NOT NULL)
                         AND asset_key LIKE 'road_%'
                         AND asset_key != ?
                         ORDER BY
@@ -3336,10 +3451,10 @@ ${fullPrompt}`;
                 } else {
                     // For other terrain types, use the original ordering
                     siblingQuery = await env.DB.prepare(`
-                        SELECT id, r2_key_private, asset_key FROM generated_assets
+                        SELECT id, r2_key_private, r2_url, asset_key FROM generated_assets
                         WHERE category = 'terrain'
                         AND status = 'approved'
-                        AND r2_key_private IS NOT NULL
+                        AND (r2_url IS NOT NULL OR r2_key_private IS NOT NULL)
                         AND asset_key LIKE ?
                         AND asset_key != ?
                         ORDER BY
@@ -3356,6 +3471,22 @@ ${fullPrompt}`;
                 const selectedSiblings = (siblingQuery.results || []).slice(0, 5);
 
                 for (const sibling of selectedSiblings) {
+                    // Try public WebP first (much smaller)
+                    if (sibling.r2_url) {
+                        const publicKey = sibling.r2_url.replace(R2_PUBLIC_URL + '/', '');
+                        const publicObject = await env.R2_PUBLIC.get(publicKey);
+                        if (publicObject) {
+                            const buffer = await publicObject.arrayBuffer();
+                            terrainSiblingImages.push({
+                                buffer: new Uint8Array(buffer),
+                                mimeType: publicObject.httpMetadata?.contentType || 'image/webp',
+                                name: sibling.asset_key
+                            });
+                            console.log(`Fetched terrain sibling (public WebP): ${sibling.asset_key} (${buffer.byteLength} bytes)`);
+                            continue;
+                        }
+                    }
+                    // Fall back to private PNG
                     if (sibling.r2_key_private) {
                         const siblingObject = await env.R2_PRIVATE.get(sibling.r2_key_private);
                         if (siblingObject) {
@@ -3365,6 +3496,7 @@ ${fullPrompt}`;
                                 mimeType: 'image/png',
                                 name: sibling.asset_key
                             });
+                            console.log(`Fetched terrain sibling (private PNG): ${sibling.asset_key} (${buffer.byteLength} bytes)`);
                         }
                     }
                 }
@@ -3714,16 +3846,18 @@ ${fullPrompt}`;
             // Check if this is an NPC/vehicle reference that should auto-generate directional sprites
             // Any pedestrian type (pedestrian, pedestrian_business, pedestrian_casual) triggers directional sprite generation
             if (asset.category === 'character_ref' && asset.asset_key.startsWith('pedestrian')) {
-                const directions = DIRECTIONAL_SPRITE_VARIANTS.pedestrian;
-                for (const dir of directions) {
-                    // Build prompt for this pedestrian direction
-                    const prompt = buildNPCPrompt(dir, '');
+                const variants = DIRECTIONAL_SPRITE_VARIANTS.pedestrian;
+                for (const variant of variants) {
+                    // Build asset_key same as UI: {refAssetKey}_{variant} e.g., pedestrian_walk_1
+                    const spriteAssetKey = `${asset.asset_key}_${variant}`;
+                    // Build prompt for this pedestrian variant
+                    const prompt = buildNPCPrompt(variant, '');
 
                     const insertResult = await env.DB.prepare(`
                         INSERT INTO generated_assets (category, asset_key, variant, base_prompt, current_prompt, status, parent_asset_id)
                         VALUES (?, ?, 1, ?, ?, 'pending', ?)
                         ON CONFLICT (category, asset_key, variant) DO NOTHING
-                    `).bind('npc', dir, prompt, prompt, id).run();
+                    `).bind('npc', spriteAssetKey, prompt, prompt, id).run();
 
                     if (insertResult.meta?.changes > 0) {
                         const newId = insertResult.meta?.last_row_id;
@@ -3731,12 +3865,12 @@ ${fullPrompt}`;
                             INSERT INTO asset_generation_queue (asset_id, priority)
                             VALUES (?, 1)
                         `).bind(newId).run();
-                        autoGeneratedVariations.push({ dir, id: newId });
+                        autoGeneratedVariations.push({ variant: spriteAssetKey, id: newId });
                     }
                 }
                 await logAudit(env, 'auto_queue_directions', parseInt(id), user?.username, {
                     base_type: asset.asset_key,
-                    queued_directions: autoGeneratedVariations.map(v => v.dir)
+                    queued_variants: autoGeneratedVariations.map(v => v.variant)
                 });
             }
 
@@ -3912,18 +4046,32 @@ Please address the above feedback in this generation.`;
 
                 const newVariant = (maxVariant?.max || 0) + 1;
 
-                // Determine the prompt
+                // Determine the prompt - always include system_instructions from template
                 let finalPrompt;
                 if (customPrompt) {
-                    finalPrompt = customPrompt;
-                    if (custom_details) {
-                        finalPrompt += `\n\n${custom_details}`;
+                    // For all categories, try to include system_instructions from template
+                    const combinedDetails = customPrompt + (custom_details ? `\n\n${custom_details}` : '');
+                    try {
+                        // Use database template which includes system_instructions
+                        finalPrompt = await getPromptForGeneration(env, original.category, original.asset_key, combinedDetails);
+                        console.log(`Regenerate: Using template with custom details (${finalPrompt.length} chars)`);
+                    } catch (err) {
+                        // Fall back to custom prompt if no template
+                        finalPrompt = combinedDetails;
+                        console.log(`Regenerate: Using custom prompt directly (${finalPrompt.length} chars)`);
                     }
                 } else {
-                    // Use original prompt with optional custom details
-                    finalPrompt = original.current_prompt;
-                    if (custom_details) {
-                        finalPrompt += `\n\n${custom_details}`;
+                    // No custom prompt - try to get fresh from template with original's custom details
+                    try {
+                        finalPrompt = await getPromptForGeneration(env, original.category, original.asset_key, custom_details || '');
+                        console.log(`Regenerate: Using fresh template (${finalPrompt.length} chars)`);
+                    } catch (err) {
+                        // Fall back to original prompt
+                        finalPrompt = original.current_prompt;
+                        if (custom_details) {
+                            finalPrompt += `\n\n${custom_details}`;
+                        }
+                        console.log(`Regenerate: Using original prompt (${finalPrompt.length} chars)`);
                     }
                 }
 
@@ -4060,18 +4208,40 @@ Please address the above feedback in this generation.`;
                 let parentReferenceImage = null;
                 if (original.parent_asset_id) {
                     const parentAsset = await env.DB.prepare(`
-                        SELECT r2_key_private, asset_key, category FROM generated_assets WHERE id = ?
+                        SELECT r2_key_private, r2_url, asset_key, category FROM generated_assets WHERE id = ?
                     `).bind(original.parent_asset_id).first();
 
-                    if (parentAsset?.r2_key_private) {
-                        const refObject = await env.R2_PRIVATE.get(parentAsset.r2_key_private);
-                        if (refObject) {
-                            const refBuffer = await refObject.arrayBuffer();
-                            parentReferenceImage = {
-                                buffer: new Uint8Array(refBuffer),
-                                mimeType: 'image/png',
-                                name: `Parent: ${parentAsset.category}/${parentAsset.asset_key}`
-                            };
+                    if (parentAsset) {
+                        const name = `Parent: ${parentAsset.category}/${parentAsset.asset_key}`;
+
+                        // Try public WebP first (much smaller)
+                        if (parentAsset.r2_url) {
+                            const publicKey = parentAsset.r2_url.replace(R2_PUBLIC_URL + '/', '');
+                            const publicObject = await env.R2_PUBLIC.get(publicKey);
+                            if (publicObject) {
+                                const refBuffer = await publicObject.arrayBuffer();
+                                parentReferenceImage = {
+                                    buffer: new Uint8Array(refBuffer),
+                                    mimeType: publicObject.httpMetadata?.contentType || 'image/webp',
+                                    name
+                                };
+                                console.log(`Fetched parent ref (public WebP): ${name} (${refBuffer.byteLength} bytes)`);
+                            }
+                        }
+
+                        // Fall back to private PNG - resize if large
+                        if (!parentReferenceImage && parentAsset.r2_key_private) {
+                            try {
+                                const resized = await fetchResizedReferenceImage(env, parentAsset.r2_key_private, 1024);
+                                parentReferenceImage = {
+                                    buffer: resized.buffer,
+                                    mimeType: resized.mimeType,
+                                    name
+                                };
+                                console.log(`Fetched parent ref (resized): ${name} (${resized.buffer.length} bytes)`);
+                            } catch (err) {
+                                console.error(`Failed to fetch/resize parent ref: ${err.message}`);
+                            }
                         }
                     }
                 }
@@ -4264,6 +4434,17 @@ Please address the above feedback in this generation.`;
                 }, { status: 400 });
             }
 
+            // Build the full prompt with system_instructions from template
+            let fullPrompt;
+            try {
+                fullPrompt = await getPromptForGeneration(env, spriteCategory.id, ref.asset_key, sprite_prompt || '');
+                console.log(`generate-from-ref: Using template with details (${fullPrompt.length} chars)`);
+            } catch (err) {
+                // Fall back to provided sprite_prompt if no template
+                fullPrompt = sprite_prompt || buildAssetPrompt(spriteCategory.id, ref.asset_key, '');
+                console.log(`generate-from-ref: Using fallback prompt (${fullPrompt.length} chars)`);
+            }
+
             // Create sprite record linked to parent ref
             const result = await env.DB.prepare(`
                 INSERT INTO generated_assets (
@@ -4284,14 +4465,14 @@ Please address the above feedback in this generation.`;
                 spriteCategory.id,
                 ref.asset_key,
                 variant,
-                sprite_prompt,
-                sprite_prompt,
+                fullPrompt,
+                fullPrompt,
                 refId
             ).first();
 
             // Generate the sprite with sprite-appropriate settings (1:1 aspect, 4K)
             const spriteSettings = validateGenerationSettings({}, spriteCategory.id);
-            const generated = await generateWithGemini(env, sprite_prompt, [], spriteSettings);
+            const generated = await generateWithGemini(env, fullPrompt, [], spriteSettings);
 
             if (generated.success) {
                 const r2Key = `raw/${spriteCategory.id}_${ref.asset_key}_v${variant}.png`;
