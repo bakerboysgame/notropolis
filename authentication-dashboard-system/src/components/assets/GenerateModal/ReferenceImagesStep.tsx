@@ -212,8 +212,7 @@ export default function ReferenceImagesStep({
             <Link className="w-4 h-4 text-purple-500" />
             <p className="text-sm text-purple-700 dark:text-purple-300">
               <span className="font-medium">Parent Reference:</span> The approved
-              reference sheet (#{parentAssetId}) will be automatically included
-              as the primary reference.
+              reference sheet has been pre-selected below. You can add more references if needed.
             </p>
           </div>
         </div>

@@ -1,6 +1,6 @@
 // src/components/assets/GenerateModal/index.tsx
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { X, Wand2, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { clsx } from 'clsx';
 import { AssetCategory, assetApi } from '../../../services/assetApi';
@@ -58,6 +58,44 @@ export function GenerateModal({
     document.addEventListener('keydown', handleEscape);
     return () => document.removeEventListener('keydown', handleEscape);
   }, [onClose]);
+
+  // Auto-add parent reference when generating sprite from approved ref
+  const parentRefLoaded = useRef(false);
+  useEffect(() => {
+    if (!parentAsset || parentRefLoaded.current) return;
+    parentRefLoaded.current = true;
+
+    const loadParentReference = async () => {
+      try {
+        // Fetch the thumbnail URL for the parent asset
+        const { url } = await assetApi.getPreviewUrl(parentAsset.id);
+
+        // Format the asset key for display
+        const name = parentAsset.asset_key
+          .split('_')
+          .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+          .join(' ');
+
+        // Auto-add to reference images
+        setFormData(prev => ({
+          ...prev,
+          referenceImages: [
+            {
+              type: 'approved_asset',
+              id: parseInt(parentAsset.id),
+              thumbnailUrl: url,
+              name: `${name} (Reference Sheet)`,
+            },
+            ...prev.referenceImages,
+          ],
+        }));
+      } catch (error) {
+        console.error('Failed to load parent reference:', error);
+      }
+    };
+
+    loadParentReference();
+  }, [parentAsset]);
 
   // Note: We always start at step 0 (Category) even if category is pre-filled
   // This allows the user to review/change the category selection
