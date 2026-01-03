@@ -2,7 +2,7 @@
 // Uses square tiles with isometric building sprites centered on tiles
 
 // Square tiles - sprites are centered on tile position
-export const TILE_SIZE = 64; // Square tiles, same width and height
+export const TILE_SIZE = 128; // Square tiles, same width and height
 export const VIEWPORT_TILES = 15; // Show ~15x15 tiles in view
 
 // R2 base URL for game-ready sprites
