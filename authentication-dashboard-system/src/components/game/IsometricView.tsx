@@ -72,6 +72,9 @@ export function IsometricView({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
+    // Disable image smoothing for crisp pixel rendering when scaling sprites
+    ctx.imageSmoothingEnabled = false;
+
     const tileSize = TILE_SIZE * zoom;
     const screenCenterX = canvas.width / 2 + panOffset.x;
     const screenCenterY = canvas.height / 2 + panOffset.y;
