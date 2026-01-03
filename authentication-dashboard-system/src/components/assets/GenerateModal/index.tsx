@@ -10,7 +10,7 @@ import PromptEditorStep from './PromptEditorStep';
 import ReferenceImagesStep from './ReferenceImagesStep';
 import SettingsStep from './SettingsStep';
 import ReviewStep from './ReviewStep';
-import { GenerateFormData, Step, DEFAULT_GENERATION_SETTINGS } from './types';
+import { GenerateFormData, Step, DEFAULT_GENERATION_SETTINGS, getDefaultAspectRatioForCategory } from './types';
 
 interface GenerateModalProps {
   onClose: () => void;
@@ -58,6 +58,21 @@ export function GenerateModal({
     document.addEventListener('keydown', handleEscape);
     return () => document.removeEventListener('keydown', handleEscape);
   }, [onClose]);
+
+  // Apply category-specific defaults when category changes
+  useEffect(() => {
+    if (formData.category) {
+      const defaultAspectRatio = getDefaultAspectRatioForCategory(formData.category);
+      setFormData(prev => ({
+        ...prev,
+        generationSettings: {
+          ...prev.generationSettings,
+          aspectRatio: defaultAspectRatio,
+          imageSize: '4K',
+        },
+      }));
+    }
+  }, [formData.category]);
 
   // Auto-add parent reference when generating sprite from approved ref
   const parentRefLoaded = useRef(false);

@@ -2189,6 +2189,11 @@ async function getPromptForGeneration(env, category, assetKey, customDetails = '
         prompt += `\n\nSTYLE GUIDE:\n${template.style_guide}`;
     }
 
+    // Prepend system instructions if present (critical for layout/camera/style)
+    if (template.system_instructions) {
+        prompt = template.system_instructions + '\n\n---\n\n' + prompt;
+    }
+
     return prompt;
 }
 
@@ -2357,6 +2362,14 @@ async function generateWithGemini(env, prompt, referenceImages = [], settings = 
             generationConfig.maxOutputTokens = settings.maxOutputTokens;
         }
 
+        // Add Imagen-specific settings if specified
+        if (settings.aspectRatio) {
+            generationConfig.aspectRatio = settings.aspectRatio;
+        }
+        if (settings.imageSize) {
+            generationConfig.imageSize = settings.imageSize;
+        }
+
         console.log(`Calling Gemini with settings:`, JSON.stringify(generationConfig));
         console.log(`Prompt length: ${prompt.length}, Reference images: ${images.length}`);
 
@@ -2413,18 +2426,49 @@ async function generateWithGemini(env, prompt, referenceImages = [], settings = 
 // ============================================================================
 
 /**
+ * Get default aspect ratio based on asset category
+ * @param {string} category - Asset category
+ * @returns {string} Default aspect ratio for the category
+ */
+function getDefaultAspectRatioForCategory(category) {
+    // Reference sheets use 3:2 for 6-panel layout
+    if (category?.endsWith('_ref')) {
+        return '3:2';
+    }
+    // Scenes use 16:9 for widescreen
+    if (category === 'scene') {
+        return '16:9';
+    }
+    // All sprites and other assets use 1:1
+    return '1:1';
+}
+
+/**
  * Validate and sanitize generation settings
  * Clamps values to valid ranges and records the model for reproducibility
  * @param {Object} settings - Raw settings from request
+ * @param {string} category - Asset category (used for smart defaults)
  * @returns {Object} Validated settings with model name
  */
-function validateGenerationSettings(settings = {}) {
+function validateGenerationSettings(settings = {}, category = null) {
+    // Valid aspect ratios for Gemini image generation
+    const validAspectRatios = ['1:1', '2:3', '3:2', '3:4', '4:3', '4:5', '5:4', '9:16', '16:9', '21:9'];
+    // Valid image sizes for Gemini 3 Pro
+    const validImageSizes = ['1K', '2K', '4K'];
+
+    // Get category-based defaults
+    const defaultAspectRatio = getDefaultAspectRatioForCategory(category);
+    const defaultImageSize = '4K';
+
     return {
         model: 'gemini-3-pro-image-preview',  // Always record model used for reproducibility
         temperature: Math.min(2.0, Math.max(0.0, settings.temperature ?? 0.7)),
         topK: Math.min(100, Math.max(1, Math.round(settings.topK ?? 40))),
         topP: Math.min(1.0, Math.max(0.0, settings.topP ?? 0.95)),
-        maxOutputTokens: settings.maxOutputTokens || null
+        maxOutputTokens: settings.maxOutputTokens || null,
+        // Imagen-specific settings with smart defaults
+        aspectRatio: validAspectRatios.includes(settings.aspectRatio) ? settings.aspectRatio : defaultAspectRatio,
+        imageSize: validImageSizes.includes(settings.imageSize) ? settings.imageSize : defaultImageSize
     };
 }
 
@@ -2773,8 +2817,9 @@ export async function handleAssetRoutes(request, env, path, method, user, ctx = 
                         }
                     }
 
-                    // Generate the image
-                    const generated = await generateWithGemini(env, item.base_prompt, referenceImage ? [referenceImage] : null);
+                    // Generate the image with category-appropriate settings
+                    const queueSettings = validateGenerationSettings({}, item.category);
+                    const generated = await generateWithGemini(env, item.base_prompt, referenceImage ? [referenceImage] : null, queueSettings);
 
                     if (generated.success) {
                         // Store in R2
@@ -2999,7 +3044,7 @@ export async function handleAssetRoutes(request, env, path, method, user, ctx = 
             }
 
             // Stage 4: Validate and clamp generation settings
-            const validatedSettings = validateGenerationSettings(generation_settings);
+            const validatedSettings = validateGenerationSettings(generation_settings, category);
             console.log(`Generation settings validated:`, JSON.stringify(validatedSettings));
 
             // Stage 5a: Validate explicit parent_asset_id if provided
@@ -3865,8 +3910,10 @@ Please address the above feedback in this generation.`;
                     temperature: generation_settings?.temperature ?? originalSettings.temperature,
                     topK: generation_settings?.topK ?? originalSettings.topK,
                     topP: generation_settings?.topP ?? originalSettings.topP,
-                    maxOutputTokens: generation_settings?.maxOutputTokens ?? originalSettings.maxOutputTokens
-                });
+                    maxOutputTokens: generation_settings?.maxOutputTokens ?? originalSettings.maxOutputTokens,
+                    aspectRatio: generation_settings?.aspectRatio ?? originalSettings.aspectRatio,
+                    imageSize: generation_settings?.imageSize ?? originalSettings.imageSize
+                }, original.category);
 
                 // Update old version status if preserving
                 if (preserve_old) {
@@ -4216,8 +4263,9 @@ Please address the above feedback in this generation.`;
                 refId
             ).first();
 
-            // Generate the sprite
-            const generated = await generateWithGemini(env, sprite_prompt);
+            // Generate the sprite with sprite-appropriate settings (1:1 aspect, 4K)
+            const spriteSettings = validateGenerationSettings({}, spriteCategory.id);
+            const generated = await generateWithGemini(env, sprite_prompt, [], spriteSettings);
 
             if (generated.success) {
                 const r2Key = `raw/${spriteCategory.id}_${ref.asset_key}_v${variant}.png`;

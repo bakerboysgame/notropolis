@@ -141,12 +141,22 @@ export interface QueueItem {
 // STAGE 4: GENERATION SETTINGS AND REFERENCES
 // ============================================
 
+// Valid aspect ratios for Imagen
+export const VALID_ASPECT_RATIOS = ['1:1', '2:3', '3:2', '3:4', '4:3', '4:5', '5:4', '9:16', '16:9', '21:9'] as const;
+export type AspectRatio = typeof VALID_ASPECT_RATIOS[number];
+
+// Valid image sizes for Imagen
+export const VALID_IMAGE_SIZES = ['1K', '2K', '4K'] as const;
+export type ImageSize = typeof VALID_IMAGE_SIZES[number];
+
 // Gemini generation settings
 export interface GenerationSettings {
   temperature?: number;  // 0.0 - 2.0, default 0.7
   topK?: number;         // 1 - 100, default 40
   topP?: number;         // 0.0 - 1.0, default 0.95
   maxOutputTokens?: number;
+  aspectRatio?: AspectRatio;  // Default based on category
+  imageSize?: ImageSize;      // Default: 4K
 }
 
 // Reference image specification for generation

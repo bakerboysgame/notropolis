@@ -25,11 +25,19 @@ type TabType = 'library' | 'upload';
 
 // Category display names for approved assets
 const categoryLabels: Record<string, string> = {
-  building_ref: 'Buildings',
-  character_ref: 'Characters',
-  vehicle_ref: 'Vehicles',
-  effect_ref: 'Effects',
-  terrain_ref: 'Terrain',
+  // Reference sheets
+  building_ref: 'Building Refs',
+  character_ref: 'Character Refs',
+  vehicle_ref: 'Vehicle Refs',
+  effect_ref: 'Effect Refs',
+  terrain_ref: 'Terrain Refs',
+  // Sprites
+  building_sprite: 'Building Sprites',
+  npc: 'NPCs',
+  avatar: 'Avatars',
+  effect: 'Effects',
+  terrain: 'Terrain',
+  overlay: 'Overlays',
 };
 
 function formatKey(key: string): string {
@@ -77,10 +85,18 @@ export default function ReferenceImagesStep({
     setIsLoading(true);
     try {
       // Load library images and approved assets in parallel
+      // Include both reference sheets and sprites as potential references
+      const categoriesToLoad: AssetCategory[] = [
+        // Reference sheets
+        'building_ref', 'character_ref', 'vehicle_ref', 'effect_ref', 'terrain_ref',
+        // Sprites (can be used as style references)
+        'building_sprite', 'npc', 'avatar', 'effect', 'terrain', 'overlay',
+      ];
+
       const [libraryResult, ...assetResults] = await Promise.all([
         referenceLibraryApi.listWithFilters(),
-        // Load approved assets from relevant categories
-        ...(['building_ref', 'character_ref', 'vehicle_ref', 'effect_ref', 'terrain_ref'] as AssetCategory[]).map(
+        // Load approved assets from all relevant categories
+        ...categoriesToLoad.map(
           async (cat) => {
             try {
               const assets = await assetApi.listAssets(cat);

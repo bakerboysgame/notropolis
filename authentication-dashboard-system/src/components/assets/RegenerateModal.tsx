@@ -2,7 +2,7 @@
 // Stage 8: Modal for regenerating assets with parameter overrides
 
 import { useState, useEffect } from 'react';
-import { X, RefreshCw, Loader2, Sparkles, Image as ImageIcon, Settings } from 'lucide-react';
+import { X, RefreshCw, Loader2, Sparkles, Image as ImageIcon, Settings, Maximize2 } from 'lucide-react';
 import { clsx } from 'clsx';
 import {
   Asset,
@@ -12,6 +12,10 @@ import {
   ReferenceImageSpec,
   referenceLibraryApi,
   ReferenceImage,
+  VALID_ASPECT_RATIOS,
+  VALID_IMAGE_SIZES,
+  AspectRatio,
+  ImageSize,
 } from '../../services/assetApi';
 import { useToast } from '../ui/Toast';
 
@@ -479,6 +483,82 @@ export default function RegenerateModal({
                 <div className="flex justify-between text-xs text-gray-400 mt-1">
                   <span>Narrow (0)</span>
                   <span>Wide (1)</span>
+                </div>
+              </div>
+
+              {/* Image Settings */}
+              <div className="border-t border-gray-200 dark:border-gray-700 pt-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <ImageIcon className="w-4 h-4 text-purple-600" />
+                  <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Image Settings
+                  </p>
+                </div>
+
+                {/* Aspect Ratio */}
+                <div className="mb-4">
+                  <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">
+                    Aspect Ratio
+                  </label>
+                  <div className="grid grid-cols-5 gap-2">
+                    {VALID_ASPECT_RATIOS.map((ratio) => (
+                      <button
+                        key={ratio}
+                        type="button"
+                        onClick={() => setSettings({ ...settings, aspectRatio: ratio as AspectRatio })}
+                        className={clsx(
+                          'px-3 py-2 text-sm rounded-lg border transition-all',
+                          settings.aspectRatio === ratio
+                            ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 ring-2 ring-purple-500'
+                            : 'border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:border-gray-400'
+                        )}
+                      >
+                        {ratio}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Image Size */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Image Size
+                    </label>
+                    <div className="flex items-center gap-1">
+                      <Maximize2 className="w-3 h-3 text-gray-400" />
+                      <span className="text-xs text-gray-500 dark:text-gray-400">
+                        Higher = more detail
+                      </span>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    {VALID_IMAGE_SIZES.map((size) => (
+                      <button
+                        key={size}
+                        type="button"
+                        onClick={() => setSettings({ ...settings, imageSize: size as ImageSize })}
+                        className={clsx(
+                          'px-4 py-3 rounded-lg border transition-all text-center',
+                          settings.imageSize === size
+                            ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/30 ring-2 ring-purple-500'
+                            : 'border-gray-200 dark:border-gray-600 hover:border-gray-400'
+                        )}
+                      >
+                        <span className={clsx(
+                          'font-medium',
+                          settings.imageSize === size
+                            ? 'text-purple-700 dark:text-purple-300'
+                            : 'text-gray-700 dark:text-gray-200'
+                        )}>
+                          {size}
+                        </span>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                          {size === '1K' ? '1024px' : size === '2K' ? '2048px' : '4096px'}
+                        </p>
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
