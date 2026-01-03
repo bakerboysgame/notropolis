@@ -122,17 +122,21 @@ export function IsometricView({
         continue;
       }
 
-      // Draw terrain for non-free_land tiles (water, road, dirt)
+      // Draw terrain for non-free_land tiles (water, road, dirt, trees)
       if (tile.terrain_type !== 'free_land') {
         // Try to draw terrain sprite first
         const terrainSprite = getTerrainSprite(sprites, tile.terrain_type);
         if (terrainSprite) {
+          // Sprites are 320x320, tiles are 64x64, so base scale is 0.2
+          const baseScale = 0.2;
+          const spriteWidth = terrainSprite.naturalWidth * baseScale * zoom;
+          const spriteHeight = terrainSprite.naturalHeight * baseScale * zoom;
           ctx.drawImage(
             terrainSprite,
-            screenX - tileSize / 2,
-            screenY - tileSize / 2,
-            tileSize,
-            tileSize
+            screenX - spriteWidth / 2,
+            screenY - spriteHeight + tileSize / 2,
+            spriteWidth,
+            spriteHeight
           );
         } else {
           // Fallback to color
@@ -155,8 +159,8 @@ export function IsometricView({
       if (tile.special_building) {
         const specialSprite = getSprite(sprites, tile.special_building);
         if (specialSprite) {
-          // Sprites are 320x320, tiles are 64x64, so base scale is 0.25
-          const baseScale = 0.25;
+          // Sprites are 320x320, tiles are 64x64, so base scale is 0.2
+          const baseScale = 0.2;
           const spriteWidth = specialSprite.naturalWidth * baseScale * zoom;
           const spriteHeight = specialSprite.naturalHeight * baseScale * zoom;
 
@@ -164,7 +168,7 @@ export function IsometricView({
           ctx.drawImage(
             specialSprite,
             screenX - spriteWidth / 2,
-            screenY - spriteHeight + tileSize / 4,
+            screenY - spriteHeight + tileSize / 2,
             spriteWidth,
             spriteHeight
           );
@@ -190,16 +194,16 @@ export function IsometricView({
         const buildingSprite = getSprite(sprites, effectiveTypeId);
 
         if (buildingSprite) {
-          // Sprites are 320x320, tiles are 64x64, so base scale is 0.25
-          const baseScale = 0.25;
+          // Sprites are 320x320, tiles are 64x64, so base scale is 0.2
+          const baseScale = 0.2;
           const spriteWidth = buildingSprite.naturalWidth * baseScale * zoom;
           const spriteHeight = buildingSprite.naturalHeight * baseScale * zoom;
 
-          // Building sprite centered horizontally, bottom aligned to tile center
+          // Building sprite centered horizontally, bottom at tile bottom
           ctx.drawImage(
             buildingSprite,
             screenX - spriteWidth / 2,
-            screenY - spriteHeight + tileSize / 4,
+            screenY - spriteHeight + tileSize / 2,
             spriteWidth,
             spriteHeight
           );
@@ -209,7 +213,7 @@ export function IsometricView({
             ctx.fillStyle = `rgba(0, 0, 0, ${building.damage_percent / 200})`;
             ctx.fillRect(
               screenX - spriteWidth / 2,
-              screenY - spriteHeight + tileSize / 4,
+              screenY - spriteHeight + tileSize / 2,
               spriteWidth,
               spriteHeight
             );
@@ -220,7 +224,7 @@ export function IsometricView({
             ctx.fillStyle = 'rgba(255, 100, 0, 0.4)';
             ctx.fillRect(
               screenX - spriteWidth / 2,
-              screenY - spriteHeight + tileSize / 4,
+              screenY - spriteHeight + tileSize / 2,
               spriteWidth,
               spriteHeight
             );
@@ -232,7 +236,7 @@ export function IsometricView({
             ctx.lineWidth = 2 * zoom;
             ctx.strokeRect(
               screenX - spriteWidth / 2 - 2,
-              screenY - spriteHeight + tileSize / 4 - 2,
+              screenY - spriteHeight + tileSize / 2 - 2,
               spriteWidth + 4,
               spriteHeight + 4
             );
@@ -257,7 +261,7 @@ export function IsometricView({
           ctx.drawImage(
             stakeSprite,
             screenX - spriteWidth / 2,
-            screenY - spriteHeight + tileSize / 4,
+            screenY - spriteHeight + tileSize / 2,
             spriteWidth,
             spriteHeight
           );

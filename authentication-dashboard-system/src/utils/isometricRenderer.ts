@@ -39,9 +39,12 @@ export const BUILDING_SPRITES: Record<string, BuildingSprite> = {
   claim_stake: { key: 'claim_stake', variant: 2, height: 32 },
 };
 
-// Terrain sprite mapping
+// Terrain sprite mapping (trees used as placeholder for road/water/dirt for now)
 export const TERRAIN_SPRITES: Record<string, string> = {
   trees: 'terrain/trees_v4.webp',
+  road: 'terrain/trees_v4.webp',
+  water: 'terrain/trees_v4.webp',
+  dirt_track: 'terrain/trees_v4.webp',
 };
 
 // Terrain fallback colors for non-sprite terrain
