@@ -155,12 +155,10 @@ export function IsometricView({
       if (tile.special_building) {
         const specialSprite = getSprite(sprites, tile.special_building);
         if (specialSprite) {
-          // Use natural sprite dimensions, scaled by zoom
-          const naturalWidth = specialSprite.naturalWidth;
-          const naturalHeight = specialSprite.naturalHeight;
-          const scale = zoom * 1.2; // Slightly larger for visibility
-          const spriteWidth = naturalWidth * scale;
-          const spriteHeight = naturalHeight * scale;
+          // Sprites are 320x320, tiles are 64x64, so base scale is 0.25
+          const baseScale = 0.25;
+          const spriteWidth = specialSprite.naturalWidth * baseScale * zoom;
+          const spriteHeight = specialSprite.naturalHeight * baseScale * zoom;
 
           // Center horizontally on tile, bottom at tile center
           ctx.drawImage(
@@ -192,12 +190,10 @@ export function IsometricView({
         const buildingSprite = getSprite(sprites, effectiveTypeId);
 
         if (buildingSprite) {
-          // Use natural sprite dimensions, scaled by zoom
-          const naturalWidth = buildingSprite.naturalWidth;
-          const naturalHeight = buildingSprite.naturalHeight;
-          const scale = zoom * 1.2; // Slightly larger for visibility
-          const spriteWidth = naturalWidth * scale;
-          const spriteHeight = naturalHeight * scale;
+          // Sprites are 320x320, tiles are 64x64, so base scale is 0.25
+          const baseScale = 0.25;
+          const spriteWidth = buildingSprite.naturalWidth * baseScale * zoom;
+          const spriteHeight = buildingSprite.naturalHeight * baseScale * zoom;
 
           // Building sprite centered horizontally, bottom aligned to tile center
           ctx.drawImage(
@@ -254,12 +250,10 @@ export function IsometricView({
       if (tile.owner_company_id && !building && !tile.special_building) {
         const stakeSprite = getSprite(sprites, 'claim_stake');
         if (stakeSprite) {
-          // Use natural sprite dimensions, scaled by zoom
-          const naturalWidth = stakeSprite.naturalWidth;
-          const naturalHeight = stakeSprite.naturalHeight;
-          const scale = zoom * 0.6; // Smaller for stakes
-          const spriteWidth = naturalWidth * scale;
-          const spriteHeight = naturalHeight * scale;
+          // Sprites are 320x320, tiles are 64x64, base scale 0.25, stakes smaller at 0.15
+          const baseScale = 0.15;
+          const spriteWidth = stakeSprite.naturalWidth * baseScale * zoom;
+          const spriteHeight = stakeSprite.naturalHeight * baseScale * zoom;
           ctx.drawImage(
             stakeSprite,
             screenX - spriteWidth / 2,
