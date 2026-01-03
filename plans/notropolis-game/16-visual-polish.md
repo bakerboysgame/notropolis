@@ -184,15 +184,26 @@ export const VIEWPORT_TILES = 15; // Show ~15x15 tiles in view
 // Originals stored in /originals/, game loads from /sprites/
 export const SPRITE_BASE_URL = 'https://pub-874867b18f8b4b4882277d8a2b7dfe80.r2.dev/sprites';
 
+// Background tile (large, sits behind everything)
+export const GRASS_BACKGROUND = 'terrain/terrain_grass_bg.webp';
+
 // Terrain sprite mapping (WebP format from public R2 bucket)
+// Note: Road/dirt tiles are rotated in code based on connections
 export const TERRAIN_SPRITES: Record<string, string> = {
-  free_land: 'terrain/terrain_grass.webp',
-  water: 'terrain/terrain_water.webp',
-  road: 'terrain/terrain_road.webp',
-  dirt_track: 'terrain/terrain_dirt.webp',
   trees: 'terrain/terrain_trees.webp',
-  mountain: 'terrain/terrain_mountain.webp',
-  sand: 'terrain/terrain_sand.webp',
+  water: 'terrain/terrain_water.webp',
+  // Road tiles (rotated in code)
+  road_straight: 'terrain/terrain_road_straight.webp',
+  road_corner: 'terrain/terrain_road_corner.webp',
+  road_tjunction: 'terrain/terrain_road_tjunction.webp',
+  road_crossroad: 'terrain/terrain_road_crossroad.webp',
+  road_end: 'terrain/terrain_road_end.webp',
+  // Dirt tiles (rotated in code)
+  dirt_straight: 'terrain/terrain_dirt_straight.webp',
+  dirt_corner: 'terrain/terrain_dirt_corner.webp',
+  dirt_tjunction: 'terrain/terrain_dirt_tjunction.webp',
+  dirt_crossroad: 'terrain/terrain_dirt_crossroad.webp',
+  dirt_end: 'terrain/terrain_dirt_end.webp',
 };
 
 // Special building sprites (WebP format from public R2 bucket)

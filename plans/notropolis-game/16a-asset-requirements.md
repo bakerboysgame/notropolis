@@ -79,54 +79,49 @@ All tiles are diamond-shaped when viewed from above. Buildings sit on top of til
 
 ## Asset Categories
 
-### 1. Terrain Tiles (38 types with auto-tiling variants)
+### 1. Terrain & Environment Assets
 
-Base terrain that covers the ground. Each tile is a diamond shape at 64×32 pixels.
-The map builder uses **auto-tiling** to select the correct variant based on neighboring tiles.
+#### Background Tile (1)
 
-#### Simple Tiles (4)
+| Asset | Description | Size | Filename |
+|-------|-------------|------|----------|
+| Grass Background | Large seamless grass texture for map background | 512×512 or larger | `terrain_grass_bg.webp` |
 
-| ID | Name | Description | Filename |
-|----|------|-------------|----------|
-| `grass` | Grass | Default buildable land | `terrain_grass.webp` |
-| `trees` | Trees | Forest/trees, extends upward | `terrain_trees.webp` |
-| `mountain` | Mountain | Rocky terrain, extends upward | `terrain_mountain.webp` |
-| `sand` | Sand | Sandy terrain near water | `terrain_sand.webp` |
+This is a **non-isometric** tile that sits behind all other assets as the base layer.
 
-#### Road Tiles - Connection System (15)
+#### Tree Sprite (1)
 
-Roads auto-connect based on neighboring road tiles. Naming: `road_{directions}` where directions = connected sides.
+| Asset | Description | Size | Filename |
+|-------|-------------|------|----------|
+| Trees | Forest/tree cluster, isometric | 64×64 (extends upward) | `terrain_trees.webp` |
 
-| ID | Connects To | Visual | Filename |
-|----|-------------|--------|----------|
-| `road_ns` | North + South | Straight vertical | `terrain_road_ns.webp` |
-| `road_ew` | East + West | Straight horizontal | `terrain_road_ew.webp` |
-| `road_ne` | North + East | Corner ╮ | `terrain_road_ne.webp` |
-| `road_nw` | North + West | Corner ╭ | `terrain_road_nw.webp` |
-| `road_se` | South + East | Corner ╯ | `terrain_road_se.webp` |
-| `road_sw` | South + West | Corner ╰ | `terrain_road_sw.webp` |
-| `road_nes` | N + E + S | T-junction ├ | `terrain_road_nes.webp` |
-| `road_new` | N + E + W | T-junction ┴ | `terrain_road_new.webp` |
-| `road_nsw` | N + S + W | T-junction ┤ | `terrain_road_nsw.webp` |
-| `road_esw` | E + S + W | T-junction ┬ | `terrain_road_esw.webp` |
-| `road_nesw` | All 4 | 4-way ┼ | `terrain_road_nesw.webp` |
-| `road_n` | North only | Dead end ╵ | `terrain_road_n.webp` |
-| `road_e` | East only | Dead end ╴ | `terrain_road_e.webp` |
-| `road_s` | South only | Dead end ╷ | `terrain_road_s.webp` |
-| `road_w` | West only | Dead end ╶ | `terrain_road_w.webp` |
+#### Road Tiles - Rotatable System (5)
 
-#### Dirt Track Tiles (6)
+Roads use 5 base tiles that can be **rotated in code** (0°, 90°, 180°, 270°) to create all variations.
 
-Simplified road system for dirt paths.
+| ID | Type | Visual | Filename | Rotations |
+|----|------|--------|----------|-----------|
+| `road_straight` | Straight | ═══ | `terrain_road_straight.webp` | 0°, 90° |
+| `road_corner` | Corner | ╮ | `terrain_road_corner.webp` | 0°, 90°, 180°, 270° |
+| `road_tjunction` | T-Junction | ┬ | `terrain_road_tjunction.webp` | 0°, 90°, 180°, 270° |
+| `road_crossroad` | Crossroad | ┼ | `terrain_road_crossroad.webp` | None needed |
+| `road_end` | Dead End | ╷ | `terrain_road_end.webp` | 0°, 90°, 180°, 270° |
 
-| ID | Connects To | Filename |
-|----|-------------|----------|
-| `dirt_ns` | North + South | `terrain_dirt_ns.webp` |
-| `dirt_ew` | East + West | `terrain_dirt_ew.webp` |
-| `dirt_ne` | Corner | `terrain_dirt_ne.webp` |
-| `dirt_nw` | Corner | `terrain_dirt_nw.webp` |
-| `dirt_se` | Corner | `terrain_dirt_se.webp` |
-| `dirt_sw` | Corner | `terrain_dirt_sw.webp` |
+**Size:** 64×32 px (isometric diamond)
+
+#### Dirt Track Tiles - Rotatable System (5)
+
+Same structure as roads, different visual style.
+
+| ID | Type | Filename | Rotations |
+|----|------|----------|-----------|
+| `dirt_straight` | Straight | `terrain_dirt_straight.webp` | 0°, 90° |
+| `dirt_corner` | Corner | `terrain_dirt_corner.webp` | 0°, 90°, 180°, 270° |
+| `dirt_tjunction` | T-Junction | `terrain_dirt_tjunction.webp` | 0°, 90°, 180°, 270° |
+| `dirt_crossroad` | Crossroad | `terrain_dirt_crossroad.webp` | None needed |
+| `dirt_end` | Dead End | `terrain_dirt_end.webp` | 0°, 90°, 180°, 270° |
+
+**Size:** 64×32 px (isometric diamond)
 
 #### Water Tiles - Edge System (13)
 
@@ -148,49 +143,41 @@ Water uses an edge-based system. Naming indicates which sides have land.
 | `water_inner_se` | Inner corner (concave SE) | `terrain_water_inner_se.webp` |
 | `water_inner_sw` | Inner corner (concave SW) | `terrain_water_inner_sw.webp` |
 
-**Specifications:**
-- Size: **64 x 32 px**
-- Format: WebP with transparency (lossless with alpha)
-- All tiles go through Removal.ai for clean edges
-- Tiles must seamlessly connect when placed adjacent
-- Trees/mountain tiles extend upward beyond the diamond
+**Size:** 64×32 px (isometric diamond)
 
-**Road Tile Detail:**
-```
-       /\
-      /  \
-     / SW \      SW = Sidewalk (light gray, ~8px wide)
-    /══════\     ══ = Road (dark gray asphalt)
-   < SW══SW >
-    \══════/     Cars drive on the road center
-     \ SW /      Pedestrians walk on sidewalks
-      \  /
-       \/
-```
-- Center: Dark gray asphalt for cars
-- Edges: Light gray/beige sidewalks for pedestrians
-- Clear visual distinction between road and sidewalk areas
+---
+
+### Terrain Summary
+
+| Category | Count | Notes |
+|----------|-------|-------|
+| Background | 1 | Large grass tile behind everything |
+| Trees | 1 | Isometric tree cluster |
+| Road | 5 | Rotated in code for all variations |
+| Dirt | 5 | Rotated in code for all variations |
+| Water | 13 | Edge-based auto-tiling |
+| **Total** | **25** | |
 
 **Visual Style Reference:** [iso-city.com](https://iso-city.com/) - clean, slightly cartoonish
 
 ---
 
-### 2. Building Sprites (10 types + damaged variants)
+### 2. Building Sprites (10 types) ✅ DONE
 
 Buildings are placed on top of terrain tiles. They extend upward from a diamond footprint within a SQUARE canvas.
 
-| ID | Name | Canvas Size | Size Class | Filename |
-|----|------|-------------|------------|----------|
-| `market_stall` | Market Stall | 128x128 | Short | `building_market_stall.webp` |
-| `hot_dog_stand` | Hot Dog Stand | 128x128 | Short | `building_hot_dog_stand.webp` |
-| `campsite` | Campsite | 128x128 | Short | `building_campsite.webp` |
-| `shop` | Shop | 192x192 | Medium | `building_shop.webp` |
-| `burger_bar` | Burger Bar | 192x192 | Medium | `building_burger_bar.webp` |
-| `motel` | Motel | 192x192 | Medium | `building_motel.webp` |
-| `high_street_store` | High Street Store | 256x256 | Tall | `building_high_street_store.webp` |
-| `restaurant` | Restaurant | 256x256 | Tall | `building_restaurant.webp` |
-| `manor` | Manor | 256x256 | Tall | `building_manor.webp` |
-| `casino` | Casino | 320x320 | Very Tall | `building_casino.webp` |
+| ID | Name | Canvas Size | Size Class | Filename | Status |
+|----|------|-------------|------------|----------|--------|
+| `market_stall` | Market Stall | 128x128 | Short | `building_market_stall.webp` | ✅ |
+| `hot_dog_stand` | Hot Dog Stand | 128x128 | Short | `building_hot_dog_stand.webp` | ✅ |
+| `campsite` | Campsite | 128x128 | Short | `building_campsite.webp` | ✅ |
+| `shop` | Shop | 192x192 | Medium | `building_shop.webp` | ✅ |
+| `burger_bar` | Burger Bar | 192x192 | Medium | `building_burger_bar.webp` | ✅ |
+| `motel` | Motel | 192x192 | Medium | `building_motel.webp` | ✅ |
+| `high_street_store` | High Street Store | 256x256 | Tall | `building_high_street_store.webp` | ✅ |
+| `restaurant` | Restaurant | 256x256 | Tall | `building_restaurant.webp` | ✅ |
+| `manor` | Manor | 256x256 | Tall | `building_manor.webp` | ✅ |
+| `casino` | Casino | 320x320 | Very Tall | `building_casino.webp` | ✅ |
 
 **Size Classes (SQUARE canvas):**
 - **Short** (128x128): Small structures like stalls, tents
@@ -222,68 +209,66 @@ Buildings are placed on top of terrain tiles. They extend upward from a diamond 
 
 ---
 
-### 3. Special Buildings (3 types)
+### 3. Special Buildings (3 types) ✅ DONE
 
 Non-player buildings that appear on the map.
 
-| ID | Name | Canvas Size | Size Class | Filename |
-|----|------|-------------|------------|----------|
-| `temple` | Temple | 320x320 | Very Tall | `special_temple.webp` |
-| `bank` | Bank | 320x320 | Very Tall | `special_bank.webp` |
-| `police_station` | Police Station | 256x256 | Tall | `special_police.webp` |
+| ID | Name | Canvas Size | Size Class | Filename | Status |
+|----|------|-------------|------------|----------|--------|
+| `temple` | Temple | 320x320 | Very Tall | `special_temple.webp` | ✅ |
+| `bank` | Bank | 320x320 | Very Tall | `special_bank.webp` | ✅ |
+| `police_station` | Police Station | 256x256 | Tall | `special_police.webp` | ✅ |
 
 **Specifications:** Same SQUARE canvas with diamond footprint as regular buildings.
 
 ---
 
-### 4. Ownership Overlays (2 types)
+### 4. Ownership Overlays - React/CSS (No images needed)
 
-Semi-transparent overlays to show tile ownership.
+Semi-transparent overlays rendered via CSS/Canvas, not image assets.
 
-| ID | Name | Color | Filename |
-|----|------|-------|----------|
-| `owned_self` | Player Owned | Green tint | `overlay_owned_self.webp` |
-| `owned_other` | Enemy Owned | Red tint | `overlay_owned_other.webp` |
+| Element | Implementation | Color |
+|---------|----------------|-------|
+| Player Owned | CSS `clip-path: polygon()` or Canvas fill | `rgba(34, 197, 94, 0.3)` green |
+| Enemy Owned | CSS `clip-path: polygon()` or Canvas fill | `rgba(239, 68, 68, 0.3)` red |
 
-**Specifications:**
-- Size: **64 x 32 px** (diamond shape)
-- Format: WebP with transparency (lossless with alpha)
-- Opacity: ~30-40%
-- Should be a solid color fill of the diamond shape
-
----
-
-### 5. Status Effects (3 types)
-
-Overlays/indicators for building status.
-
-| ID | Name | Description | Filename |
-|----|------|-------------|----------|
-| `fire` | Fire Effect | Flames on building | `effect_fire.webp` |
-| `damage_25` | Light Damage | Cracks/wear at 25% | `effect_damage_25.webp` |
-| `damage_50` | Medium Damage | More damage at 50% | `effect_damage_50.webp` |
-| `damage_75` | Heavy Damage | Severe damage at 75% | `effect_damage_75.webp` |
-| `for_sale` | For Sale Sign | Small sign indicator | `effect_for_sale.webp` |
-| `security` | Security Icon | Shield/camera icon | `effect_security.webp` |
-
-**Specifications:**
-- Fire: Animated sprite sheet OR static overlay (64x64px, positioned above building)
-- Damage: Overlays that match building size (can be generic cracks/rubble)
-- For Sale/Security: Small icons (24x24px) positioned at top-right of building
+**Benefits:**
+- No asset loading required
+- Dynamic color changes possible
+- Perfect scaling at any zoom level
 
 ---
 
-### 6. UI Elements
+### 5. Status Effects (Future - Post-MVP)
 
-Minimap and navigation indicators.
+These are nice-to-have for visual polish but not required for MVP.
 
-| ID | Name | Size | Filename |
-|----|------|------|----------|
-| `minimap_player` | Player Marker | 8x8 | `ui_minimap_player.webp` |
-| `minimap_enemy` | Enemy Marker | 8x8 | `ui_minimap_enemy.webp` |
-| `cursor_select` | Selection Cursor | 68x36 | `ui_cursor_select.webp` |
+| ID | Name | Description | Status |
+|----|------|-------------|--------|
+| `fire` | Fire Effect | Flames on building | Future |
+| `damage_25` | Light Damage | Cracks/wear at 25% | Future |
+| `damage_50` | Medium Damage | More damage at 50% | Future |
+| `damage_75` | Heavy Damage | Severe damage at 75% | Future |
+| `for_sale` | For Sale Sign | Small sign indicator | Future |
+| `security` | Security Icon | Shield/camera icon | Future |
 
-**Selection Cursor:** Diamond outline that highlights the currently selected tile (slightly larger than tile).
+---
+
+### 6. UI Elements - React/CSS (No images needed)
+
+All UI elements rendered via React components and CSS, not image assets.
+
+| Element | Implementation |
+|---------|----------------|
+| Selection Cursor | CSS border/glow with `box-shadow` or SVG stroke, animated pulse |
+| Minimap Player Marker | `<div className="w-2 h-2 rounded-full bg-green-500">` |
+| Minimap Enemy Marker | `<div className="w-2 h-2 rounded-full bg-red-500">` |
+
+**Benefits:**
+- No asset loading required
+- Smaller bundle size
+- Easy to animate with CSS
+- Dynamic theming possible
 
 ---
 
@@ -293,32 +278,19 @@ Minimap and navigation indicators.
 PUBLIC BUCKET: notropolis-game-assets
 └── sprites/
     ├── terrain/
-    │   ├── terrain_grass.webp
-    │   ├── terrain_trees.webp
-    │   ├── terrain_mountain.webp
-    │   ├── terrain_sand.webp
-    │   ├── terrain_road_ns.webp      # Road variants (15)
-    │   ├── terrain_road_ew.webp
-    │   ├── terrain_road_ne.webp
-    │   ├── terrain_road_nw.webp
-    │   ├── terrain_road_se.webp
-    │   ├── terrain_road_sw.webp
-    │   ├── terrain_road_nes.webp
-    │   ├── terrain_road_new.webp
-    │   ├── terrain_road_nsw.webp
-    │   ├── terrain_road_esw.webp
-    │   ├── terrain_road_nesw.webp
-    │   ├── terrain_road_n.webp
-    │   ├── terrain_road_e.webp
-    │   ├── terrain_road_s.webp
-    │   ├── terrain_road_w.webp
-    │   ├── terrain_dirt_ns.webp      # Dirt variants (6)
-    │   ├── terrain_dirt_ew.webp
-    │   ├── terrain_dirt_ne.webp
-    │   ├── terrain_dirt_nw.webp
-    │   ├── terrain_dirt_se.webp
-    │   ├── terrain_dirt_sw.webp
-    │   ├── terrain_water.webp        # Water variants (13)
+    │   ├── terrain_grass_bg.webp          # Background (1)
+    │   ├── terrain_trees.webp             # Trees (1)
+    │   ├── terrain_road_straight.webp     # Road (5) - rotated in code
+    │   ├── terrain_road_corner.webp
+    │   ├── terrain_road_tjunction.webp
+    │   ├── terrain_road_crossroad.webp
+    │   ├── terrain_road_end.webp
+    │   ├── terrain_dirt_straight.webp     # Dirt (5) - rotated in code
+    │   ├── terrain_dirt_corner.webp
+    │   ├── terrain_dirt_tjunction.webp
+    │   ├── terrain_dirt_crossroad.webp
+    │   ├── terrain_dirt_end.webp
+    │   ├── terrain_water.webp             # Water (13)
     │   ├── terrain_water_edge_n.webp
     │   ├── terrain_water_edge_e.webp
     │   ├── terrain_water_edge_s.webp
@@ -332,7 +304,7 @@ PUBLIC BUCKET: notropolis-game-assets
     │   ├── terrain_water_inner_se.webp
     │   └── terrain_water_inner_sw.webp
     │
-    ├── buildings/
+    ├── buildings/                          # ✅ DONE (10)
     │   ├── building_market_stall.webp
     │   ├── building_hot_dog_stand.webp
     │   ├── building_campsite.webp
@@ -344,27 +316,21 @@ PUBLIC BUCKET: notropolis-game-assets
     │   ├── building_manor.webp
     │   └── building_casino.webp
     │
-    ├── special/
+    ├── special/                            # ✅ DONE (3)
     │   ├── special_temple.webp
     │   ├── special_bank.webp
     │   └── special_police.webp
     │
-    ├── overlays/
-    │   ├── overlay_owned_self.webp
-    │   └── overlay_owned_other.webp
-    │
-    ├── effects/
-    │   ├── effect_fire.webp
-    │   ├── effect_damage_25.webp
-    │   ├── effect_damage_50.webp
-    │   ├── effect_damage_75.webp
-    │   ├── effect_for_sale.webp
-    │   └── effect_security.webp
-    │
-    └── ui/
-        ├── ui_minimap_player.webp
-        ├── ui_minimap_enemy.webp
-        └── ui_cursor_select.webp
+    └── effects/                            # Future (post-MVP)
+        ├── effect_fire.webp
+        ├── effect_damage_25.webp
+        ├── effect_damage_50.webp
+        ├── effect_damage_75.webp
+        ├── effect_for_sale.webp
+        └── effect_security.webp
+
+# Note: No /ui/ folder - UI elements rendered via React/CSS
+# Note: No /overlays/ folder - ownership overlays rendered via Canvas/CSS
 ```
 
 ---
@@ -397,20 +363,29 @@ PUBLIC BUCKET: notropolis-game-assets
 
 ### Required for MVP (Stage 16)
 
-- [ ] 7 terrain tiles
-- [ ] 10 building sprites
-- [ ] 3 special building sprites
-- [ ] 2 ownership overlays
-- [ ] 1 selection cursor
+**Terrain (25 images):**
+- [ ] 1 grass background tile (512×512+)
+- [ ] 1 tree sprite (64×64)
+- [ ] 5 road tiles (straight, corner, t-junction, crossroad, end)
+- [ ] 5 dirt tiles (same variants as road)
+- [ ] 13 water tiles (center + edges + corners)
+
+**Buildings (13 images) ✅ DONE:**
+- [x] 10 building sprites
+- [x] 3 special building sprites
+
+**UI Elements (0 images - React/CSS):**
+- [x] Ownership overlays → Canvas fill
+- [x] Selection cursor → CSS/SVG
+- [x] Minimap markers → React divs
 
 ### Nice to Have (Post-MVP)
 
-- [ ] Damage effect overlays
+- [ ] Damage effect overlays (3 levels)
 - [ ] Fire effect (animated or static)
-- [ ] For sale sign
+- [ ] For sale sign icon
 - [ ] Security icon
 - [ ] Water animation frames
-- [ ] Road variants (intersection, corner, etc.)
 
 ---
 
