@@ -76,6 +76,7 @@ export const ASSET_KEYS: Record<string, string[]> = {
   ],
   // Simple terrain - single tiles with no variations
   terrain: [
+    'grass_bg',  // 512x512 seamless grass background tile
     'trees', 'mountain', 'sand',
   ],
   scene: [
@@ -857,6 +858,9 @@ export interface AssetConfiguration {
   asset_key: string;
   active_sprite_id?: number | null;
   config?: Record<string, unknown>;
+  map_scale?: number | null;
+  default_map_scale?: number;
+  effective_map_scale?: number;
   is_active?: boolean;
   is_published?: boolean;
   published_at?: string;
@@ -874,6 +878,9 @@ export interface BuildingConfiguration {
   active_sprite_id?: number | null;
   cost_override?: number | null;
   base_profit_override?: number | null;
+  map_scale?: number | null;
+  default_map_scale?: number;
+  effective_map_scale?: number;
   default_cost?: number;
   default_profit?: number;
   effective_cost?: number;
@@ -934,6 +941,7 @@ class AssetConfigurationApi {
       active_sprite_id?: number | null;
       cost_override?: number | null;
       base_profit_override?: number | null;
+      map_scale?: number | null;
       config?: Record<string, unknown>;
       is_active?: boolean;
     }

@@ -70,7 +70,7 @@ async function logAudit(env, action, assetId, actor, details = {}) {
     await env.DB.prepare(`
         INSERT INTO asset_audit_log (action, asset_id, actor, details)
         VALUES (?, ?, ?, ?)
-    `).bind(action, assetId, actor || 'system', JSON.stringify(details)).run();
+    `).bind(action, assetId ?? null, actor || 'system', JSON.stringify(details)).run();
 }
 
 // Hash string helper for cache invalidation
@@ -246,24 +246,33 @@ async function postApprovalPipeline(env, assetId, asset, approvedBy) {
         console.log(`[Pipeline] Fetched original image: ${imageBuffer.byteLength} bytes`);
 
         // Step 2: Background removal via Slazzer API
-        console.log('[Pipeline] Removing background via Slazzer...');
-        const formData = new FormData();
-        formData.append('source_image_file', new Blob([imageBuffer], { type: 'image/png' }), 'image.png');
-        formData.append('crop', 'true');
+        // Skip for grass_bg - it IS the background, no transparency needed
+        const skipBgRemoval = asset.category === 'terrain' && asset.asset_key === 'grass_bg';
+        let bgRemovedBuffer;
 
-        const slazzerResponse = await fetch('https://api.slazzer.com/v2.0/remove_image_background', {
-            method: 'POST',
-            headers: { 'API-KEY': env.SLAZZER_API_KEY },
-            body: formData
-        });
+        if (skipBgRemoval) {
+            console.log('[Pipeline] Skipping background removal for grass_bg (it IS the background)');
+            bgRemovedBuffer = imageBuffer;
+        } else {
+            console.log('[Pipeline] Removing background via Slazzer...');
+            const formData = new FormData();
+            formData.append('source_image_file', new Blob([imageBuffer], { type: 'image/png' }), 'image.png');
+            formData.append('crop', 'true');
 
-        if (!slazzerResponse.ok) {
-            const errorText = await slazzerResponse.text();
-            throw new Error(`Slazzer API error: ${slazzerResponse.status} - ${errorText}`);
+            const slazzerResponse = await fetch('https://api.slazzer.com/v2.0/remove_image_background', {
+                method: 'POST',
+                headers: { 'API-KEY': env.SLAZZER_API_KEY },
+                body: formData
+            });
+
+            if (!slazzerResponse.ok) {
+                const errorText = await slazzerResponse.text();
+                throw new Error(`Slazzer API error: ${slazzerResponse.status} - ${errorText}`);
+            }
+
+            bgRemovedBuffer = await slazzerResponse.arrayBuffer();
+            console.log(`[Pipeline] Background removed: ${bgRemovedBuffer.byteLength} bytes`);
         }
-
-        const bgRemovedBuffer = await slazzerResponse.arrayBuffer();
-        console.log(`[Pipeline] Background removed: ${bgRemovedBuffer.byteLength} bytes`);
 
         // Step 3: Trim transparent pixels (placeholder - returns as-is for now)
         // TODO: Implement actual trimming with WASM-based image library if needed
@@ -330,12 +339,12 @@ async function postApprovalPipeline(env, assetId, asset, approvedBy) {
                 r2_key_processed = ?,
                 r2_key_public = ?,
                 r2_url = ?,
-                background_removed = TRUE,
+                background_removed = ?,
                 pipeline_status = 'completed',
                 pipeline_completed_at = CURRENT_TIMESTAMP,
                 updated_at = CURRENT_TIMESTAMP
             WHERE id = ?
-        `).bind(transparentKey, processedKey, publicKey, publicUrl, assetId).run();
+        `).bind(transparentKey, processedKey, publicKey, publicUrl, !skipBgRemoval, assetId).run();
 
         console.log(`[Pipeline] Completed for asset ${assetId}. Public URL: ${publicUrl}`);
 
@@ -379,53 +388,39 @@ function buildImageTransformUrl(originalUrl, width, height, format = 'webp') {
 }
 
 /**
- * Get target dimensions for an asset based on its category and asset_key
+ * Get target dimensions for an asset based on its category
+ * Uses tiered output sizes for consistent sprite quality
  * @param {string} category - Asset category (building_sprite, terrain, etc.)
- * @param {string} assetKey - The asset key (restaurant, grass, etc.)
+ * @param {string} assetKey - The asset key (not used in tiered system, kept for API compatibility)
  * @returns {{ width: number, height: number } | null} - Target dimensions or null if no resize needed
  */
 function getTargetDimensions(category, assetKey) {
-    if (category === 'building_sprite') {
-        const sizeClass = BUILDING_SIZE_CLASSES[assetKey];
-        if (sizeClass) {
-            return { width: sizeClass.width, height: sizeClass.height };
-        }
-        // Default for unknown buildings
-        return { width: 256, height: 256 };
+    // Special case: grass_bg uses 512x512 (not the default terrain 320x320)
+    if (category === 'terrain' && assetKey === 'grass_bg') {
+        const size = SPRITE_OUTPUT_SIZES.terrain_grass_bg;
+        return { width: size, height: size };
     }
 
-    if (category === 'terrain') {
-        return { width: 64, height: 32 };
+    const size = SPRITE_OUTPUT_SIZES[category];
+    if (size) {
+        return { width: size, height: size };
     }
-
-    if (category === 'npc') {
-        // Pedestrians
-        return { width: 32, height: 32 };
-    }
-
-    if (category === 'vehicle') {
-        // Cars - wider than tall for top-down view
-        return { width: 64, height: 32 };
-    }
-
-    if (category === 'effect') {
-        return { width: 64, height: 64 };
-    }
-
-    if (category === 'overlay') {
-        return { width: 64, height: 32 };
-    }
-
-    if (category === 'ui') {
-        if (assetKey === 'cursor_select') {
-            return { width: 68, height: 36 };
-        }
-        // Minimap markers
-        return { width: 8, height: 8 };
-    }
-
     // No resize for other categories (scenes, avatars, refs)
     return null;
+}
+
+/**
+ * Get the default map_scale for an asset based on its category and key
+ * Used when database doesn't have a map_scale value set
+ * @param {string} category - Asset category
+ * @param {string} assetKey - The asset key (used for building-specific scales)
+ * @returns {number} - Default map scale (0.1 to 1.0)
+ */
+function getDefaultMapScale(category, assetKey) {
+    if (category === 'building_sprite') {
+        return BUILDING_SIZE_CLASSES[assetKey]?.default_map_scale ?? 1.0;
+    }
+    return DEFAULT_MAP_SCALES[category] ?? 1.0;
 }
 
 /**
@@ -1452,21 +1447,51 @@ Simple green grass with subtle texture. Seamless tiling.${customDetails ? `\n\n$
 // ============================================================================
 
 const BUILDING_SIZE_CLASSES = {
-    claim_stake: { canvas: '64x64', class: 'TINY', width: 64, height: 64 },
-    demolished: { canvas: '128x128', class: 'SHORT', width: 128, height: 128 },
-    market_stall: { canvas: '128x128', class: 'SHORT', width: 128, height: 128 },
-    hot_dog_stand: { canvas: '128x128', class: 'SHORT', width: 128, height: 128 },
-    campsite: { canvas: '128x128', class: 'SHORT', width: 128, height: 128 },
-    shop: { canvas: '192x192', class: 'MEDIUM', width: 192, height: 192 },
-    burger_bar: { canvas: '192x192', class: 'MEDIUM', width: 192, height: 192 },
-    motel: { canvas: '192x192', class: 'MEDIUM', width: 192, height: 192 },
-    high_street_store: { canvas: '256x256', class: 'TALL', width: 256, height: 256 },
-    restaurant: { canvas: '256x256', class: 'TALL', width: 256, height: 256 },
-    manor: { canvas: '256x256', class: 'TALL', width: 256, height: 256 },
-    police_station: { canvas: '256x256', class: 'TALL', width: 256, height: 256 },
-    casino: { canvas: '320x320', class: 'VERY_TALL', width: 320, height: 320 },
-    temple: { canvas: '320x320', class: 'VERY_TALL', width: 320, height: 320 },
-    bank: { canvas: '320x320', class: 'VERY_TALL', width: 320, height: 320 }
+    claim_stake: { canvas: '64x64', class: 'TINY', default_map_scale: 0.2 },
+    demolished: { canvas: '128x128', class: 'SHORT', default_map_scale: 0.4 },
+    market_stall: { canvas: '128x128', class: 'SHORT', default_map_scale: 0.4 },
+    hot_dog_stand: { canvas: '128x128', class: 'SHORT', default_map_scale: 0.4 },
+    campsite: { canvas: '128x128', class: 'SHORT', default_map_scale: 0.4 },
+    shop: { canvas: '192x192', class: 'MEDIUM', default_map_scale: 0.6 },
+    burger_bar: { canvas: '192x192', class: 'MEDIUM', default_map_scale: 0.6 },
+    motel: { canvas: '192x192', class: 'MEDIUM', default_map_scale: 0.6 },
+    high_street_store: { canvas: '256x256', class: 'TALL', default_map_scale: 0.8 },
+    restaurant: { canvas: '256x256', class: 'TALL', default_map_scale: 0.8 },
+    manor: { canvas: '256x256', class: 'TALL', default_map_scale: 0.8 },
+    police_station: { canvas: '256x256', class: 'TALL', default_map_scale: 0.8 },
+    casino: { canvas: '320x320', class: 'VERY_TALL', default_map_scale: 1.0 },
+    temple: { canvas: '320x320', class: 'VERY_TALL', default_map_scale: 1.0 },
+    bank: { canvas: '320x320', class: 'VERY_TALL', default_map_scale: 1.0 }
+};
+
+// ============================================
+// SPRITE OUTPUT SIZES (Tiered by category)
+// All sprites are resized to these dimensions on output
+// ============================================
+
+const SPRITE_OUTPUT_SIZES = {
+    building_sprite: 320,
+    effect: 320,
+    terrain: 320,
+    terrain_grass_bg: 512,  // grass_bg is a special 512x512 seamless tile
+    vehicle: 128,
+    npc: 64,
+    overlay: 128,
+    ui: 64
+};
+
+// ============================================
+// DEFAULT MAP SCALES (For game client rendering)
+// ============================================
+
+const DEFAULT_MAP_SCALES = {
+    building_sprite: 1.0,  // Per-building overrides in BUILDING_SIZE_CLASSES
+    effect: 1.0,
+    terrain: 1.0,
+    vehicle: 0.4,
+    npc: 0.1,
+    overlay: 0.4,
+    ui: 0.2
 };
 
 // Terrain tile dimensions (isometric diamond)
@@ -6095,6 +6120,7 @@ Please address the above feedback in this generation.`;
                         bc.active_sprite_id,
                         bc.cost_override,
                         bc.base_profit_override,
+                        bc.map_scale,
                         bt.cost as default_cost,
                         bt.base_profit as default_profit,
                         COALESCE(bc.cost_override, bt.cost) as effective_cost,
@@ -6113,7 +6139,14 @@ Please address the above feedback in this generation.`;
                     ORDER BY bt.name
                 `).all();
 
-                return Response.json({ success: true, configurations: configs.results });
+                // Add default_map_scale and effective_map_scale from code constants
+                const configurationsWithDefaults = configs.results.map(config => ({
+                    ...config,
+                    default_map_scale: getDefaultMapScale('building_sprite', config.asset_key),
+                    effective_map_scale: config.map_scale ?? getDefaultMapScale('building_sprite', config.asset_key)
+                }));
+
+                return Response.json({ success: true, configurations: configurationsWithDefaults });
             }
 
             // For other categories, use asset_configurations table
@@ -6131,7 +6164,14 @@ Please address the above feedback in this generation.`;
                 ORDER BY ac.asset_key
             `).bind(category, category).all();
 
-            return Response.json({ success: true, configurations: configs.results });
+            // Add default_map_scale and effective_map_scale from code constants
+            const configurationsWithDefaults = configs.results.map(config => ({
+                ...config,
+                default_map_scale: getDefaultMapScale(config.category, config.asset_key),
+                effective_map_scale: config.map_scale ?? getDefaultMapScale(config.category, config.asset_key)
+            }));
+
+            return Response.json({ success: true, configurations: configurationsWithDefaults });
         }
 
         // GET /api/admin/assets/configurations/:category/:assetKey/sprites - Get available sprites for an asset
@@ -6173,37 +6213,39 @@ Please address the above feedback in this generation.`;
 
             // For buildings, use existing building_configurations table
             if (category === 'buildings') {
-                const { active_sprite_id, cost_override, base_profit_override } = body;
+                const { active_sprite_id, cost_override, base_profit_override, map_scale } = body;
 
                 await env.DB.prepare(`
-                    INSERT INTO building_configurations (building_type_id, active_sprite_id, cost_override, base_profit_override)
-                    VALUES (?, ?, ?, ?)
+                    INSERT INTO building_configurations (building_type_id, active_sprite_id, cost_override, base_profit_override, map_scale)
+                    VALUES (?, ?, ?, ?, ?)
                     ON CONFLICT (building_type_id) DO UPDATE SET
                         active_sprite_id = COALESCE(excluded.active_sprite_id, building_configurations.active_sprite_id),
                         cost_override = excluded.cost_override,
                         base_profit_override = excluded.base_profit_override,
+                        map_scale = excluded.map_scale,
                         updated_at = CURRENT_TIMESTAMP
-                `).bind(assetKey, active_sprite_id || null, cost_override ?? null, base_profit_override ?? null).run();
+                `).bind(assetKey, active_sprite_id || null, cost_override ?? null, base_profit_override ?? null, map_scale ?? null).run();
 
                 await logAudit(env, 'update_building_config', active_sprite_id, user?.username, {
-                    building_type: assetKey, cost_override, base_profit_override
+                    building_type: assetKey, cost_override, base_profit_override, map_scale
                 });
 
                 return Response.json({ success: true, message: 'Building configuration updated' });
             }
 
             // For other categories, use asset_configurations table
-            const { active_sprite_id, config, is_active } = body;
+            const { active_sprite_id, config, is_active, map_scale } = body;
 
             await env.DB.prepare(`
-                INSERT INTO asset_configurations (category, asset_key, active_sprite_id, config, is_active)
-                VALUES (?, ?, ?, ?, ?)
+                INSERT INTO asset_configurations (category, asset_key, active_sprite_id, config, is_active, map_scale)
+                VALUES (?, ?, ?, ?, ?, ?)
                 ON CONFLICT (category, asset_key) DO UPDATE SET
                     active_sprite_id = COALESCE(excluded.active_sprite_id, asset_configurations.active_sprite_id),
                     config = COALESCE(excluded.config, asset_configurations.config),
                     is_active = COALESCE(excluded.is_active, asset_configurations.is_active),
+                    map_scale = COALESCE(excluded.map_scale, asset_configurations.map_scale),
                     updated_at = CURRENT_TIMESTAMP
-            `).bind(category, assetKey, active_sprite_id || null, config ? JSON.stringify(config) : null, is_active ?? false).run();
+            `).bind(category, assetKey, active_sprite_id || null, config ? JSON.stringify(config) : null, is_active ?? false, map_scale ?? null).run();
 
             await logAudit(env, 'update_asset_config', null, user?.username, {
                 category, assetKey, ...body

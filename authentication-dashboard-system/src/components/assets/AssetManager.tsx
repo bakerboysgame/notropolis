@@ -1,6 +1,6 @@
 // src/components/assets/AssetManager.tsx
 import { useState, useEffect } from 'react';
-import { Loader2, ImageOff, Settings, Check, X, DollarSign, Package } from 'lucide-react';
+import { Loader2, ImageOff, Settings, Check, X, DollarSign, Package, Maximize2 } from 'lucide-react';
 import { clsx } from 'clsx';
 import {
   assetApi,
@@ -74,7 +74,7 @@ function SpriteImage({ asset, alt, className }: { asset: Asset | { public_url?: 
   return <img src={imageUrl} alt={alt} className={className} />;
 }
 
-// Building edit form for price overrides
+// Building edit form for price overrides and map scale
 function BuildingEditForm({
   building,
   onSave,
@@ -82,7 +82,7 @@ function BuildingEditForm({
   saving,
 }: {
   building: BuildingConfiguration;
-  onSave: (values: { cost_override: number | null; base_profit_override: number | null }) => void;
+  onSave: (values: { cost_override: number | null; base_profit_override: number | null; map_scale: number | null }) => void;
   onCancel: () => void;
   saving: boolean;
 }) {
@@ -94,17 +94,20 @@ function BuildingEditForm({
   );
   const [useDefaultCost, setUseDefaultCost] = useState(building.cost_override === null);
   const [useDefaultProfit, setUseDefaultProfit] = useState(building.base_profit_override === null);
+  const [mapScale, setMapScale] = useState<number>(building.map_scale ?? building.default_map_scale ?? 1.0);
+  const [useDefaultScale, setUseDefaultScale] = useState(building.map_scale === null || building.map_scale === undefined);
 
   const handleSave = () => {
     onSave({
       cost_override: useDefaultCost ? null : parseInt(cost) || null,
       base_profit_override: useDefaultProfit ? null : parseInt(profit) || null,
+      map_scale: useDefaultScale ? null : mapScale,
     });
   };
 
   return (
     <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-      <h4 className="font-medium mb-3 text-gray-900 dark:text-gray-100">Edit Pricing</h4>
+      <h4 className="font-medium mb-3 text-gray-900 dark:text-gray-100">Edit Configuration</h4>
 
       <div className="grid grid-cols-2 gap-4">
         {/* Cost */}
@@ -164,6 +167,56 @@ function BuildingEditForm({
             </div>
           )}
         </div>
+      </div>
+
+      {/* Map Scale */}
+      <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+        <div className="flex items-center gap-2 mb-2">
+          <input
+            type="checkbox"
+            id="use-default-scale"
+            checked={useDefaultScale}
+            onChange={(e) => {
+              setUseDefaultScale(e.target.checked);
+              if (e.target.checked) {
+                setMapScale(building.default_map_scale ?? 1.0);
+              }
+            }}
+            className="rounded border-gray-300"
+          />
+          <label htmlFor="use-default-scale" className="text-sm text-gray-600 dark:text-gray-400">
+            Use default scale ({building.default_map_scale?.toFixed(1) ?? '1.0'}x)
+          </label>
+        </div>
+        {!useDefaultScale && (
+          <div className="flex items-center gap-3">
+            <Maximize2 className="w-4 h-4 text-gray-400 flex-shrink-0" />
+            <div className="flex-1">
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Map Scale
+                </label>
+                <span className="text-sm font-mono text-gray-500">
+                  {mapScale.toFixed(1)}x
+                </span>
+              </div>
+              <input
+                type="range"
+                min="0.1"
+                max="2.0"
+                step="0.1"
+                value={mapScale}
+                onChange={(e) => setMapScale(parseFloat(e.target.value))}
+                className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700"
+              />
+              <div className="flex justify-between text-xs text-gray-400 mt-1">
+                <span>0.1x</span>
+                <span>1.0x</span>
+                <span>2.0x</span>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="flex gap-2 mt-4">
@@ -247,16 +300,16 @@ function BuildingsList() {
 
   const handlePriceUpdate = async (
     buildingType: string,
-    values: { cost_override: number | null; base_profit_override: number | null }
+    values: { cost_override: number | null; base_profit_override: number | null; map_scale: number | null }
   ) => {
     setSaving(buildingType);
     try {
       await assetConfigApi.updateConfiguration('buildings', buildingType, values);
-      showToast('Prices updated', 'success');
+      showToast('Configuration updated', 'success');
       await loadBuildings();
       setEditingBuilding(null);
     } catch (err) {
-      showToast(err instanceof Error ? err.message : 'Failed to update prices', 'error');
+      showToast(err instanceof Error ? err.message : 'Failed to update configuration', 'error');
     } finally {
       setSaving(null);
     }
