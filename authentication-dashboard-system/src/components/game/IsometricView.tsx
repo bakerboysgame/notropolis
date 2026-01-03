@@ -205,6 +205,15 @@ export function IsometricView({
           const spriteWidth = buildingSprite.naturalWidth * baseScale * zoom;
           const spriteHeight = buildingSprite.naturalHeight * baseScale * zoom;
 
+          // Ownership glow (blue halo for user's buildings)
+          const isOwned = tile.owner_company_id === activeCompanyId;
+          if (isOwned) {
+            ctx.shadowColor = 'rgba(59, 130, 246, 0.8)';
+            ctx.shadowBlur = 12 * zoom;
+            ctx.shadowOffsetX = 0;
+            ctx.shadowOffsetY = 0;
+          }
+
           // Building sprite centered horizontally, bottom at tile bottom
           ctx.drawImage(
             buildingSprite,
@@ -214,15 +223,10 @@ export function IsometricView({
             spriteHeight
           );
 
-          // Ownership tint (blue for user's buildings)
-          if (tile.owner_company_id === activeCompanyId) {
-            ctx.fillStyle = 'rgba(59, 130, 246, 0.25)'; // Blue tint
-            ctx.fillRect(
-              screenX - spriteWidth / 2,
-              screenY - spriteHeight + tileSize / 2,
-              spriteWidth,
-              spriteHeight
-            );
+          // Reset shadow
+          if (isOwned) {
+            ctx.shadowColor = 'transparent';
+            ctx.shadowBlur = 0;
           }
 
           // Damage overlay (darken based on damage)
