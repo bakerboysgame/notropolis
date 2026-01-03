@@ -1,7 +1,7 @@
 // src/components/assets/GenerateModal/ReferenceImagesStep.tsx
 
 import { useState, useEffect, useMemo } from 'react';
-import { Loader2, X, Library, FolderCheck, Upload, Link, Filter } from 'lucide-react';
+import { X, Library, Upload, Link } from 'lucide-react';
 import { clsx } from 'clsx';
 import {
   referenceLibraryApi,
@@ -14,7 +14,6 @@ import {
 } from '../../../services/assetApi';
 import ReferenceLibrary from '../ReferenceLibrary';
 import UploadDropzone from '../ReferenceLibrary/UploadDropzone';
-import ApprovedAssetCard from './ApprovedAssetCard';
 import { GenerateFormData, SPRITE_TO_REF_CATEGORY } from './types';
 
 interface ReferenceImagesStepProps {
@@ -22,7 +21,38 @@ interface ReferenceImagesStepProps {
   updateFormData: (updates: Partial<GenerateFormData>) => void;
 }
 
-type TabType = 'library' | 'approved' | 'upload';
+type TabType = 'library' | 'upload';
+
+// Category display names for approved assets
+const categoryLabels: Record<string, string> = {
+  building_ref: 'Buildings',
+  character_ref: 'Characters',
+  vehicle_ref: 'Vehicles',
+  effect_ref: 'Effects',
+  terrain_ref: 'Terrain',
+};
+
+function formatKey(key: string): string {
+  return key
+    .split('_')
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+}
+
+// Convert approved asset to ReferenceImage format
+function assetToReferenceImage(asset: Asset): ReferenceImage & { assetId: string } {
+  return {
+    id: parseInt(asset.id), // Use negative ID to avoid conflicts with library images
+    assetId: asset.id, // Keep original asset ID for reference
+    name: `${formatKey(asset.asset_key)}`,
+    category: categoryLabels[asset.category] || formatKey(asset.category),
+    source_type: 'generated' as ReferenceImageSourceType,
+    created_at: asset.created_at,
+    uploaded_by: asset.approved_by,
+    // Thumbnail will be fetched dynamically
+    thumbnailUrl: undefined,
+  };
+}
 
 export default function ReferenceImagesStep({
   formData,
@@ -32,91 +62,79 @@ export default function ReferenceImagesStep({
   const [activeTab, setActiveTab] = useState<TabType>('library');
   const [libraryImages, setLibraryImages] = useState<ReferenceImage[]>([]);
   const [approvedAssets, setApprovedAssets] = useState<Asset[]>([]);
-  const [isLoadingLibrary, setIsLoadingLibrary] = useState(false);
-  const [isLoadingApproved, setIsLoadingApproved] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [availableCategories, setAvailableCategories] = useState<string[]>([]);
   const [availableSourceTypes, setAvailableSourceTypes] = useState<ReferenceImageSourceType[]>([]);
-  const [approvedCategoryFilter, setApprovedCategoryFilter] = useState<AssetCategory | null>(null);
 
   const isSprite = category ? !!SPRITE_TO_REF_CATEGORY[category] : false;
 
-  // Get unique categories from approved assets for filtering
-  const approvedAssetCategories = useMemo(() => {
-    const cats = [...new Set(approvedAssets.map(a => a.category))];
-    return cats.sort();
-  }, [approvedAssets]);
-
-  // Filter approved assets by selected category
-  const filteredApprovedAssets = useMemo(() => {
-    if (!approvedCategoryFilter) return approvedAssets;
-    return approvedAssets.filter(a => a.category === approvedCategoryFilter);
-  }, [approvedAssets, approvedCategoryFilter]);
-
-  // Category display names
-  const categoryLabels: Record<string, string> = {
-    building_ref: 'Buildings',
-    character_ref: 'Characters',
-    vehicle_ref: 'Vehicles',
-    effect_ref: 'Effects',
-    terrain_ref: 'Terrain',
-  };
-
-  // Load library images on mount
+  // Load both library images and approved assets on mount
   useEffect(() => {
-    loadLibraryImages();
+    loadAllReferences();
   }, []);
 
-  // Load approved assets when switching to that tab
-  useEffect(() => {
-    if (activeTab === 'approved' && approvedAssets.length === 0) {
-      loadApprovedAssets();
-    }
-  }, [activeTab]);
-
-  const loadLibraryImages = async () => {
-    setIsLoadingLibrary(true);
+  const loadAllReferences = async () => {
+    setIsLoading(true);
     try {
-      const result = await referenceLibraryApi.listWithFilters();
-      setLibraryImages(result.images);
-      setAvailableCategories(result.filters.categories);
-      setAvailableSourceTypes(result.filters.sourceTypes);
-    } catch (error) {
-      console.error('Failed to load library:', error);
-    } finally {
-      setIsLoadingLibrary(false);
-    }
-  };
+      // Load library images and approved assets in parallel
+      const [libraryResult, ...assetResults] = await Promise.all([
+        referenceLibraryApi.listWithFilters(),
+        // Load approved assets from relevant categories
+        ...(['building_ref', 'character_ref', 'vehicle_ref', 'effect_ref', 'terrain_ref'] as AssetCategory[]).map(
+          async (cat) => {
+            try {
+              const assets = await assetApi.listAssets(cat);
+              return assets.filter((a) => a.status === 'approved');
+            } catch {
+              return [];
+            }
+          }
+        ),
+      ]);
 
-  const loadApprovedAssets = async () => {
-    setIsLoadingApproved(true);
-    try {
-      // Load approved assets from relevant categories
-      const categories: AssetCategory[] = [
-        'building_ref',
-        'character_ref',
-        'vehicle_ref',
-        'effect_ref',
-        'terrain_ref',
-      ];
+      // Set library images
+      setLibraryImages(libraryResult.images);
 
-      const allAssets: Asset[] = [];
-      for (const cat of categories) {
-        try {
-          const assets = await assetApi.listAssets(cat);
-          const approved = assets.filter(a => a.status === 'approved');
-          allAssets.push(...approved);
-        } catch (e) {
-          // Ignore errors for individual categories
-        }
+      // Flatten all approved assets
+      const allApprovedAssets = assetResults.flat();
+      setApprovedAssets(allApprovedAssets);
+
+      // Build combined categories list
+      const libCategories = libraryResult.filters.categories;
+      const assetCategories = [...new Set(allApprovedAssets.map((a) => categoryLabels[a.category] || formatKey(a.category)))];
+      const combinedCategories = [...new Set([...libCategories, ...assetCategories])].sort();
+      setAvailableCategories(combinedCategories);
+
+      // Build combined source types - add 'generated' if we have approved assets
+      const sourceTypes = [...libraryResult.filters.sourceTypes];
+      if (allApprovedAssets.length > 0 && !sourceTypes.includes('generated')) {
+        sourceTypes.push('generated');
       }
-
-      setApprovedAssets(allAssets);
+      setAvailableSourceTypes(sourceTypes);
     } catch (error) {
-      console.error('Failed to load approved assets:', error);
+      console.error('Failed to load references:', error);
     } finally {
-      setIsLoadingApproved(false);
+      setIsLoading(false);
     }
   };
+
+  // Combine library images with converted approved assets
+  const allImages = useMemo(() => {
+    const approvedAsReferenceImages = approvedAssets.map(assetToReferenceImage);
+    // Library images first, then approved assets
+    return [...libraryImages, ...approvedAsReferenceImages];
+  }, [libraryImages, approvedAssets]);
+
+  // Get selected IDs for both types
+  const selectedIds = useMemo(() => {
+    const libraryIds = referenceImages
+      .filter((r) => r.type === 'library')
+      .map((r) => r.id);
+    const approvedIds = referenceImages
+      .filter((r) => r.type === 'approved_asset')
+      .map((r) => r.id);
+    return [...libraryIds, ...approvedIds];
+  }, [referenceImages]);
 
   const handleToggleReference = (
     ref: ReferenceImageSpec & { thumbnailUrl?: string; name?: string }
@@ -146,6 +164,27 @@ export default function ReferenceImagesStep({
     });
   };
 
+  const handleImageToggle = (image: ReferenceImage & { assetId?: string }) => {
+    // Determine if this is a library image or approved asset
+    const isApprovedAsset = image.source_type === 'generated' && image.assetId;
+
+    if (isApprovedAsset) {
+      handleToggleReference({
+        type: 'approved_asset',
+        id: parseInt(image.assetId!),
+        thumbnailUrl: image.thumbnailUrl,
+        name: image.name,
+      });
+    } else {
+      handleToggleReference({
+        type: 'library',
+        id: image.id,
+        thumbnailUrl: image.thumbnailUrl,
+        name: image.name,
+      });
+    }
+  };
+
   const handleUploadComplete = (image: ReferenceImage) => {
     setLibraryImages((prev) => [image, ...prev]);
     // Auto-select the uploaded image
@@ -161,16 +200,8 @@ export default function ReferenceImagesStep({
 
   const tabs: { id: TabType; label: string; icon: typeof Library }[] = [
     { id: 'library', label: 'Library', icon: Library },
-    { id: 'approved', label: 'Approved Assets', icon: FolderCheck },
     { id: 'upload', label: 'Upload New', icon: Upload },
   ];
-
-  const formatKey = (key: string) => {
-    return key
-      .split('_')
-      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ');
-  };
 
   return (
     <div className="space-y-4">
@@ -252,110 +283,14 @@ export default function ReferenceImagesStep({
       <div className="min-h-[250px]">
         {activeTab === 'library' && (
           <ReferenceLibrary
-            images={libraryImages}
-            selectedIds={referenceImages
-              .filter((r) => r.type === 'library')
-              .map((r) => r.id)}
-            onToggle={(image) =>
-              handleToggleReference({
-                type: 'library',
-                id: image.id,
-                thumbnailUrl: image.thumbnailUrl,
-                name: image.name,
-              })
-            }
-            isLoading={isLoadingLibrary}
+            images={allImages}
+            selectedIds={selectedIds}
+            onToggle={handleImageToggle}
+            isLoading={isLoading}
             availableCategories={availableCategories}
             availableSourceTypes={availableSourceTypes}
+            approvedAssets={approvedAssets}
           />
-        )}
-
-        {activeTab === 'approved' && (
-          <div className="space-y-4">
-            {isLoadingApproved ? (
-              <div className="flex flex-col items-center justify-center py-12 text-gray-500 dark:text-gray-400">
-                <Loader2 className="w-8 h-8 animate-spin mb-3" />
-                <p className="text-sm">Loading approved assets...</p>
-              </div>
-            ) : approvedAssets.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 text-gray-500 dark:text-gray-400">
-                <FolderCheck className="w-12 h-12 mb-3 text-gray-300 dark:text-gray-600" />
-                <p className="text-sm font-medium">No approved assets</p>
-                <p className="text-xs mt-1">
-                  Approve some reference sheets first
-                </p>
-              </div>
-            ) : (
-              <>
-                {/* Filter bar */}
-                {approvedAssetCategories.length > 1 && (
-                  <div className="flex flex-wrap items-center gap-2 pb-3 border-b border-gray-200 dark:border-gray-700">
-                    <Filter className="w-4 h-4 text-gray-400" />
-                    <span className="text-xs text-gray-500 dark:text-gray-400 mr-2">Filter:</span>
-
-                    {approvedAssetCategories.map((cat) => (
-                      <button
-                        key={cat}
-                        type="button"
-                        onClick={() => setApprovedCategoryFilter(approvedCategoryFilter === cat ? null : cat)}
-                        className={clsx(
-                          'px-2 py-1 text-xs rounded-full transition-colors',
-                          approvedCategoryFilter === cat
-                            ? 'bg-purple-500 text-white'
-                            : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                        )}
-                      >
-                        {categoryLabels[cat] || formatKey(cat)}
-                      </button>
-                    ))}
-
-                    {approvedCategoryFilter && (
-                      <button
-                        type="button"
-                        onClick={() => setApprovedCategoryFilter(null)}
-                        className="ml-2 px-2 py-1 text-xs text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 flex items-center gap-1"
-                      >
-                        <X className="w-3 h-3" />
-                        Clear
-                      </button>
-                    )}
-                  </div>
-                )}
-
-                {/* Results count */}
-                <div className="text-xs text-gray-500 dark:text-gray-400">
-                  Showing {filteredApprovedAssets.length} of {approvedAssets.length} assets
-                </div>
-
-                {/* Asset grid */}
-                <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
-                  {filteredApprovedAssets.map((asset) => {
-                    const isSelected = referenceImages.some(
-                      (r) =>
-                        r.type === 'approved_asset' &&
-                        r.id === parseInt(asset.id)
-                    );
-
-                    return (
-                      <ApprovedAssetCard
-                        key={asset.id}
-                        asset={asset}
-                        isSelected={isSelected}
-                        onToggle={(thumbnailUrl) =>
-                          handleToggleReference({
-                            type: 'approved_asset',
-                            id: parseInt(asset.id),
-                            thumbnailUrl,
-                            name: `${formatKey(asset.category)}/${formatKey(asset.asset_key)}`,
-                          })
-                        }
-                      />
-                    );
-                  })}
-                </div>
-              </>
-            )}
-          </div>
         )}
 
         {activeTab === 'upload' && (

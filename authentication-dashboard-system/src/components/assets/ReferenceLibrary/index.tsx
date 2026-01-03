@@ -3,16 +3,17 @@
 import { useState, useMemo } from 'react';
 import { Loader2, Image as ImageIcon, Filter, X } from 'lucide-react';
 import { clsx } from 'clsx';
-import { ReferenceImage, ReferenceImageSourceType } from '../../../services/assetApi';
-import ReferenceImageCard from './ReferenceImageCard';
+import { ReferenceImageSourceType, Asset } from '../../../services/assetApi';
+import ReferenceImageCard, { ExtendedReferenceImage } from './ReferenceImageCard';
 
 interface ReferenceLibraryProps {
-  images: ReferenceImage[];
+  images: ExtendedReferenceImage[];
   selectedIds: number[];
-  onToggle: (image: ReferenceImage) => void;
+  onToggle: (image: ExtendedReferenceImage) => void;
   isLoading?: boolean;
   availableCategories?: string[];
   availableSourceTypes?: ReferenceImageSourceType[];
+  approvedAssets?: Asset[]; // For reference, not used directly now
 }
 
 const SOURCE_TYPE_LABELS: Record<ReferenceImageSourceType, string> = {
@@ -29,6 +30,7 @@ export default function ReferenceLibrary({
   isLoading,
   availableCategories = [],
   availableSourceTypes = [],
+  approvedAssets: _approvedAssets, // Unused but available for future use
 }: ReferenceLibraryProps) {
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
   const [sourceTypeFilter, setSourceTypeFilter] = useState<ReferenceImageSourceType | null>(null);
@@ -137,14 +139,20 @@ export default function ReferenceLibrary({
         </div>
       ) : (
         <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
-          {filteredImages.map((image) => (
-            <ReferenceImageCard
-              key={image.id}
-              image={image}
-              isSelected={selectedIds.includes(image.id)}
-              onToggle={() => onToggle(image)}
-            />
-          ))}
+          {filteredImages.map((image) => {
+            // Use unique key: for generated assets use assetId, otherwise library id
+            const uniqueKey = image.assetId
+              ? `asset-${image.assetId}`
+              : `lib-${image.id}`;
+            return (
+              <ReferenceImageCard
+                key={uniqueKey}
+                image={image}
+                isSelected={selectedIds.includes(image.id)}
+                onToggle={() => onToggle(image)}
+              />
+            );
+          })}
         </div>
       )}
     </div>

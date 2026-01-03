@@ -423,11 +423,12 @@ function getImageDimensions(buffer) {
 // ============================================================================
 
 const STYLE_GUIDE = `
-STYLE: 90s CGI aesthetic with modern rendering.
-- Chunky, geometric shapes (like early Pixar/SimCity)
-- Photorealistic textures and PBR materials
-- Soft ambient occlusion, professional lighting
-- NOT cartoon, NOT flat, NOT cel-shaded
+STYLE: Pixar in 2050.
+- Chunky, geometric, slightly exaggerated shapes
+- Ultra-modern photorealistic rendering
+- Soft lighting, perfect materials
+- Inviting and polished finish
+- NOT flat, NOT cel-shaded, NOT low-poly
 `;
 
 // Unused - keeping for reference
@@ -458,182 +459,166 @@ CRITICAL LAYOUT RULES:
 This is a professional orthographic reference sheet like game studios use for 3D modeling.`;
 
 // Building-specific distinctive features
-// IMPORTANT: Features should be OBVIOUSLY identifiable - almost comically obvious what the building is
+// These describe WHAT the building looks like - the system prompt handles angle/canvas/style
+// Reference the attached reference sheet for consistency
 const BUILDING_FEATURES = {
-    restaurant: `MUST BE UNMISTAKABLY A RESTAURANT with these distinctive features:
-- COMPACT SQUARE FOOTPRINT building (fits isometric diamond tile, not rectangular)
-- HUGE illuminated "RESTAURANT" sign on the roof or facade (the word RESTAURANT must be visible)
-- Giant fork and knife crossed logo mounted on the building facade
+    restaurant: `Use the attached reference sheet for this building.
+
+A classic restaurant with:
+- Illuminated "RESTAURANT" sign on facade
+- Fork and knife crossed logo
 - Red and white striped awning over entrance
-- Large windows showing tables with white tablecloths and wine glasses inside
-- Steam rising from chimney (suggesting cooking)
-- Elegant double doors with brass handles
-- Chef's hat or plate-and-cutlery motif on signage
-- TWO STORIES tall to fill the vertical space
-NO outdoor furniture, tables, or items outside the building footprint.
-The building should SCREAM "this is a restaurant" at first glance.`,
+- Large windows showing tables with white tablecloths inside
+- Steam rising from chimney
+- Elegant double doors
+- Two stories tall`,
 
-    bank: `MUST BE UNMISTAKABLY A BANK with these distinctive features:
+    bank: `Use the attached reference sheet for this building.
+
+A grand bank with:
 - Massive stone columns at entrance (Greek temple style)
-- HUGE "BANK" text carved into stone or on brass plaque
-- Giant vault door visible through windows or as decorative element
-- Gold/brass everywhere - door handles, window frames, trim
-- Clock mounted prominently above entrance
-- Security bars on all windows
-- Heavy bronze double doors with serious locks
-- Stone steps leading up to imposing entrance
-- Money bag or coin imagery in architecture
-The building should SCREAM "this is a bank" at first glance.`,
+- "BANK" text carved into stone or on brass plaque
+- Vault door visible as decorative element
+- Gold/brass trim on door handles, window frames
+- Clock mounted above entrance
+- Security bars on windows
+- Heavy bronze double doors
+- Stone steps leading to entrance`,
 
-    temple: `MUST BE UNMISTAKABLY A TEMPLE with these distinctive features:
+    temple: `Use the attached reference sheet for this building.
+
+A spiritual temple with:
 - Multi-tiered pagoda-style roof with curved eaves
-- Ornate roof decorations (dragons, phoenixes, or abstract spiritual symbols)
-- Grand stone staircase leading to main entrance
+- Ornate roof decorations (dragons, phoenixes, or spiritual symbols)
+- Grand stone staircase to main entrance
 - Large ceremonial doors with intricate carvings
-- Incense burner or offering table visible at entrance
+- Incense burner at entrance
 - Bell tower or prayer bell
-- Decorative columns with spiritual motifs
-- Peaceful garden elements (stone lanterns, small trees)
-- Roof tiles in traditional terracotta or gold
-Religion-neutral but clearly spiritual/sacred architecture.`,
+- Decorative columns
+- Roof tiles in terracotta or gold`,
 
-    casino: `MUST BE UNMISTAKABLY A CASINO with these distinctive features:
-- MASSIVE illuminated "CASINO" sign with hundreds of light bulbs
-- Giant playing card suits (spades, hearts, diamonds, clubs) on facade
-- Huge dice or roulette wheel decorations
+    casino: `Use the attached reference sheet for this building.
+
+A flashy casino with:
+- Massive illuminated "CASINO" sign with light bulbs
+- Giant playing card suits on facade
+- Dice or roulette wheel decorations
 - Red carpet and velvet rope entrance
-- Gold and red color scheme everywhere
-- Flashing lights covering the entire facade
-- Showgirl or lucky 7 imagery
-- Grand double doors with golden handles
-- Slot machine silhouettes visible through windows
-The building should SCREAM "Las Vegas casino" at first glance.`,
+- Gold and red color scheme
+- Flashing lights on facade
+- Grand double doors with golden handles`,
 
-    police_station: `MUST BE UNMISTAKABLY A POLICE STATION with these distinctive features:
-- LARGE "POLICE" text prominently displayed on building
-- Classic blue police lamp outside entrance (illuminated)
+    police_station: `Use the attached reference sheet for this building.
+
+A police station with:
+- "POLICE" text prominently displayed
+- Classic blue police lamp outside entrance
 - Blue and white color scheme
 - Badge or shield emblem on facade
 - Heavy reinforced double doors
 - Barred windows on lower level
 - Security cameras visible
-- Handcuff or badge motifs in architecture
-- Utilitarian brick and concrete construction
-The building should SCREAM "police station" at first glance.`,
+- Brick and concrete construction`,
 
-    manor: `MUST BE UNMISTAKABLY A WEALTHY MANOR with these distinctive features:
+    manor: `Use the attached reference sheet for this building.
+
+A wealthy manor with:
 - Grand columned entrance portico with stone steps
-- Multiple stories with many tall windows
+- Multiple stories with tall windows
 - Ornate cornices and decorative stonework
 - Multiple chimneys on steep rooflines
-- Wrought iron gates or fence elements
 - Coat of arms or family crest on facade
 - Manicured topiary at entrance
-- Luxury car silhouette in driveway (optional)
-- Stained glass or arched windows
-The building should SCREAM "wealthy mansion" at first glance.`,
+- Stained glass or arched windows`,
 
-    high_street_store: `MUST BE UNMISTAKABLY A DEPARTMENT STORE with these distinctive features:
+    high_street_store: `Use the attached reference sheet for this building.
+
+A department store with:
 - Two-story Victorian retail building
-- LARGE "DEPARTMENT STORE" or "STORE" signage
-- Multiple display windows with mannequins visible
+- "DEPARTMENT STORE" signage
+- Display windows with mannequins visible
 - Revolving door entrance
 - Ornate upper floor with decorative moldings
-- Shopping bag motif or logo
-- Awning over each display window
-- "SALE" or "OPEN" signs in windows
-The building should SCREAM "shopping destination" at first glance.`,
+- Awning over each display window`,
 
-    motel: `MUST BE UNMISTAKABLY A MOTEL with these distinctive features:
-- TALL neon "MOTEL" sign (classic roadside style)
-- "VACANCY" sign underneath (illuminated)
+    motel: `Use the attached reference sheet for this building.
+
+A roadside motel with:
+- Tall neon "MOTEL" sign
+- "VACANCY" sign underneath
 - Single-story row of rooms with numbered doors
 - Ice machine and vending machine alcove
-- Parking spaces in front of each door
-- Pool area visible (optional)
 - Office with "RECEPTION" sign
-- Classic Americana roadside aesthetic
-The building should SCREAM "roadside motel" at first glance.`,
+- Classic Americana roadside aesthetic`,
 
-    burger_bar: `MUST BE UNMISTAKABLY A BURGER RESTAURANT with these distinctive features:
-- GIANT hamburger model/sign on the roof
-- Neon "BURGERS" sign with glowing tubes
+    burger_bar: `Use the attached reference sheet for this building.
+
+A burger restaurant with:
+- Giant hamburger model on the roof
+- Neon "BURGERS" sign
 - 1950s chrome diner aesthetic
 - Red and white color scheme
 - Large windows showing checkered floor inside
 - Counter stools visible through windows
-- Menu board with burger pictures
-- Milkshake or fries imagery
-- Classic American diner style
-The building should SCREAM "burger joint" at first glance.`,
+- Menu board with burger pictures`,
 
-    shop: `MUST BE UNMISTAKABLY A SMALL SHOP with these distinctive features:
-- "SHOP" or "OPEN" sign prominently displayed
+    shop: `Use the attached reference sheet for this building.
+
+A small corner shop with:
+- "SHOP" or "OPEN" sign displayed
 - Striped fabric awning over entrance
 - Display window with goods visible
 - Small A-frame sign outside
-- Brass door handle and bell
-- Friendly welcoming appearance
-- Newspaper stand or product display outside
-- Classic corner shop aesthetic
-The building should SCREAM "neighborhood shop" at first glance.`,
+- Brass door handle
+- Friendly welcoming appearance`,
 
-    campsite: `MUST BE UNMISTAKABLY A CAMPSITE with these distinctive features:
+    campsite: `Use the attached reference sheet for this building.
+
+A campsite with:
 - Large canvas A-frame tent as centerpiece
-- Stone campfire ring with logs and flames/smoke
+- Stone campfire ring with flames/smoke
 - "CAMP" flag or wooden sign
 - Cooking pot over fire
 - Wooden supply crates and barrels
-- Oil lantern on post (glowing)
-- Outdoor adventurer aesthetic
-- Sleeping bag visible at tent entrance
-The building should SCREAM "camping site" at first glance.`,
+- Oil lantern on post
+- Sleeping bag visible at tent entrance`,
 
-    hot_dog_stand: `MUST BE UNMISTAKABLY A HOT DOG STAND with these distinctive features:
-- GIANT hot dog model on top of cart
-- "HOT DOGS" sign prominently displayed
+    hot_dog_stand: `Use the attached reference sheet for this building.
+
+A hot dog stand with:
+- Giant hot dog model on top
+- "HOT DOGS" sign displayed
 - Large striped umbrella
 - Mustard and ketchup bottles visible
 - Steamer box with steam rising
-- Menu board with prices
-- Napkin dispenser
-- Classic street food cart aesthetic
-The building should SCREAM "hot dog vendor" at first glance.`,
+- Menu board with prices`,
 
-    market_stall: `MUST BE UNMISTAKABLY A MARKET STALL with these distinctive features:
+    market_stall: `Use the attached reference sheet for this building.
+
+A market stall with:
 - Wooden vendor booth with canvas awning
-- Crates overflowing with colorful produce/goods
+- Crates overflowing with colorful produce
 - Hand-painted price signs
 - Weighing scale on counter
 - Hanging baskets of goods
-- "FRESH" or "MARKET" signage
-- Rustic farmer's market aesthetic
-- Apron hanging on hook
-The building should SCREAM "market vendor" at first glance.`,
+- "FRESH" or "MARKET" signage`,
 
-    claim_stake: `MUST BE UNMISTAKABLY A LAND CLAIM STAKE with these distinctive features:
-- Wooden stake/post driven into the ground (main element)
-- Small wooden "SOLD" or "CLAIMED" sign hanging from the post
-- Simple rope or ribbon tied near the top
-- The stake is the ONLY structure - no buildings, just the marker
-- Stakes should look weathered but sturdy
-- Clear indication that this plot of land has been purchased
-- Small footprint - just the stake and immediate surroundings
-- Maybe a small surveyor's flag or ribbon
-This is a placeholder for purchased but unbuilt land.`,
+    claim_stake: `A simple land claim marker:
+- Wooden stake/post in the ground
+- Small "SOLD" or "CLAIMED" sign hanging from post
+- Rope or ribbon tied near the top
+- Just the stake - no building
+- Weathered but sturdy
+- Maybe a small surveyor's flag`,
 
-    demolished: `MUST BE UNMISTAKABLY A DEMOLISHED/RUINED BUILDING with these distinctive features:
-- Pile of rubble and debris (bricks, wood, concrete chunks)
-- Broken walls - partial wall sections still standing at different heights
+    demolished: `A demolished building site:
+- Pile of rubble and debris (bricks, wood, concrete)
+- Broken walls at different heights
 - Exposed rebar and twisted metal
 - Dust clouds or settling debris
-- "CONDEMNED" or "DEMOLITION" sign or yellow caution tape
-- Construction/safety barriers around the perimeter
-- Maybe a wrecking ball or demolition crane element
-- Dark scorch marks suggesting damage
-- Broken glass and scattered materials
-- NOT a construction site - this is destruction/ruin
-This shows a building at 0% health waiting to be cleared.`
+- "CONDEMNED" sign or yellow caution tape
+- Construction barriers around perimeter
+- Scorch marks and broken glass`
 };
 
 /**
@@ -650,21 +635,32 @@ function buildBuildingRefPrompt(buildingType, customDetails = '') {
 
     return `Create a REFERENCE SHEET for a ${buildingName}.
 
-LAYOUT: 6 views in a 3x2 grid on gray background
-- Top row: FRONT, LEFT SIDE, BACK
-- Bottom row: RIGHT SIDE, ISOMETRIC (45-degree), DETAIL CLOSEUPS
+LAYOUT: 6 views in a 3x2 grid on gray background (#808080)
+
+ROW 1 (top):
+- FRONT VIEW - Straight-on view of the entrance
+- LEFT SIDE VIEW - 90 degrees from front
+- BACK VIEW - Opposite of entrance
+
+ROW 2 (bottom):
+- RIGHT SIDE VIEW - 90 degrees from front
+- GAME VIEW - See below
+- DETAIL CLOSEUPS - Textures, signage, materials
+
+=== GAME VIEW (CRITICAL) ===
+This is how the building appears in-game:
+- Looking from street level, slightly elevated
+- FRONT FACE is dominant, facing bottom-left of the image
+- Hint of RIGHT SIDE visible for depth
+- Hint of ROOF visible - you're looking slightly down
+- Door/entrance clearly visible on front
 
 Each view in its own labeled box. Show the COMPLETE building in each view.
 
 THE ${buildingName}:
 ${features}
 
-STYLE: 90s CGI aesthetic (chunky, geometric shapes) with modern photorealistic textures.
-Think SimCity 3000 building designs rendered with Unreal Engine 5 quality.
-
-ISOMETRIC VIEW ORIENTATION:
-- Door/entrance faces TOWARD the viewer (bottom-left of the image)
-- Back of building at top-right
+STYLE: Pixar in 2050 - chunky, geometric, slightly exaggerated shapes with ultra-modern photorealistic rendering. Soft lighting, perfect materials, inviting and polished.
 
 ${customDetails ? `NOTES: ${customDetails}` : ''}`;
 }
@@ -1370,28 +1366,40 @@ function buildBuildingSpritePrompt(buildingType, customDetails = '') {
         throw new Error(`No size class defined for building type: ${buildingType}`);
     }
 
-    return `Create a ${buildingName} isometric game sprite.
+    return `Create a ${buildingName} sprite for a tile-based city builder game.
 
-=== ABSOLUTE REQUIREMENTS ===
+=== VIEWING ANGLE ===
 
-NO FLOOR/BASE/GROUND:
-- The building FLOATS on transparent background
-- NO floor tile, NO concrete pad, NO platform underneath
-- Building walls go straight down to nothing - just transparency below
-- The building fills the canvas edge-to-edge with NO ground visible
+You are looking at the building from street level, slightly elevated.
+- The FRONT of the building faces the BOTTOM-LEFT corner of the image
+- The front face is the dominant feature - this is what you see most of
+- A hint of the RIGHT SIDE is visible, giving depth
+- A hint of the ROOF is visible, showing you're looking slightly down
 
-DOOR/ENTRY ORIENTATION:
-- Isometric 45-degree view looking DOWN at the building
-- The door/entrance MUST be on the LEFT-FACING wall of the building
-- When looking at the final image: door is on the LEFT side, back wall on the RIGHT
-- Think: you're standing SOUTH-EAST of the building, looking at its WEST and NORTH walls
+Think: standing on a street corner, looking at a building across the intersection.
 
-SIZE: ${sizeInfo.canvas}px square canvas, building fills it edge-to-edge
+=== CANVAS & PLACEMENT ===
+
+- Square canvas: ${sizeInfo.canvas}px × ${sizeInfo.canvas}px
+- Building fills the canvas edge-to-edge
+- Front corner near bottom-left, back corner near top-right
+
+=== CRITICAL RULES ===
+
+NO GROUND OR BASE:
+- Transparent background only
+- NO floor, platform, shadow blob, or tile underneath
+- The building floats - walls go straight to transparency
+- These sprites tile on a map, any base would break the tiling
+
+ENTRANCE:
+- Main door/entrance on the FRONT FACE (facing bottom-left)
+- Clearly visible and recognizable
 
 THE ${buildingName}:
 ${features || customDetails || 'A distinctive building of this type.'}
 
-STYLE: 90s CGI (chunky geometric shapes) with photorealistic textures.
+STYLE: Pixar in 2050 - chunky, geometric, slightly exaggerated shapes with ultra-modern photorealistic rendering. Soft lighting, perfect materials, inviting and polished.
 
 ${customDetails ? `NOTES: ${customDetails}` : ''}`;
 }

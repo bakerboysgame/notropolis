@@ -1,12 +1,17 @@
 // src/components/assets/ReferenceLibrary/ReferenceImageCard.tsx
 
-import { Check, Eye, Image as ImageIcon, Upload, Link, Sparkles, Download, User, Calendar } from 'lucide-react';
+import { Check, Eye, Image as ImageIcon, Upload, Link, Sparkles, Download, User, Calendar, Loader2 } from 'lucide-react';
 import { clsx } from 'clsx';
-import { useState } from 'react';
-import { ReferenceImage, referenceLibraryApi, ReferenceImageSourceType } from '../../../services/assetApi';
+import { useState, useEffect } from 'react';
+import { ReferenceImage, referenceLibraryApi, assetApi, ReferenceImageSourceType } from '../../../services/assetApi';
+
+// Extended ReferenceImage that may include assetId for generated assets
+export interface ExtendedReferenceImage extends ReferenceImage {
+  assetId?: string;
+}
 
 interface ReferenceImageCardProps {
-  image: ReferenceImage;
+  image: ExtendedReferenceImage;
   isSelected: boolean;
   onToggle: () => void;
 }
@@ -43,9 +48,38 @@ export default function ReferenceImageCard({
   const [isHovered, setIsHovered] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isLoadingPreview, setIsLoadingPreview] = useState(false);
+  const [thumbnailUrl, setThumbnailUrl] = useState<string | undefined>(image.thumbnailUrl);
+  const [isLoadingThumbnail, setIsLoadingThumbnail] = useState(false);
 
   const sourceType = image.source_type || 'upload';
   const sourceConfig = SOURCE_TYPE_CONFIG[sourceType] || SOURCE_TYPE_CONFIG.upload;
+  const isGeneratedAsset = image.assetId && sourceType === 'generated';
+
+  // Fetch thumbnail dynamically for generated assets
+  useEffect(() => {
+    if (!isGeneratedAsset || thumbnailUrl) return;
+
+    let mounted = true;
+    setIsLoadingThumbnail(true);
+
+    const fetchThumbnail = async () => {
+      try {
+        const { url } = await assetApi.getPreviewUrl(image.assetId!);
+        if (mounted) {
+          setThumbnailUrl(url);
+        }
+      } catch (error) {
+        console.error('Failed to load asset thumbnail:', error);
+      } finally {
+        if (mounted) {
+          setIsLoadingThumbnail(false);
+        }
+      }
+    };
+
+    fetchThumbnail();
+    return () => { mounted = false; };
+  }, [image.assetId, isGeneratedAsset, thumbnailUrl]);
 
   const handlePreviewClick = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -56,7 +90,15 @@ export default function ReferenceImageCard({
 
     setIsLoadingPreview(true);
     try {
-      const { previewUrl: url } = await referenceLibraryApi.getPreviewUrl(image.id);
+      // Use different API for generated assets vs library images
+      let url: string;
+      if (isGeneratedAsset) {
+        const result = await assetApi.getPreviewUrl(image.assetId!);
+        url = result.url;
+      } else {
+        const result = await referenceLibraryApi.getPreviewUrl(image.id);
+        url = result.previewUrl;
+      }
       setPreviewUrl(url);
       window.open(url, '_blank');
     } catch (error) {
@@ -80,9 +122,13 @@ export default function ReferenceImageCard({
     >
       {/* Thumbnail */}
       <div className="aspect-square bg-gray-100 dark:bg-gray-800 relative">
-        {image.thumbnailUrl ? (
+        {isLoadingThumbnail ? (
+          <div className="w-full h-full flex items-center justify-center">
+            <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+          </div>
+        ) : thumbnailUrl ? (
           <img
-            src={image.thumbnailUrl}
+            src={thumbnailUrl}
             alt={image.name}
             className="w-full h-full object-cover"
           />
