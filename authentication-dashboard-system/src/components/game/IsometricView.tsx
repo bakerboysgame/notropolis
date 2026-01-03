@@ -7,9 +7,9 @@ import {
   screenToGrid,
 } from '../../utils/isometricRenderer';
 
-// Responsive tile size: 64px for mobile/tablet, 128px for desktop
+// Responsive tile size: 64px for mobile/tablet, 85px for desktop (2/3 of 128)
 const MOBILE_TILE_SIZE = 64;
-const DESKTOP_TILE_SIZE = 128;
+const DESKTOP_TILE_SIZE = 85;
 const BREAKPOINT = 1024; // lg breakpoint
 const VIEWPORT_TILES = 15; // Show ~15x15 tiles in view
 
@@ -391,14 +391,24 @@ export function IsometricView({
 
     // Track total drag distance
     setDragDistance((prev) => prev + Math.abs(dx) + Math.abs(dy));
-
-    setPanOffset((prev) => ({ x: prev.x + dx, y: prev.y + dy }));
     setDragStart({ x: e.clientX, y: e.clientY });
+
+    // Check if we're at map edges - prevent pan accumulation if so
+    const atLeftEdge = centerTile.x === 0;
+    const atRightEdge = centerTile.x === map.width - 1;
+    const atTopEdge = centerTile.y === 0;
+    const atBottomEdge = centerTile.y === map.height - 1;
+
+    // Only accumulate pan offset if we can actually move in that direction
+    const effectiveDx = (atLeftEdge && dx > 0) || (atRightEdge && dx < 0) ? 0 : dx;
+    const effectiveDy = (atTopEdge && dy > 0) || (atBottomEdge && dy < 0) ? 0 : dy;
+
+    const newPanX = panOffset.x + effectiveDx;
+    const newPanY = panOffset.y + effectiveDy;
+    setPanOffset({ x: newPanX, y: newPanY });
 
     // Update center tile when panned far enough
     const threshold = baseTileSize * zoom;
-    const newPanX = panOffset.x + dx;
-    const newPanY = panOffset.y + dy;
 
     if (Math.abs(newPanX) > threshold || Math.abs(newPanY) > threshold) {
       const tileShiftX = Math.round(newPanX / threshold);
@@ -467,14 +477,24 @@ export function IsometricView({
 
     // Track total drag distance
     setDragDistance((prev) => prev + Math.abs(dx) + Math.abs(dy));
-
-    setPanOffset((prev) => ({ x: prev.x + dx, y: prev.y + dy }));
     setDragStart({ x: touch.clientX, y: touch.clientY });
+
+    // Check if we're at map edges - prevent pan accumulation if so
+    const atLeftEdge = centerTile.x === 0;
+    const atRightEdge = centerTile.x === map.width - 1;
+    const atTopEdge = centerTile.y === 0;
+    const atBottomEdge = centerTile.y === map.height - 1;
+
+    // Only accumulate pan offset if we can actually move in that direction
+    const effectiveDx = (atLeftEdge && dx > 0) || (atRightEdge && dx < 0) ? 0 : dx;
+    const effectiveDy = (atTopEdge && dy > 0) || (atBottomEdge && dy < 0) ? 0 : dy;
+
+    const newPanX = panOffset.x + effectiveDx;
+    const newPanY = panOffset.y + effectiveDy;
+    setPanOffset({ x: newPanX, y: newPanY });
 
     // Update center tile when panned far enough
     const threshold = baseTileSize * zoom;
-    const newPanX = panOffset.x + dx;
-    const newPanY = panOffset.y + dy;
 
     if (Math.abs(newPanX) > threshold || Math.abs(newPanY) > threshold) {
       const tileShiftX = Math.round(newPanX / threshold);

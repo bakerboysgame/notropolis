@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useParams, Navigate } from 'react-router-dom';
+import { useParams, Navigate, Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { useActiveCompany } from '../contexts/CompanyContext';
 import { useGameMap } from '../hooks/useGameMap';
@@ -148,6 +148,15 @@ export function GameMap(): JSX.Element {
               onPan={setOffset}
               onZoom={setZoom}
             />
+
+            {/* Back to menu button */}
+            <Link
+              to="/companies"
+              className="absolute top-4 left-4 z-10 flex items-center gap-2 px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition-colors shadow-lg"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Back to Menu
+            </Link>
 
             <MapControls
               zoom={zoom}
