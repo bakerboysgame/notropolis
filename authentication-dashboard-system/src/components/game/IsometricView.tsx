@@ -110,7 +110,7 @@ export function IsometricView({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Disable image smoothing for crisp pixel rendering when scaling sprites
+    // Disable smoothing for crisp pixel art look
     ctx.imageSmoothingEnabled = false;
 
     const tileSize = baseTileSize * zoom;
@@ -123,17 +123,17 @@ export function IsometricView({
     ctx.fillStyle = '#1a1a2e';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Draw grass background (tiled)
+    // Draw grass background (tiled, scrolls with map)
     if (grassBackground) {
       const bgSize = 512 * zoom;
-      // Calculate offset for seamless tiling
-      const offsetX = ((screenCenterX % bgSize) + bgSize) % bgSize;
-      const offsetY = ((screenCenterY % bgSize) + bgSize) % bgSize;
+      // Calculate start position for seamless tiling that follows pan
+      const startX = ((panOffset.x % bgSize) + bgSize) % bgSize - bgSize;
+      const startY = ((panOffset.y % bgSize) + bgSize) % bgSize - bgSize;
 
-      // Draw enough tiles to cover the canvas
-      for (let x = -bgSize + offsetX; x < canvas.width + bgSize; x += bgSize) {
-        for (let y = -bgSize + offsetY; y < canvas.height + bgSize; y += bgSize) {
-          ctx.drawImage(grassBackground, x - offsetX, y - offsetY, bgSize, bgSize);
+      // Tile background across canvas
+      for (let x = startX; x < canvas.width; x += bgSize) {
+        for (let y = startY; y < canvas.height; y += bgSize) {
+          ctx.drawImage(grassBackground, x, y, bgSize, bgSize);
         }
       }
     }
@@ -179,15 +179,6 @@ export function IsometricView({
           ctx.fillStyle = color;
           ctx.fillRect(screenX - tileSize / 2, screenY - tileSize / 2, tileSize, tileSize);
         }
-      }
-
-      // Draw ownership overlay
-      if (tile.owner_company_id) {
-        ctx.fillStyle =
-          tile.owner_company_id === activeCompanyId
-            ? 'rgba(59, 130, 246, 0.25)' // Royal blue for owned
-            : 'rgba(239, 68, 68, 0.2)'; // Red for enemy
-        ctx.fillRect(screenX - tileSize / 2, screenY - tileSize / 2, tileSize, tileSize);
       }
 
       // Draw special building indicator (temple, bank, police)
@@ -304,6 +295,16 @@ export function IsometricView({
           const stakeScale = baseScale * 0.75;
           const spriteWidth = stakeSprite.naturalWidth * stakeScale * zoom;
           const spriteHeight = stakeSprite.naturalHeight * stakeScale * zoom;
+
+          // Blue glow for user's own claim stakes
+          const isOwned = tile.owner_company_id === activeCompanyId;
+          if (isOwned) {
+            ctx.shadowColor = 'rgba(59, 130, 246, 0.8)';
+            ctx.shadowBlur = 12 * zoom;
+            ctx.shadowOffsetX = 0;
+            ctx.shadowOffsetY = 0;
+          }
+
           ctx.drawImage(
             stakeSprite,
             screenX - spriteWidth / 2,
@@ -311,6 +312,12 @@ export function IsometricView({
             spriteWidth,
             spriteHeight
           );
+
+          // Reset shadow
+          if (isOwned) {
+            ctx.shadowColor = 'transparent';
+            ctx.shadowBlur = 0;
+          }
         }
       }
 
