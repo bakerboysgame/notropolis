@@ -2661,13 +2661,15 @@ export async function handleAssetRoutes(request, env, path, method, user, ctx = 
 
     try {
         // GET /api/admin/assets/list/:category - List all assets by category
-        // Query params: ?show_archived=true to include archived assets
+        // Query params: ?show_hidden=true to include archived and rejected assets
         if (action === 'list' && method === 'GET' && param1) {
             const category = param1;
-            const showArchived = url.searchParams.get('show_archived') === 'true';
+            // Support both old param name (show_archived) and new (show_hidden)
+            const showHidden = url.searchParams.get('show_hidden') === 'true' ||
+                              url.searchParams.get('show_archived') === 'true';
 
-            // Build query based on whether to show archived
-            const statusFilter = showArchived ? '' : "AND status != 'archived'";
+            // Build query based on whether to show hidden (archived + rejected)
+            const statusFilter = showHidden ? '' : "AND status NOT IN ('archived', 'rejected')";
             const assets = await env.DB.prepare(`
                 SELECT *,
                        r2_key_private as r2_key,

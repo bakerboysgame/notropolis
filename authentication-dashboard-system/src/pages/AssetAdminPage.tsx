@@ -42,7 +42,7 @@ export default function AssetAdminPage() {
   const [generateCategory, setGenerateCategory] = useState<AssetCategory | undefined>();
   const [generateParent, setGenerateParent] = useState<{ id: string; asset_key: string } | undefined>();
   const [refreshTrigger, setRefreshTrigger] = useState(0);
-  const [showArchived, setShowArchived] = useState(false);
+  const [showHidden, setShowHidden] = useState(false);
 
   // Get current tab config
   const currentTab = TABS.find(t => t.key === activeTab) || TABS[0];
@@ -90,7 +90,7 @@ export default function AssetAdminPage() {
           onGenerateSprite={handleGenerateSprite}
           showGenerateSprite={true}
           refreshTrigger={refreshTrigger}
-          showArchived={showArchived}
+          showHidden={showHidden}
         />
       );
     }
@@ -105,7 +105,7 @@ export default function AssetAdminPage() {
           onPreview={setPreviewAsset}
           onGenerate={() => openGenerateModal(tab.spriteCategory)}
           refreshTrigger={refreshTrigger}
-          showArchived={showArchived}
+          showHidden={showHidden}
         />
       );
     }
@@ -120,7 +120,7 @@ export default function AssetAdminPage() {
           onPreview={setPreviewAsset}
           onGenerate={() => openGenerateModal(tab.standaloneCategory)}
           refreshTrigger={refreshTrigger}
-          showArchived={showArchived}
+          showHidden={showHidden}
         />
       );
     }
@@ -135,7 +135,7 @@ export default function AssetAdminPage() {
           onPreview={setPreviewAsset}
           onGenerate={() => openGenerateModal('avatar')}
           refreshTrigger={refreshTrigger}
-          showArchived={showArchived}
+          showHidden={showHidden}
         />
       );
     }
@@ -175,16 +175,16 @@ export default function AssetAdminPage() {
             </div>
           </div>
           <div className="flex items-center gap-4">
-            {/* Show Archived Toggle */}
+            {/* Show Archived & Rejected Toggle */}
             <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 cursor-pointer">
               <input
                 type="checkbox"
-                checked={showArchived}
-                onChange={(e) => setShowArchived(e.target.checked)}
+                checked={showHidden}
+                onChange={(e) => setShowHidden(e.target.checked)}
                 className="w-4 h-4 rounded border-gray-300 text-purple-600 focus:ring-purple-500"
               />
               <Archive className="w-4 h-4" />
-              Show Archived
+              View Archived & Rejected
             </label>
             <QueueStatus onQueueChange={handleRefresh} />
           </div>
