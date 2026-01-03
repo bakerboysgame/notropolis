@@ -2362,28 +2362,35 @@ async function generateWithGemini(env, prompt, referenceImages = [], settings = 
             generationConfig.maxOutputTokens = settings.maxOutputTokens;
         }
 
-        // Add Imagen-specific settings if specified
-        if (settings.aspectRatio) {
-            generationConfig.aspectRatio = settings.aspectRatio;
-        }
-        if (settings.imageSize) {
-            generationConfig.imageSize = settings.imageSize;
+        // Add imageConfig for aspect ratio and image size (Gemini 3 Pro Image)
+        // Must use uppercase K (1K, 2K, 4K)
+        if (settings.aspectRatio || settings.imageSize) {
+            generationConfig.imageConfig = {};
+            if (settings.aspectRatio) {
+                generationConfig.imageConfig.aspectRatio = settings.aspectRatio;
+            }
+            if (settings.imageSize) {
+                generationConfig.imageConfig.imageSize = settings.imageSize;
+            }
         }
 
-        console.log(`Calling Gemini with settings:`, JSON.stringify(generationConfig));
+        console.log(`Calling Gemini with generationConfig:`, JSON.stringify(generationConfig));
         console.log(`Prompt length: ${prompt.length}, Reference images: ${images.length}`);
+
+        // Build request body
+        const requestBody = {
+            contents: [{
+                parts: parts
+            }],
+            generationConfig: generationConfig
+        };
 
         const response = await fetch(
             `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-image-preview:generateContent?key=${env.GEMINI_API_KEY}`,
             {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    contents: [{
-                        parts: parts
-                    }],
-                    generationConfig: generationConfig
-                })
+                body: JSON.stringify(requestBody)
             }
         );
 
@@ -2713,15 +2720,15 @@ export async function handleAssetRoutes(request, env, path, method, user, ctx = 
 
     try {
         // GET /api/admin/assets/list/:category - List all assets by category
-        // Query params: ?show_hidden=true to include archived and rejected assets
+        // Query params: ?show_hidden=true to include archived, rejected, and failed assets
         if (action === 'list' && method === 'GET' && param1) {
             const category = param1;
             // Support both old param name (show_archived) and new (show_hidden)
             const showHidden = url.searchParams.get('show_hidden') === 'true' ||
                               url.searchParams.get('show_archived') === 'true';
 
-            // Build query based on whether to show hidden (archived + rejected)
-            const statusFilter = showHidden ? '' : "AND status NOT IN ('archived', 'rejected')";
+            // Build query based on whether to show hidden (archived + rejected + failed)
+            const statusFilter = showHidden ? '' : "AND status NOT IN ('archived', 'rejected', 'failed')";
             const assets = await env.DB.prepare(`
                 SELECT *,
                        r2_key_private as r2_key,
@@ -3106,17 +3113,36 @@ export async function handleAssetRoutes(request, env, path, method, user, ctx = 
             let fullPrompt;
 
             if (customPrompt) {
-                // Use custom prompt directly
-                fullPrompt = customPrompt;
-                if (custom_details) {
-                    fullPrompt += `\n\n${custom_details}`;
+                // For reference sheets, always use the database template (with system_instructions)
+                // and treat the custom prompt as additional details. This ensures the 6-panel layout
+                // and style instructions are always included.
+                if (category.endsWith('_ref')) {
+                    const combinedDetails = customPrompt + (custom_details ? `\n\n${custom_details}` : '');
+                    try {
+                        // Use database template which includes system_instructions
+                        fullPrompt = await getPromptForGeneration(env, category, asset_key, combinedDetails);
+                        console.log(`Using reference sheet template with custom details (${fullPrompt.length} chars)`);
+                        console.log(`Prompt preview: ${fullPrompt.substring(0, 300)}...`);
+                    } catch (err) {
+                        // Fall back to buildAssetPrompt if no database template
+                        fullPrompt = buildAssetPrompt(category, asset_key, combinedDetails);
+                        console.log(`Using fallback ref sheet prompt (${fullPrompt.length} chars)`);
+                    }
+                } else {
+                    // For non-reference categories, use custom prompt directly
+                    fullPrompt = customPrompt;
+                    if (custom_details) {
+                        fullPrompt += `\n\n${custom_details}`;
+                    }
+                    console.log(`Using custom prompt (${fullPrompt.length} chars)`);
                 }
-                console.log(`Using custom prompt (${fullPrompt.length} chars)`);
             } else {
-                // Stage 3: Get prompt from database template
+                // Stage 3: Get prompt from database template (no custom prompt provided)
                 try {
                     fullPrompt = await getPromptForGeneration(env, category, asset_key, custom_details || '');
                     console.log(`Using database template prompt (${fullPrompt.length} chars)`);
+                    // Log first 300 chars to verify system instructions are included
+                    console.log(`Prompt preview: ${fullPrompt.substring(0, 300)}...`);
                 } catch (err) {
                     // Fall back to legacy buildAssetPrompt for backwards compatibility
                     console.log(`No database template found, falling back to buildAssetPrompt: ${err.message}`);

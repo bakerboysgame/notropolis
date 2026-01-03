@@ -313,7 +313,7 @@ class AssetAdminApi {
   }
 
   // List assets by category
-  // showHidden: if true, includes archived and rejected assets in results
+  // showHidden: if true, includes archived, rejected, and failed assets in results
   async listAssets(category: AssetCategory, showHidden = false): Promise<Asset[]> {
     const params = showHidden ? '?show_hidden=true' : '';
     return this.fetch<Asset[]>(`/list/${category}${params}`);
