@@ -12,6 +12,34 @@ Implement the zoomed-in SimCity-style isometric building view with a two-mode in
 `[Requires: Stage 16a complete]` - Asset requirements documented.
 `[Requires: 17-asset-pipeline complete]` - Asset generation pipeline (in `/plans/notropolis-game/17-asset-pipeline/`), assets generated and in R2.
 
+---
+
+## Asset Status (as of 2026-01-03)
+
+### ✅ Ready to Use
+
+| Category | Assets | Status |
+|----------|--------|--------|
+| **Buildings** | bank, burger_bar, campsite, casino, claim_stake, demolished, high_street_store, hot_dog_stand, manor, market_stall, motel, police_station, restaurant, shop, temple | 15/15 ✅ |
+| **Trees** | trees | 1/1 ✅ |
+| **Pedestrian** | pedestrian_walk_1 | 1/1 ✅ |
+| **Vehicles** | car_sedan_sprite, car_sports_sprite, car_taxi_sprite, car_van_sprite | 4/4 ✅ |
+
+### ⏳ To Generate
+
+| Asset | Size | Notes |
+|-------|------|-------|
+| `grass_bg` | 512×512 | Seamless background tile - prompt ready, generate at admin/assets |
+| `road_*` tiles | 64×64 | Can use building placeholder for MVP |
+| `dirt_*` tiles | 64×64 | Can use building placeholder for MVP |
+| `water_*` tiles | 64×64 | Can use building placeholder for MVP |
+
+### Asset URLs
+
+All sprites available at: `https://assets.notropolis.net/sprites/{category}/{asset_key}_v{variant}.webp`
+
+---
+
 ## Asset Sources
 
 All visual assets are generated via the **Stage 17 Asset Pipeline** and stored in R2:
