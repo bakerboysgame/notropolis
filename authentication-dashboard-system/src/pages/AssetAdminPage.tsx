@@ -259,6 +259,7 @@ export default function AssetAdminPage() {
       {/* Generate Modal */}
       {showGenerateModal && (
         <GenerateModal
+          key={`${generateCategory}-${generateParent?.id}`}
           onClose={() => {
             setShowGenerateModal(false);
             setGenerateCategory(undefined);

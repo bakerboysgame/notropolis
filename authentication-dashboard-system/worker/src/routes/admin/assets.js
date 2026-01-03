@@ -997,7 +997,18 @@ Noxious odor cloud overlay.`,
 - Extreme scorch marks and burn patterns
 - Heavy sparks and embers everywhere
 - Maximum devastation - near total destruction
-Catastrophic explosion overlay.`
+Catastrophic explosion overlay.`,
+
+    graffiti: `GRAFFITI EFFECT:
+- Spray paint tags in bright neon colors
+- Pink, green, blue, orange paint marks
+- Dripping paint effects running downward
+- Abstract shapes, squiggles, and symbols
+- Floating spray paint cans
+- Paint splatters and overspray mist
+- Urban street art vandalism style
+- NO readable text or specific symbols
+Street art vandalism overlay.`
 };
 
 /**
@@ -1504,6 +1515,8 @@ const EFFECT_FEATURES = {
     stink_bomb: `Green and yellow tinted stink clouds. Wavy stink lines rising upward. Cartoon-style odor waves. Small flies buzzing around. Sickly green vapor wisps. Comic book style "stench" effect. Puffy toxic-looking clouds.`,
 
     destruction_bomb: `Massive explosion with huge fireball. Intense orange and red flames. Thick black smoke columns. Large debris field with chunks flying outward. Shockwave rings. Extreme scorch marks. Heavy sparks and embers everywhere. Maximum devastation effect.`,
+
+    graffiti: `Spray paint tags and street art marks. Bright neon colors (pink, green, blue, orange). Dripping paint effects. Abstract shapes and squiggles. Floating spray paint cans. Paint splatters and overspray. Urban street art vandalism aesthetic.`,
 
     // Damage levels
     damage_25: `Light damage - scattered dust and small debris particles. Thin wisps of smoke. Minor scuff marks. A few floating broken glass shards. Subtle wear.`,
@@ -2388,15 +2401,18 @@ async function generateWithGemini(env, prompt, referenceImages = [], settings = 
             generationConfig.maxOutputTokens = settings.maxOutputTokens;
         }
 
-        // Add imageConfig for aspect ratio and image size (Gemini 3 Pro Image)
+        // Add imageConfig for aspect ratio, image size, and numberOfImages (Gemini 3 Pro Image)
         // Must use uppercase K (1K, 2K, 4K)
-        if (settings.aspectRatio || settings.imageSize) {
+        if (settings.aspectRatio || settings.imageSize || settings.numberOfImages) {
             generationConfig.imageConfig = {};
             if (settings.aspectRatio) {
                 generationConfig.imageConfig.aspectRatio = settings.aspectRatio;
             }
             if (settings.imageSize) {
                 generationConfig.imageConfig.imageSize = settings.imageSize;
+            }
+            if (settings.numberOfImages && settings.numberOfImages > 1) {
+                generationConfig.imageConfig.numberOfImages = settings.numberOfImages;
             }
         }
 
@@ -2428,9 +2444,9 @@ async function generateWithGemini(env, prompt, referenceImages = [], settings = 
 
         const data = await response.json();
 
-        // Extract image from response
-        const imagePart = data.candidates?.[0]?.content?.parts?.find(p => p.inlineData);
-        if (!imagePart) {
+        // Extract ALL images from response (supports numberOfImages > 1)
+        const imageParts = data.candidates?.[0]?.content?.parts?.filter(p => p.inlineData) || [];
+        if (imageParts.length === 0) {
             // Check for text response (might contain error or explanation)
             const textPart = data.candidates?.[0]?.content?.parts?.find(p => p.text);
             return {
@@ -2440,12 +2456,22 @@ async function generateWithGemini(env, prompt, referenceImages = [], settings = 
             };
         }
 
-        const imageBuffer = Uint8Array.from(atob(imagePart.inlineData.data), c => c.charCodeAt(0));
+        // Convert all images to buffers
+        const imageBuffers = imageParts.map(part => ({
+            buffer: Uint8Array.from(atob(part.inlineData.data), c => c.charCodeAt(0)),
+            mimeType: part.inlineData.mimeType
+        }));
+
+        const modelResponse = data.candidates?.[0]?.content?.parts?.find(p => p.text)?.text || null;
+
+        // Return single image for backward compatibility, plus array for multi-image
         return {
             success: true,
-            imageBuffer,
-            mimeType: imagePart.inlineData.mimeType,
-            modelResponse: data.candidates?.[0]?.content?.parts?.find(p => p.text)?.text || null
+            imageBuffer: imageBuffers[0].buffer,  // First image for backward compatibility
+            mimeType: imageBuffers[0].mimeType,
+            imageBuffers,  // All images when numberOfImages > 1
+            imageCount: imageBuffers.length,
+            modelResponse
         };
 
     } catch (error) {
@@ -2493,6 +2519,12 @@ function validateGenerationSettings(settings = {}, category = null) {
     const defaultAspectRatio = getDefaultAspectRatioForCategory(category);
     const defaultImageSize = '4K';
 
+    // Validate numberOfImages (1-4, Gemini limit)
+    let numberOfImages = null;
+    if (settings.numberOfImages) {
+        numberOfImages = Math.min(4, Math.max(1, Math.round(settings.numberOfImages)));
+    }
+
     return {
         model: 'gemini-3-pro-image-preview',  // Always record model used for reproducibility
         temperature: Math.min(2.0, Math.max(0.0, settings.temperature ?? 0.7)),
@@ -2501,7 +2533,8 @@ function validateGenerationSettings(settings = {}, category = null) {
         maxOutputTokens: settings.maxOutputTokens || null,
         // Imagen-specific settings with smart defaults
         aspectRatio: validAspectRatios.includes(settings.aspectRatio) ? settings.aspectRatio : defaultAspectRatio,
-        imageSize: validImageSizes.includes(settings.imageSize) ? settings.imageSize : defaultImageSize
+        imageSize: validImageSizes.includes(settings.imageSize) ? settings.imageSize : defaultImageSize,
+        numberOfImages  // For batch generation (e.g., 2 pedestrian walk frames)
     };
 }
 
@@ -3868,8 +3901,20 @@ ${fullPrompt}`;
                 for (const variant of variants) {
                     // Build asset_key same as UI: {refAssetKey}_{variant} e.g., pedestrian_walk_1
                     const spriteAssetKey = `${asset.asset_key}_${variant}`;
-                    // Build prompt for this pedestrian variant
-                    const prompt = buildNPCPrompt(variant, '');
+
+                    // Get full prompt from database template (includes system_instructions)
+                    let prompt;
+                    try {
+                        prompt = await getPromptForGeneration(env, 'npc', spriteAssetKey, '');
+                    } catch (err) {
+                        // Fall back to default npc template
+                        try {
+                            prompt = await getPromptForGeneration(env, 'npc', '_default', '');
+                        } catch (err2) {
+                            // Last resort: use basic NPC prompt
+                            prompt = buildNPCPrompt(variant, '');
+                        }
+                    }
 
                     const insertResult = await env.DB.prepare(`
                         INSERT INTO generated_assets (category, asset_key, variant, base_prompt, current_prompt, status, parent_asset_id)
@@ -3898,8 +3943,20 @@ ${fullPrompt}`;
                 for (const variant of variants) {
                     // Build asset_key same as UI: {refAssetKey}_{variant} e.g., car_sedan_sprite
                     const spriteAssetKey = `${asset.asset_key}_${variant}`;
-                    // Build prompt for this car variant
-                    const prompt = buildNPCPrompt(variant, '');
+
+                    // Get full prompt from database template (includes system_instructions)
+                    let prompt;
+                    try {
+                        prompt = await getPromptForGeneration(env, 'vehicle', spriteAssetKey, '');
+                    } catch (err) {
+                        // Fall back to default vehicle template
+                        try {
+                            prompt = await getPromptForGeneration(env, 'vehicle', '_default', '');
+                        } catch (err2) {
+                            // Last resort: use basic NPC prompt
+                            prompt = buildNPCPrompt(variant, '');
+                        }
+                    }
 
                     const insertResult = await env.DB.prepare(`
                         INSERT INTO generated_assets (category, asset_key, variant, base_prompt, current_prompt, status, parent_asset_id)
@@ -4528,6 +4585,188 @@ Please address the above feedback in this generation.`;
 
                 return Response.json({ success: false, error: generated.error }, { status: 500 });
             }
+        }
+
+        // POST /api/admin/assets/generate-pedestrian-batch/:refId - Generate both walk frames in ONE API call
+        // Uses numberOfImages: 2 to generate both frames together, reducing API calls by 50%
+        if (action === 'generate-pedestrian-batch' && method === 'POST' && param1) {
+            const refId = param1;
+
+            // Get the approved pedestrian reference
+            const ref = await env.DB.prepare(`
+                SELECT ga.*, ac.id as cat_id
+                FROM generated_assets ga
+                JOIN asset_categories ac ON ga.category = ac.id
+                WHERE ga.id = ? AND ga.status = 'approved'
+                  AND ga.category = 'character_ref'
+                  AND ga.asset_key LIKE 'pedestrian%'
+            `).bind(refId).first();
+
+            if (!ref) {
+                return Response.json({
+                    error: 'Pedestrian reference not found or not approved. Must be an approved character_ref starting with "pedestrian".'
+                }, { status: 400 });
+            }
+
+            // Fetch the reference image for context
+            let referenceImage = null;
+            if (ref.r2_url) {
+                try {
+                    const r2Key = ref.r2_url.replace(R2_PUBLIC_URL + '/', '');
+                    const publicObject = await env.R2_PUBLIC.get(r2Key);
+                    if (publicObject) {
+                        const refBuffer = await publicObject.arrayBuffer();
+                        referenceImage = {
+                            buffer: new Uint8Array(refBuffer),
+                            mimeType: publicObject.httpMetadata?.contentType || 'image/webp',
+                            name: 'pedestrian_reference'
+                        };
+                        console.log(`Batch: Fetched pedestrian ref (public): ${refBuffer.byteLength} bytes`);
+                    }
+                } catch (err) {
+                    console.error(`Batch: Failed to fetch public ref: ${err.message}`);
+                }
+            }
+
+            // Fall back to private PNG
+            if (!referenceImage && ref.r2_key_private) {
+                try {
+                    const resized = await fetchResizedReferenceImage(env, ref.r2_key_private, 1024);
+                    referenceImage = {
+                        buffer: resized.buffer,
+                        mimeType: resized.mimeType,
+                        name: 'pedestrian_reference'
+                    };
+                    console.log(`Batch: Fetched pedestrian ref (resized): ${resized.buffer.length} bytes`);
+                } catch (err) {
+                    console.error(`Batch: Failed to fetch/resize private ref: ${err.message}`);
+                }
+            }
+
+            // Build combined prompt for 2 walking frames
+            const batchPrompt = `Generate 2 SEPARATE IMAGES - two walking animation frames for a pedestrian sprite.
+Use the provided character reference sheet to match the character's appearance exactly.
+
+BOTH IMAGES MUST BE:
+- 32x32 pixels each
+- TOP-DOWN OVERHEAD VIEW (bird's eye, looking straight down from above)
+- Same character, same clothing, same style
+- 90s CGI stylized rendering (Toy Story/early Pixar aesthetic)
+- NOT isometric, NOT angled - pure top-down overhead view
+
+IMAGE 1 (Frame 1):
+- Right leg forward, left leg back - mid-stride walking pose
+- Right arm back, left arm forward (opposite to legs)
+- Top of head and shoulders visible from above
+
+IMAGE 2 (Frame 2):
+- Left leg forward, right leg back - opposite mid-stride pose
+- Left arm back, right arm forward (opposite to legs)
+- Top of head and shoulders visible from above
+
+These frames will alternate in-game to create walking animation.
+The sprite will be rotated for different walking directions.
+
+CRITICAL: Generate exactly 2 separate images, not a sprite sheet.`;
+
+            // Generate both frames with numberOfImages: 2
+            const batchSettings = validateGenerationSettings({ numberOfImages: 2 }, 'npc');
+            console.log(`Batch pedestrian generation with settings:`, JSON.stringify(batchSettings));
+
+            const generated = await generateWithGemini(
+                env,
+                batchPrompt,
+                referenceImage ? [referenceImage] : [],
+                batchSettings
+            );
+
+            if (!generated.success) {
+                return Response.json({
+                    success: false,
+                    error: generated.error,
+                    modelResponse: generated.modelResponse
+                }, { status: 500 });
+            }
+
+            // Check we got 2 images
+            if (!generated.imageBuffers || generated.imageBuffers.length < 2) {
+                return Response.json({
+                    success: false,
+                    error: `Expected 2 images but got ${generated.imageCount || 1}. Try again or use individual generation.`,
+                    imageCount: generated.imageCount
+                }, { status: 500 });
+            }
+
+            const results = [];
+            const variants = ['walk_1', 'walk_2'];
+
+            // Store both frames
+            for (let i = 0; i < 2; i++) {
+                const variant = variants[i];
+                const imageData = generated.imageBuffers[i];
+                const spriteAssetKey = `${ref.asset_key}_${variant}`;
+
+                // Create/update asset record
+                const result = await env.DB.prepare(`
+                    INSERT INTO generated_assets (
+                        category, asset_key, variant, base_prompt, current_prompt,
+                        parent_asset_id, status, generation_model, generation_settings
+                    )
+                    VALUES ('npc', ?, 1, ?, ?, ?, 'review', 'gemini-3-pro-image-preview', ?)
+                    ON CONFLICT(category, asset_key, variant)
+                    DO UPDATE SET
+                        base_prompt = excluded.base_prompt,
+                        current_prompt = excluded.current_prompt,
+                        parent_asset_id = excluded.parent_asset_id,
+                        status = 'review',
+                        generation_settings = excluded.generation_settings,
+                        prompt_version = prompt_version + 1,
+                        updated_at = CURRENT_TIMESTAMP
+                    RETURNING id
+                `).bind(
+                    spriteAssetKey,
+                    batchPrompt,
+                    batchPrompt,
+                    refId,
+                    JSON.stringify({ ...batchSettings, batchIndex: i, batchTotal: 2 })
+                ).first();
+
+                // Store in R2
+                const r2Key = `raw/npc_${spriteAssetKey}_raw_v1.png`;
+                await env.R2_PRIVATE.put(r2Key, imageData.buffer, {
+                    httpMetadata: { contentType: 'image/png' }
+                });
+
+                // Update with R2 key
+                await env.DB.prepare(`
+                    UPDATE generated_assets
+                    SET r2_key_private = ?, updated_at = CURRENT_TIMESTAMP
+                    WHERE id = ?
+                `).bind(r2Key, result.id).run();
+
+                results.push({
+                    id: result.id,
+                    asset_key: spriteAssetKey,
+                    variant,
+                    r2_key: r2Key
+                });
+            }
+
+            await logAudit(env, 'generate_pedestrian_batch', refId, user?.username, {
+                parent_ref_id: refId,
+                ref_asset_key: ref.asset_key,
+                generated_sprites: results.map(r => r.asset_key),
+                api_calls_saved: 1  // We used 1 call instead of 2
+            });
+
+            return Response.json({
+                success: true,
+                parent_ref_id: refId,
+                ref_asset_key: ref.asset_key,
+                sprites: results,
+                imageCount: generated.imageCount,
+                message: `Generated ${results.length} walk frames in 1 API call (saved 1 API call). Ready for review.`
+            });
         }
 
         // GET /api/admin/assets/approved-refs - Get approved refs ready for sprite generation

@@ -56,7 +56,7 @@ export const ASSET_KEYS: Record<string, string[]> = {
   ],
   character_ref: ['pedestrian', 'pedestrian_business', 'pedestrian_casual', 'avatar_base'],
   vehicle_ref: ['car_sedan', 'car_sports', 'car_van', 'car_taxi'],
-  effect_ref: ['fire', 'cluster_bomb', 'vandalism', 'robbery', 'poisoning', 'blackout'],
+  effect_ref: ['fire', 'cluster_bomb', 'vandalism', 'robbery', 'poisoning', 'blackout', 'smoke_bomb', 'stink_bomb', 'destruction_bomb', 'graffiti'],
   // NPC sprites - directional walk cycles and car sprites
   npc: [
     // Pedestrian directional sprites (2-frame animation strips)
@@ -361,6 +361,23 @@ class AssetAdminApi {
   // Stage 5a: Get sprite status for a specific reference
   async getSpriteStatus(refId: number): Promise<SpriteStatusResponse> {
     return this.fetch<SpriteStatusResponse>(`/sprite-status/${refId}`);
+  }
+
+  // Generate both pedestrian walk frames in ONE API call (uses numberOfImages: 2)
+  // Saves 1 API call compared to generating frames individually
+  async generatePedestrianBatch(refId: number): Promise<{
+    success: boolean;
+    parent_ref_id: number;
+    ref_asset_key: string;
+    sprites: Array<{ id: number; asset_key: string; variant: string; r2_key: string }>;
+    imageCount: number;
+    message: string;
+    error?: string;
+  }> {
+    return this.fetch(`/generate-pedestrian-batch/${refId}`, {
+      method: 'POST',
+      body: JSON.stringify({}),
+    });
   }
 
   // Remove background (Removal.ai)
