@@ -450,21 +450,28 @@ export function LlmSettings() {
   const [totalTemplates, setTotalTemplates] = useState(0);
   const [filter, setFilter] = useState<string>('all');
 
-  const loadSettings = async () => {
+  const loadSettings = async (isInitialLoad = true) => {
     try {
-      setLoading(true);
+      if (isInitialLoad) {
+        setLoading(true);
+      }
       const data = await llmSettingsApi.getAll();
       setGroups(data.groups);
       setTotalTemplates(data.total_templates);
     } catch (error) {
       showToast(error instanceof Error ? error.message : 'Failed to load settings', 'error');
     } finally {
-      setLoading(false);
+      if (isInitialLoad) {
+        setLoading(false);
+      }
     }
   };
 
+  // Background refresh that doesn't show loading spinner
+  const refreshSettings = () => loadSettings(false);
+
   useEffect(() => {
-    loadSettings();
+    loadSettings(true);
   }, []);
 
   // Get unique categories for filter
@@ -561,7 +568,7 @@ export function LlmSettings() {
             <SettingsGroup
               key={group.group_id}
               group={group}
-              onRefresh={loadSettings}
+              onRefresh={refreshSettings}
             />
           ))
         )}
