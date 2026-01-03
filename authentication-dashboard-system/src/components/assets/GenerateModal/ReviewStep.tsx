@@ -1,16 +1,14 @@
 // src/components/assets/GenerateModal/ReviewStep.tsx
 
-import { FileText, Image, Settings2, Tag, Layers, Link, Zap } from 'lucide-react';
+import { FileText, Image, Settings2, Tag, Layers, Link } from 'lucide-react';
 import { clsx } from 'clsx';
 import { GenerateFormData, SPRITE_TO_REF_CATEGORY } from './types';
 
 interface ReviewStepProps {
   formData: GenerateFormData;
-  updateFormData: (updates: Partial<GenerateFormData>) => void;
-  isPedestrianSprite?: boolean;
 }
 
-export default function ReviewStep({ formData, updateFormData, isPedestrianSprite }: ReviewStepProps) {
+export default function ReviewStep({ formData }: ReviewStepProps) {
   const {
     category,
     assetKey,
@@ -206,47 +204,6 @@ export default function ReviewStep({ formData, updateFormData, isPedestrianSprit
         </div>
       </div>
 
-      {/* Batch Generation Option for Pedestrians */}
-      {isPedestrianSprite && (
-        <div className="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Zap className="w-5 h-5 text-purple-600 dark:text-purple-400" />
-              <div>
-                <p className="text-sm font-medium text-purple-700 dark:text-purple-300">
-                  Generate Both Walk Frames
-                </p>
-                <p className="text-xs text-purple-600 dark:text-purple-400">
-                  Creates walk_1 and walk_2 in a single API call (saves 50% API usage)
-                </p>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={() => updateFormData({ generateBothFrames: !formData.generateBothFrames })}
-              className={clsx(
-                'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-purple-600 focus:ring-offset-2',
-                formData.generateBothFrames
-                  ? 'bg-purple-600'
-                  : 'bg-gray-200 dark:bg-gray-600'
-              )}
-            >
-              <span
-                className={clsx(
-                  'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
-                  formData.generateBothFrames ? 'translate-x-5' : 'translate-x-0'
-                )}
-              />
-            </button>
-          </div>
-          {formData.generateBothFrames && (
-            <div className="mt-3 text-xs text-purple-600 dark:text-purple-400 bg-purple-100 dark:bg-purple-900/40 rounded p-2">
-              Will generate 2 separate images: Frame 1 (right leg forward) and Frame 2 (left leg forward)
-            </div>
-          )}
-        </div>
-      )}
-
       {/* Ready message */}
       <div className="text-center p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
         <Layers className="w-6 h-6 text-green-600 dark:text-green-400 mx-auto mb-2" />
@@ -254,9 +211,7 @@ export default function ReviewStep({ formData, updateFormData, isPedestrianSprit
           Ready to generate!
         </p>
         <p className="text-xs text-green-600 dark:text-green-400 mt-1">
-          {isPedestrianSprite && formData.generateBothFrames
-            ? 'Click Generate to create both walk frames in 1 API call'
-            : 'Click the Generate button below to start'}
+          Click the Generate button below to start
         </p>
       </div>
     </div>

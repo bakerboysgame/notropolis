@@ -33,9 +33,9 @@ PUBLIC BUCKET: notropolis-game-assets
 https://pub-874867b18f8b4b4882277d8a2b7dfe80.r2.dev/
 ├── sprites/
 │   ├── buildings/                # WebP, transparent, exact size (128-320px)
-│   ├── terrain/                  # WebP, 64×32
+│   ├── terrain/                  # WebP, 64×64
 │   ├── effects/                  # WebP, 64×64
-│   ├── overlays/                 # WebP, 64×32
+│   ├── overlays/                 # WebP, 64×64
 │   ├── ui/                       # WebP, 8-68px
 │   └── npc/                      # WebP, 32-64px
 └── scenes/                       # WebP, 1280×720
@@ -391,7 +391,7 @@ PUBLIC BUCKET: notropolis-game-assets
 To help with asset creation, placeholder templates can be generated:
 
 ```bash
-# Generate placeholder templates (64x32 terrain, 64x64 building base)
+# Generate placeholder templates (64x64 terrain, 64x64 building base)
 # These would be simple colored shapes for testing
 ```
 
@@ -685,32 +685,32 @@ Show trees as 3D objects sitting on the square base, extending upward.
 
 ### MOUNTAIN TILE
 ```
-Create a single isometric terrain tile for MOUNTAIN/ROCKY TERRAIN.
+Create a single terrain tile for MOUNTAIN/ROCKY TERRAIN.
 
-Format: Diamond/rhombus shaped tile viewed from above at 45-degree isometric angle
-Dimensions: The tile should be a flat diamond that would fit a 64x32 pixel canvas (2:1 ratio) but rocks extend upward
+Format: Square tile with 3D rocks extending upward
+Dimensions: 64x64 pixel canvas (rocks extend above the base)
 Background: TRANSPARENT (PNG-ready)
 
 The mountain tile: Rocky, elevated terrain with chunky rock formations. Gray and brown stone with visible facets. Impassable, rugged appearance.
 
 Style: 90s CGI aesthetic with modern render quality - chunky, angular rock shapes with visible polygonal faces. Strong shadows on rock faces. The base footprint should tile seamlessly.
 
-Show rocks as 3D objects sitting on the diamond base, extending upward.
+Show rocks as 3D objects sitting on the square base, extending upward.
 ```
 
 ### SAND/BEACH TILE
 ```
-Create a single isometric terrain tile for SAND/BEACH.
+Create a single terrain tile for SAND/BEACH.
 
-Format: Diamond/rhombus shaped tile viewed from above at 45-degree isometric angle
-Dimensions: The tile should be a flat diamond that would fit a 64x32 pixel canvas (2:1 ratio)
+Format: Square tile viewed from above at a slight 3D angle
+Dimensions: 64x64 pixel canvas
 Background: TRANSPARENT (PNG-ready)
 
 The sand tile: Golden/beige sand with subtle ripple texture suggesting wind patterns. Small variation in tone. Beach/desert sand appearance.
 
 Style: 90s CGI aesthetic with modern render quality. Warm sandy tones with soft texture. The tile must seamlessly connect when placed adjacent to identical tiles.
 
-This is a FLAT ground tile, not a 3D object. Show only the top surface as if looking down at an angle.
+This is a ground tile showing the top surface with subtle 3D depth.
 ```
 
 ---
@@ -1328,14 +1328,14 @@ Style: Clean, simple, easily distinguishable at very small size. Bright red (#ef
 
 ### SELECTION CURSOR
 ```
-Create a tile selection cursor for the isometric map.
+Create a tile selection cursor for the map.
 
-Format: Diamond/rhombus outline at 45-degree isometric angle
+Format: Square outline
 Background: TRANSPARENT (PNG-ready)
-Size: Slightly larger than a tile - approximately 68x36 pixels (to surround a 64x32 tile)
+Size: Slightly larger than a tile - approximately 68x68 pixels (to surround a 64x64 tile)
 Purpose: Highlights the currently selected/hovered tile on the game map
 
-The cursor: A glowing diamond outline that surrounds an isometric tile. Bright, noticeable edge glow. Could be yellow, white, or cyan. Animated pulse effect optional. Just the outline - no fill (or very subtle semi-transparent fill).
+The cursor: A glowing square outline that surrounds a tile. Bright, noticeable edge glow. Could be yellow, white, or cyan. Animated pulse effect optional. Just the outline - no fill (or very subtle semi-transparent fill).
 
 Style: Clean geometric shape. Bright enough to be visible over any terrain or building. Suggests "this tile is selected". Smooth anti-aliased edges.
 ```

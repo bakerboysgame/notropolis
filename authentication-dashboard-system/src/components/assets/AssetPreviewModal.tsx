@@ -186,23 +186,12 @@ export function AssetPreviewModal({ asset, onClose, onUpdate }: AssetPreviewModa
     setApproving(true);
     try {
       await assetApi.approve(asset.id);
-      showToast('Asset approved', 'success');
 
-      // Auto-remove background and publish for sprites
+      // For sprites, the pipeline handles bg removal, resize, and publish automatically
       if (isSprite) {
-        showToast('Removing background...', 'info');
-        try {
-          await assetApi.removeBackground(asset.id);
-          showToast('Background removed. Publishing...', 'info');
-          try {
-            await assetApi.publish(asset.id);
-            showToast('Published to public bucket', 'success');
-          } catch {
-            showToast('Background removed, but publish failed. Try manually.', 'warning');
-          }
-        } catch {
-          showToast('Approved, but background removal failed. Try manually.', 'warning');
-        }
+        showToast('Approved! Pipeline processing (bg removal → resize → publish)...', 'success');
+      } else {
+        showToast('Asset approved', 'success');
       }
 
       onUpdate();

@@ -37,9 +37,6 @@ export function GenerateModal({
   const [currentStep, setCurrentStep] = useState(0);
   const [isGenerating, setIsGenerating] = useState(false);
 
-  // Detect if this is a pedestrian sprite generation (eligible for batch)
-  const isPedestrianSprite = initialCategory === 'npc' && parentAsset?.asset_key?.startsWith('pedestrian');
-
   const [formData, setFormData] = useState<GenerateFormData>({
     category: initialCategory || '',
     assetKey: parentAsset?.asset_key || '',
@@ -51,8 +48,6 @@ export function GenerateModal({
     generationSettings: { ...DEFAULT_GENERATION_SETTINGS },
     parentAssetId: parentAsset ? parseInt(parentAsset.id) : undefined,
     spriteVariant: undefined,
-    // Default to batch generation for pedestrians (saves API calls)
-    generateBothFrames: isPedestrianSprite,
   });
 
   // Handle escape key
@@ -168,47 +163,31 @@ export function GenerateModal({
 
     setIsGenerating(true);
     try {
-      // Use batch API for pedestrian sprites when generateBothFrames is enabled
-      if (formData.generateBothFrames && formData.parentAssetId && isPedestrianSprite) {
-        const result = await assetApi.generatePedestrianBatch(formData.parentAssetId);
+      const result = await assetApi.generate({
+        category: formData.category as AssetCategory,
+        asset_key: formData.assetKey || formData.category,
+        variant: formData.variant,
+        prompt: formData.prompt || undefined,
+        custom_details: formData.customDetails || undefined,
+        system_instructions: formData.systemInstructions || undefined,
+        reference_images: formData.referenceImages.length > 0
+          ? formData.referenceImages.map(ref => ({
+              type: ref.type,
+              id: ref.id,
+            }))
+          : undefined,
+        generation_settings: formData.generationSettings,
+        parent_asset_id: formData.parentAssetId,
+        sprite_variant: formData.spriteVariant,
+      });
 
-        if (result.success) {
-          showToast(
-            `Generated ${result.sprites.length} walk frames in 1 API call`,
-            'success'
-          );
-          showToast(result.message, 'info');
-        } else {
-          throw new Error(result.error || 'Batch generation failed');
-        }
-      } else {
-        // Standard single-image generation
-        const result = await assetApi.generate({
-          category: formData.category as AssetCategory,
-          asset_key: formData.assetKey || formData.category,
-          variant: formData.variant,
-          prompt: formData.prompt || undefined,
-          custom_details: formData.customDetails || undefined,
-          system_instructions: formData.systemInstructions || undefined,
-          reference_images: formData.referenceImages.length > 0
-            ? formData.referenceImages.map(ref => ({
-                type: ref.type,
-                id: ref.id,
-              }))
-            : undefined,
-          generation_settings: formData.generationSettings,
-          parent_asset_id: formData.parentAssetId,
-          sprite_variant: formData.spriteVariant,
-        });
+      showToast(
+        `Generation started for ${formData.assetKey || formData.category}`,
+        'success'
+      );
 
-        showToast(
-          `Generation started for ${formData.assetKey || formData.category}`,
-          'success'
-        );
-
-        if (result.used_reference_image) {
-          showToast('Using approved reference sheet', 'info');
-        }
+      if (result.used_reference_image) {
+        showToast('Using approved reference sheet', 'info');
       }
 
       onSuccess();
@@ -231,7 +210,6 @@ export function GenerateModal({
         return (
           <CategoryStep
             {...props}
-            isPedestrianSprite={isPedestrianSprite}
             // Don't lock - let user change category even if pre-filled
           />
         );
@@ -242,7 +220,7 @@ export function GenerateModal({
       case 'settings':
         return <SettingsStep {...props} />;
       case 'review':
-        return <ReviewStep {...props} isPedestrianSprite={isPedestrianSprite} />;
+        return <ReviewStep {...props} />;
       default:
         return null;
     }

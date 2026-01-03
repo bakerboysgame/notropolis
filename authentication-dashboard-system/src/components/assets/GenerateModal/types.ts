@@ -16,8 +16,6 @@ export interface GenerateFormData {
   generationSettings: GenerationSettings;
   parentAssetId?: number;
   spriteVariant?: string;
-  // Batch generation for pedestrian walk frames (generates 2 images in 1 API call)
-  generateBothFrames?: boolean;
 }
 
 export interface Step {

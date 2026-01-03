@@ -363,23 +363,6 @@ class AssetAdminApi {
     return this.fetch<SpriteStatusResponse>(`/sprite-status/${refId}`);
   }
 
-  // Generate both pedestrian walk frames in ONE API call (uses numberOfImages: 2)
-  // Saves 1 API call compared to generating frames individually
-  async generatePedestrianBatch(refId: number): Promise<{
-    success: boolean;
-    parent_ref_id: number;
-    ref_asset_key: string;
-    sprites: Array<{ id: number; asset_key: string; variant: string; r2_key: string }>;
-    imageCount: number;
-    message: string;
-    error?: string;
-  }> {
-    return this.fetch(`/generate-pedestrian-batch/${refId}`, {
-      method: 'POST',
-      body: JSON.stringify({}),
-    });
-  }
-
   // Remove background (Removal.ai)
   async removeBackground(assetId: string): Promise<{ success: boolean }> {
     return this.fetch(`/remove-background/${assetId}`, {

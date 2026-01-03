@@ -94,35 +94,56 @@ async function hashString(str) {
  */
 async function resizeViaCloudflare(env, imageBuffer, tempKey, width, height) {
     // Step 1: Upload source image temporarily to public R2
+    console.log(`[Resize] Uploading temp image: ${tempKey} (${imageBuffer.byteLength} bytes)`);
     await env.R2_PUBLIC.put(tempKey, imageBuffer, {
         httpMetadata: { contentType: 'image/png' }
     });
 
+    // Small delay to ensure R2 propagation before transform request
+    await new Promise(r => setTimeout(r, 500));
+
     try {
         // Step 2: Fetch with Cloudflare Image Resizing
+        // Using scale-down instead of contain to ensure we don't upscale small images
+        // and to properly fit within target dimensions
         const imageUrl = `${R2_PUBLIC_URL}/${tempKey}`;
+        console.log(`[Resize] Fetching with cf.image transform: ${imageUrl}`);
+
         const response = await fetch(imageUrl, {
             cf: {
                 image: {
                     width: width,
                     height: height,
-                    fit: 'contain',
-                    format: 'webp'
+                    fit: 'scale-down',  // Scale down to fit, don't upscale
+                    format: 'webp',
+                    quality: 85
                 }
             }
         });
 
         if (!response.ok) {
-            throw new Error(`Image resize failed: ${response.status} ${response.statusText}`);
+            const errorText = await response.text().catch(() => 'No error body');
+            throw new Error(`Image resize failed: ${response.status} ${response.statusText} - ${errorText}`);
+        }
+
+        const contentType = response.headers.get('content-type');
+        console.log(`[Resize] Response content-type: ${contentType}`);
+
+        // Check if we actually got a transformed image
+        if (contentType && !contentType.includes('webp') && !contentType.includes('image')) {
+            const body = await response.text();
+            throw new Error(`Unexpected response type: ${contentType}. Body: ${body.slice(0, 200)}`);
         }
 
         const resizedBuffer = await response.arrayBuffer();
+        console.log(`[Resize] Got resized buffer: ${resizedBuffer.byteLength} bytes`);
 
         // Step 3: Clean up temp file
         await env.R2_PUBLIC.delete(tempKey);
 
         return resizedBuffer;
     } catch (err) {
+        console.error(`[Resize] Failed for ${tempKey}:`, err.message);
         // Clean up on error
         await env.R2_PUBLIC.delete(tempKey).catch(() => {});
         throw err;
@@ -281,7 +302,16 @@ async function postApprovalPipeline(env, assetId, asset, approvedBy) {
                 resized = true;
                 console.log(`[Pipeline] Resized to WebP: ${finalBuffer.byteLength} bytes`);
             } catch (resizeErr) {
-                console.error('[Pipeline] Cloudflare resize failed, using original PNG:', resizeErr.message);
+                // Log the actual error for debugging - this should not fail silently
+                console.error('[Pipeline] Cloudflare resize failed:', resizeErr.message, resizeErr.stack);
+                // Record the resize failure in the database so we can track it
+                await env.DB.prepare(`
+                    UPDATE generated_assets
+                    SET pipeline_error = ?
+                    WHERE id = ?
+                `).bind(`Resize failed: ${resizeErr.message}`, assetId).run();
+                // Still continue with original - but it won't be resized
+                console.error('[Pipeline] Continuing with unresized PNG - NEEDS MANUAL FIX');
             }
         }
 
@@ -2401,18 +2431,16 @@ async function generateWithGemini(env, prompt, referenceImages = [], settings = 
             generationConfig.maxOutputTokens = settings.maxOutputTokens;
         }
 
-        // Add imageConfig for aspect ratio, image size, and numberOfImages (Gemini 3 Pro Image)
+        // Add imageConfig for aspect ratio and image size (Gemini 3 Pro Image)
         // Must use uppercase K (1K, 2K, 4K)
-        if (settings.aspectRatio || settings.imageSize || settings.numberOfImages) {
+        // Note: Gemini doesn't support numberOfImages - use sprite sheet approach for multiple frames
+        if (settings.aspectRatio || settings.imageSize) {
             generationConfig.imageConfig = {};
             if (settings.aspectRatio) {
                 generationConfig.imageConfig.aspectRatio = settings.aspectRatio;
             }
             if (settings.imageSize) {
                 generationConfig.imageConfig.imageSize = settings.imageSize;
-            }
-            if (settings.numberOfImages && settings.numberOfImages > 1) {
-                generationConfig.imageConfig.numberOfImages = settings.numberOfImages;
             }
         }
 
@@ -2510,20 +2538,14 @@ function getDefaultAspectRatioForCategory(category) {
  * @returns {Object} Validated settings with model name
  */
 function validateGenerationSettings(settings = {}, category = null) {
-    // Valid aspect ratios for Gemini image generation
-    const validAspectRatios = ['1:1', '2:3', '3:2', '3:4', '4:3', '4:5', '5:4', '9:16', '16:9', '21:9'];
+    // Valid aspect ratios for Gemini image generation (per docs: 1:1, 3:4, 4:3, 9:16, 16:9)
+    const validAspectRatios = ['1:1', '3:4', '4:3', '9:16', '16:9'];
     // Valid image sizes for Gemini 3 Pro
     const validImageSizes = ['1K', '2K', '4K'];
 
     // Get category-based defaults
     const defaultAspectRatio = getDefaultAspectRatioForCategory(category);
     const defaultImageSize = '4K';
-
-    // Validate numberOfImages (1-4, Gemini limit)
-    let numberOfImages = null;
-    if (settings.numberOfImages) {
-        numberOfImages = Math.min(4, Math.max(1, Math.round(settings.numberOfImages)));
-    }
 
     return {
         model: 'gemini-3-pro-image-preview',  // Always record model used for reproducibility
@@ -2533,8 +2555,7 @@ function validateGenerationSettings(settings = {}, category = null) {
         maxOutputTokens: settings.maxOutputTokens || null,
         // Imagen-specific settings with smart defaults
         aspectRatio: validAspectRatios.includes(settings.aspectRatio) ? settings.aspectRatio : defaultAspectRatio,
-        imageSize: validImageSizes.includes(settings.imageSize) ? settings.imageSize : defaultImageSize,
-        numberOfImages  // For batch generation (e.g., 2 pedestrian walk frames)
+        imageSize: validImageSizes.includes(settings.imageSize) ? settings.imageSize : defaultImageSize
     };
 }
 
@@ -4585,199 +4606,6 @@ Please address the above feedback in this generation.`;
 
                 return Response.json({ success: false, error: generated.error }, { status: 500 });
             }
-        }
-
-        // POST /api/admin/assets/generate-pedestrian-batch/:refId - Generate both walk frames in ONE API call
-        // Uses numberOfImages: 2 to generate both frames together, reducing API calls by 50%
-        if (action === 'generate-pedestrian-batch' && method === 'POST' && param1) {
-            const refId = param1;
-
-            // Get the approved pedestrian reference
-            const ref = await env.DB.prepare(`
-                SELECT ga.*, ac.id as cat_id
-                FROM generated_assets ga
-                JOIN asset_categories ac ON ga.category = ac.id
-                WHERE ga.id = ? AND ga.status = 'approved'
-                  AND ga.category = 'character_ref'
-                  AND ga.asset_key LIKE 'pedestrian%'
-            `).bind(refId).first();
-
-            if (!ref) {
-                return Response.json({
-                    error: 'Pedestrian reference not found or not approved. Must be an approved character_ref starting with "pedestrian".'
-                }, { status: 400 });
-            }
-
-            // Fetch the reference image for context
-            let referenceImage = null;
-            if (ref.r2_url) {
-                try {
-                    const r2Key = ref.r2_url.replace(R2_PUBLIC_URL + '/', '');
-                    const publicObject = await env.R2_PUBLIC.get(r2Key);
-                    if (publicObject) {
-                        const refBuffer = await publicObject.arrayBuffer();
-                        referenceImage = {
-                            buffer: new Uint8Array(refBuffer),
-                            mimeType: publicObject.httpMetadata?.contentType || 'image/webp',
-                            name: 'pedestrian_reference'
-                        };
-                        console.log(`Batch: Fetched pedestrian ref (public): ${refBuffer.byteLength} bytes`);
-                    }
-                } catch (err) {
-                    console.error(`Batch: Failed to fetch public ref: ${err.message}`);
-                }
-            }
-
-            // Fall back to private PNG
-            if (!referenceImage && ref.r2_key_private) {
-                try {
-                    const resized = await fetchResizedReferenceImage(env, ref.r2_key_private, 1024);
-                    referenceImage = {
-                        buffer: resized.buffer,
-                        mimeType: resized.mimeType,
-                        name: 'pedestrian_reference'
-                    };
-                    console.log(`Batch: Fetched pedestrian ref (resized): ${resized.buffer.length} bytes`);
-                } catch (err) {
-                    console.error(`Batch: Failed to fetch/resize private ref: ${err.message}`);
-                }
-            }
-
-            // Build combined prompt for 2 walking frames
-            const batchPrompt = `Generate 2 SEPARATE IMAGES for a walking animation cycle - a pedestrian viewed from DIRECTLY ABOVE.
-
-REFERENCE: Use the provided character reference sheet to match the character's appearance, clothing, and colors exactly.
-
-=== TOP-DOWN VIEW EXPLAINED ===
-You are looking STRAIGHT DOWN from above, like a bird flying over the character.
-- You see the TOP OF THE HEAD (hair/hat), NOT the face
-- Shoulders form an oval shape below the head
-- Arms and legs extend outward from the body
-- You can see the full body layout from above
-- The character should look like a small person seen from a helicopter
-
-=== TECHNICAL REQUIREMENTS ===
-- Each image: 32x32 pixels, square format
-- Style: 90s CGI (Toy Story/early Pixar aesthetic)
-- Background: Transparent or solid color (will be removed)
-- Both frames must be IDENTICAL except for leg/arm positions
-
-=== FRAME 1 (Walk Pose A) ===
-- RIGHT leg extended forward (toward top of image)
-- LEFT leg extended backward (toward bottom of image)
-- LEFT arm swings forward, RIGHT arm swings backward
-- This is the mid-stride pose
-
-=== FRAME 2 (Walk Pose B) ===
-- LEFT leg extended forward (toward top of image)
-- RIGHT leg extended backward (toward bottom of image)
-- RIGHT arm swings forward, LEFT arm swings backward
-- This is the opposite mid-stride pose
-
-=== ANIMATION PURPOSE ===
-When these two frames alternate rapidly (Frame 1 → Frame 2 → Frame 1...), they create a walking animation.
-The game will rotate these sprites to show walking in any direction (north, south, east, west).
-
-CRITICAL: Generate exactly 2 SEPARATE images (not a sprite sheet). Each image shows the same character in a different walking pose.`;
-
-            // Generate both frames with numberOfImages: 2
-            const batchSettings = validateGenerationSettings({ numberOfImages: 2 }, 'npc');
-            console.log(`Batch pedestrian generation with settings:`, JSON.stringify(batchSettings));
-
-            const generated = await generateWithGemini(
-                env,
-                batchPrompt,
-                referenceImage ? [referenceImage] : [],
-                batchSettings
-            );
-
-            if (!generated.success) {
-                return Response.json({
-                    success: false,
-                    error: generated.error,
-                    modelResponse: generated.modelResponse
-                }, { status: 500 });
-            }
-
-            // Check we got 2 images
-            if (!generated.imageBuffers || generated.imageBuffers.length < 2) {
-                return Response.json({
-                    success: false,
-                    error: `Expected 2 images but got ${generated.imageCount || 1}. Try again or use individual generation.`,
-                    imageCount: generated.imageCount
-                }, { status: 500 });
-            }
-
-            const results = [];
-            const variants = ['walk_1', 'walk_2'];
-
-            // Store both frames
-            for (let i = 0; i < 2; i++) {
-                const variant = variants[i];
-                const imageData = generated.imageBuffers[i];
-                const spriteAssetKey = `${ref.asset_key}_${variant}`;
-
-                // Create/update asset record
-                const result = await env.DB.prepare(`
-                    INSERT INTO generated_assets (
-                        category, asset_key, variant, base_prompt, current_prompt,
-                        parent_asset_id, status, generation_model, generation_settings
-                    )
-                    VALUES ('npc', ?, 1, ?, ?, ?, 'review', 'gemini-3-pro-image-preview', ?)
-                    ON CONFLICT(category, asset_key, variant)
-                    DO UPDATE SET
-                        base_prompt = excluded.base_prompt,
-                        current_prompt = excluded.current_prompt,
-                        parent_asset_id = excluded.parent_asset_id,
-                        status = 'review',
-                        generation_settings = excluded.generation_settings,
-                        prompt_version = prompt_version + 1,
-                        updated_at = CURRENT_TIMESTAMP
-                    RETURNING id
-                `).bind(
-                    spriteAssetKey,
-                    batchPrompt,
-                    batchPrompt,
-                    refId,
-                    JSON.stringify({ ...batchSettings, batchIndex: i, batchTotal: 2 })
-                ).first();
-
-                // Store in R2
-                const r2Key = `raw/npc_${spriteAssetKey}_raw_v1.png`;
-                await env.R2_PRIVATE.put(r2Key, imageData.buffer, {
-                    httpMetadata: { contentType: 'image/png' }
-                });
-
-                // Update with R2 key
-                await env.DB.prepare(`
-                    UPDATE generated_assets
-                    SET r2_key_private = ?, updated_at = CURRENT_TIMESTAMP
-                    WHERE id = ?
-                `).bind(r2Key, result.id).run();
-
-                results.push({
-                    id: result.id,
-                    asset_key: spriteAssetKey,
-                    variant,
-                    r2_key: r2Key
-                });
-            }
-
-            await logAudit(env, 'generate_pedestrian_batch', refId, user?.username, {
-                parent_ref_id: refId,
-                ref_asset_key: ref.asset_key,
-                generated_sprites: results.map(r => r.asset_key),
-                api_calls_saved: 1  // We used 1 call instead of 2
-            });
-
-            return Response.json({
-                success: true,
-                parent_ref_id: refId,
-                ref_asset_key: ref.asset_key,
-                sprites: results,
-                imageCount: generated.imageCount,
-                message: `Generated ${results.length} walk frames in 1 API call (saved 1 API call). Ready for review.`
-            });
         }
 
         // GET /api/admin/assets/approved-refs - Get approved refs ready for sprite generation
