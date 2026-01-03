@@ -2,7 +2,6 @@ import { useRef, useEffect, useState, useMemo, useCallback } from 'react';
 import { GameMap, Tile, BuildingInstance } from '../../types/game';
 import { useIsometricAssets, getSprite, getTerrainSprite } from '../../hooks/useIsometricAssets';
 import {
-  TILE_SIZE,
   TERRAIN_COLORS,
   gridToScreen,
   screenToGrid,
@@ -10,6 +9,11 @@ import {
   getVisibleTiles,
   getRelativePosition,
 } from '../../utils/isometricRenderer';
+
+// Responsive tile size: 64px for mobile/tablet, 128px for desktop
+const MOBILE_TILE_SIZE = 64;
+const DESKTOP_TILE_SIZE = 128;
+const BREAKPOINT = 1024; // lg breakpoint
 
 interface IsometricViewProps {
   map: GameMap;
@@ -42,6 +46,9 @@ export function IsometricView({
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [dragDistance, setDragDistance] = useState(0);
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
+  const [baseTileSize, setBaseTileSize] = useState(
+    typeof window !== 'undefined' && window.innerWidth < BREAKPOINT ? MOBILE_TILE_SIZE : DESKTOP_TILE_SIZE
+  );
 
   // Preload sprites
   const { sprites, grassBackground, isLoading, loadingProgress } = useIsometricAssets();
@@ -75,7 +82,9 @@ export function IsometricView({
     // Disable image smoothing for crisp pixel rendering when scaling sprites
     ctx.imageSmoothingEnabled = false;
 
-    const tileSize = TILE_SIZE * zoom;
+    const tileSize = baseTileSize * zoom;
+    // Base scale depends on tile size: 64px = 0.2, 128px = 0.4
+    const baseScale = baseTileSize / 320;
     const screenCenterX = canvas.width / 2 + panOffset.x;
     const screenCenterY = canvas.height / 2 + panOffset.y;
 
@@ -113,7 +122,7 @@ export function IsometricView({
         map.height
       );
 
-      const { screenX, screenY } = gridToScreen(relX, relY, screenCenterX, screenCenterY, zoom);
+      const { screenX, screenY } = gridToScreen(relX, relY, screenCenterX, screenCenterY, zoom, baseTileSize);
 
       // Skip if off-screen
       if (
@@ -130,8 +139,6 @@ export function IsometricView({
         // Try to draw terrain sprite first
         const terrainSprite = getTerrainSprite(sprites, tile.terrain_type);
         if (terrainSprite) {
-          // Sprites are 320x320, tiles are 128x128, so base scale is 0.4
-          const baseScale = 0.4;
           const spriteWidth = terrainSprite.naturalWidth * baseScale * zoom;
           const spriteHeight = terrainSprite.naturalHeight * baseScale * zoom;
           ctx.drawImage(
@@ -162,8 +169,6 @@ export function IsometricView({
       if (tile.special_building) {
         const specialSprite = getSprite(sprites, tile.special_building);
         if (specialSprite) {
-          // Sprites are 320x320, tiles are 128x128, so base scale is 0.4
-          const baseScale = 0.4;
           const spriteWidth = specialSprite.naturalWidth * baseScale * zoom;
           const spriteHeight = specialSprite.naturalHeight * baseScale * zoom;
 
@@ -197,8 +202,6 @@ export function IsometricView({
         const buildingSprite = getSprite(sprites, effectiveTypeId);
 
         if (buildingSprite) {
-          // Sprites are 320x320, tiles are 128x128, so base scale is 0.4
-          const baseScale = 0.4;
           const spriteWidth = buildingSprite.naturalWidth * baseScale * zoom;
           const spriteHeight = buildingSprite.naturalHeight * baseScale * zoom;
 
@@ -210,6 +213,17 @@ export function IsometricView({
             spriteWidth,
             spriteHeight
           );
+
+          // Ownership tint (blue for user's buildings)
+          if (tile.owner_company_id === activeCompanyId) {
+            ctx.fillStyle = 'rgba(59, 130, 246, 0.25)'; // Blue tint
+            ctx.fillRect(
+              screenX - spriteWidth / 2,
+              screenY - spriteHeight + tileSize / 2,
+              spriteWidth,
+              spriteHeight
+            );
+          }
 
           // Damage overlay (darken based on damage)
           if (building.damage_percent > 0 && !building.is_collapsed) {
@@ -257,10 +271,10 @@ export function IsometricView({
       if (tile.owner_company_id && !building && !tile.special_building) {
         const stakeSprite = getSprite(sprites, 'claim_stake');
         if (stakeSprite) {
-          // Sprites are 320x320, tiles are 128x128, base scale 0.4, stakes smaller at 0.3
-          const baseScale = 0.3;
-          const spriteWidth = stakeSprite.naturalWidth * baseScale * zoom;
-          const spriteHeight = stakeSprite.naturalHeight * baseScale * zoom;
+          // Stakes are smaller at 75% of normal building scale
+          const stakeScale = baseScale * 0.75;
+          const spriteWidth = stakeSprite.naturalWidth * stakeScale * zoom;
+          const spriteHeight = stakeSprite.naturalHeight * stakeScale * zoom;
           ctx.drawImage(
             stakeSprite,
             screenX - spriteWidth / 2,
@@ -297,6 +311,7 @@ export function IsometricView({
     selectedTile,
     map.width,
     map.height,
+    baseTileSize,
   ]);
 
   // Render on changes
@@ -304,7 +319,7 @@ export function IsometricView({
     render();
   }, [render]);
 
-  // Handle canvas resize
+  // Handle canvas resize and responsive tile size
   useEffect(() => {
     const handleResize = () => {
       const canvas = canvasRef.current;
@@ -312,6 +327,11 @@ export function IsometricView({
 
       canvas.width = canvas.parentElement.clientWidth;
       canvas.height = canvas.parentElement.clientHeight;
+
+      // Update tile size based on screen width
+      const newTileSize = window.innerWidth < BREAKPOINT ? MOBILE_TILE_SIZE : DESKTOP_TILE_SIZE;
+      setBaseTileSize(newTileSize);
+
       render();
     };
 
@@ -340,7 +360,7 @@ export function IsometricView({
     setDragStart({ x: e.clientX, y: e.clientY });
 
     // Update center tile when panned far enough
-    const threshold = TILE_SIZE * zoom;
+    const threshold = baseTileSize * zoom;
     const newPanX = panOffset.x + dx;
     const newPanY = panOffset.y + dy;
 
@@ -374,7 +394,8 @@ export function IsometricView({
         e.clientY - rect.top,
         screenCenterX,
         screenCenterY,
-        zoom
+        zoom,
+        baseTileSize
       );
 
       const x = wrapCoordinate(centerTile.x + gridX, map.width);

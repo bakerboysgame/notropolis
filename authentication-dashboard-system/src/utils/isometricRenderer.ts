@@ -80,15 +80,17 @@ export function getBuildingSpriteHeight(buildingTypeId: string): number {
  * @param centerX Screen center X
  * @param centerY Screen center Y
  * @param zoom Zoom factor
+ * @param baseTileSize Base tile size (defaults to TILE_SIZE)
  */
 export function gridToScreen(
   gridX: number,
   gridY: number,
   centerX: number,
   centerY: number,
-  zoom: number = 1
+  zoom: number = 1,
+  baseTileSize: number = TILE_SIZE
 ): { screenX: number; screenY: number } {
-  const tileSize = TILE_SIZE * zoom;
+  const tileSize = baseTileSize * zoom;
   const screenX = centerX + gridX * tileSize;
   const screenY = centerY + gridY * tileSize;
   return { screenX, screenY };
@@ -102,9 +104,10 @@ export function screenToGrid(
   screenY: number,
   centerX: number,
   centerY: number,
-  zoom: number = 1
+  zoom: number = 1,
+  baseTileSize: number = TILE_SIZE
 ): { gridX: number; gridY: number } {
-  const tileSize = TILE_SIZE * zoom;
+  const tileSize = baseTileSize * zoom;
   const relX = screenX - centerX;
   const relY = screenY - centerY;
 
