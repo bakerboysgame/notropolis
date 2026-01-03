@@ -5793,6 +5793,7 @@ Please address the above feedback in this generation.`;
                 'effects': 'effect',
                 'terrain': 'terrain',
                 'base_ground': 'terrain',
+                'tricks': 'overlay',
             };
 
             const spriteCategory = spriteCategoryMap[category] || category;

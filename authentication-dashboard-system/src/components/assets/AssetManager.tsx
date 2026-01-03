@@ -844,6 +844,7 @@ export function AssetManager() {
         {activeTab === 'effects' && <GenericAssetList category="effects" />}
         {activeTab === 'terrain' && <GenericAssetList category="terrain" />}
         {activeTab === 'base_ground' && <BaseGroundList />}
+        {activeTab === 'tricks' && <GenericAssetList category="tricks" />}
       </div>
     </div>
   );
