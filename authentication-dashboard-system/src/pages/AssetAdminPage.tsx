@@ -65,7 +65,7 @@ export default function AssetAdminPage() {
     let spriteCategory: AssetCategory | undefined;
     if (asset.category === 'building_ref') spriteCategory = 'building_sprite';
     else if (asset.category === 'character_ref') spriteCategory = 'npc';
-    else if (asset.category === 'vehicle_ref') spriteCategory = 'npc';
+    else if (asset.category === 'vehicle_ref') spriteCategory = 'vehicle';
     else if (asset.category === 'effect_ref') spriteCategory = 'effect';
     else if (asset.category === 'terrain_ref') spriteCategory = 'terrain';
 

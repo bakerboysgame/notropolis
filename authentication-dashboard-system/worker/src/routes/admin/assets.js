@@ -966,7 +966,38 @@ Toxic contamination overlay.`,
 - Flickering light suggestion
 - Exposed wiring sparks
 - Power-out atmosphere
-Electrical failure overlay.`
+Electrical failure overlay.`,
+
+    smoke_bomb: `SMOKE BOMB EFFECT:
+- Thick billowing smoke clouds in gray and white
+- Puffy cartoon-style clouds expanding outward
+- Wisps and tendrils drifting in multiple directions
+- Semi-transparent layered smoke
+- Smoke rising upward and spreading horizontally
+- Classic "POOF" smoke bomb effect
+- NO fire, just dense smoke
+Obscuring smoke cloud overlay.`,
+
+    stink_bomb: `STINK BOMB EFFECT:
+- Green and yellow tinted stink clouds
+- Wavy stink lines rising upward (comic book style)
+- Cartoon-style odor waves emanating outward
+- Small flies buzzing around
+- Sickly green vapor wisps
+- Puffy toxic-looking clouds
+- Classic cartoon "stench" visual language
+Noxious odor cloud overlay.`,
+
+    destruction_bomb: `DESTRUCTION BOMB EFFECT:
+- Massive explosion with huge central fireball
+- Intense orange, red, and white flames
+- Thick black smoke columns rising high
+- Large debris field with chunks flying outward
+- Visible shockwave rings expanding
+- Extreme scorch marks and burn patterns
+- Heavy sparks and embers everywhere
+- Maximum devastation - near total destruction
+Catastrophic explosion overlay.`
 };
 
 /**
@@ -1467,6 +1498,12 @@ const EFFECT_FEATURES = {
     poisoning: `Green toxic clouds floating. Wilted/dying plant elements. Bubbling green puddles. Toxic fumes rising. Sickly color palette.`,
 
     blackout: `Darkness overlay with electrical sparks. Broken light elements. Blue electrical arcs. Flickering/failing light suggestion.`,
+
+    smoke_bomb: `Thick billowing smoke clouds in gray and white. Puffy cartoon-style clouds expanding outward. Wisps and tendrils drifting. Semi-transparent layers. Smoke rising upward and spreading. Classic smoke bomb poof effect.`,
+
+    stink_bomb: `Green and yellow tinted stink clouds. Wavy stink lines rising upward. Cartoon-style odor waves. Small flies buzzing around. Sickly green vapor wisps. Comic book style "stench" effect. Puffy toxic-looking clouds.`,
+
+    destruction_bomb: `Massive explosion with huge fireball. Intense orange and red flames. Thick black smoke columns. Large debris field with chunks flying outward. Shockwave rings. Extreme scorch marks. Heavy sparks and embers everywhere. Maximum devastation effect.`,
 
     // Damage levels
     damage_25: `Light damage - scattered dust and small debris particles. Thin wisps of smoke. Minor scuff marks. A few floating broken glass shards. Subtle wear.`,

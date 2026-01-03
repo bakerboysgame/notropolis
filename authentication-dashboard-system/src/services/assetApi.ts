@@ -98,7 +98,7 @@ export interface TabConfig {
 export const TABS: TabConfig[] = [
   { key: 'buildings', label: 'Buildings', refCategory: 'building_ref', spriteCategory: 'building_sprite' },
   { key: 'characters', label: 'Characters', refCategory: 'character_ref', spriteCategory: 'npc' },
-  { key: 'vehicles', label: 'Vehicles', refCategory: 'vehicle_ref', spriteCategory: 'npc' },
+  { key: 'vehicles', label: 'Vehicles', refCategory: 'vehicle_ref', spriteCategory: 'vehicle' },
   { key: 'effects', label: 'Effects', refCategory: 'effect_ref', spriteCategory: 'effect' },
   { key: 'scenes', label: 'Scenes', standaloneCategory: 'scene' },
   { key: 'terrain', label: 'Terrain', refCategory: 'terrain_ref', spriteCategory: 'terrain' },
