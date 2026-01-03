@@ -27,6 +27,7 @@ const CATEGORY_LABELS: Record<AssetCategory, string> = {
   character_ref: 'Character Reference Sheet',
   npc: 'NPC Sprite',
   vehicle_ref: 'Vehicle Reference Sheet',
+  vehicle: 'Vehicle Sprite',
   effect_ref: 'Effect Reference Sheet',
   effect: 'Effect Sprite',
   avatar: 'Avatar',

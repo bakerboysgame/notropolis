@@ -34,6 +34,7 @@ export const SPRITE_TO_REF_CATEGORY: Record<string, string> = {
   'building_sprite': 'building_ref',
   'terrain': 'terrain_ref',
   'npc': 'character_ref',
+  'vehicle': 'vehicle_ref',
   'effect': 'effect_ref',
   'avatar': 'character_ref',
 };
@@ -44,7 +45,7 @@ export const REF_TO_SPRITE_CATEGORY: Record<string, string> = {
   'terrain_ref': 'terrain',
   'character_ref': 'npc',
   'effect_ref': 'effect',
-  'vehicle_ref': 'npc',
+  'vehicle_ref': 'vehicle',
 };
 
 export const DEFAULT_GENERATION_SETTINGS: GenerationSettings = {

@@ -40,10 +40,7 @@ const SPRITE_REQUIREMENTS = {
         { spriteCategory: 'npc', variant: 'walk_2', displayName: 'Walk Frame 2', required: true }
     ],
     vehicle_ref: [
-        { spriteCategory: 'vehicle', variant: 'n', displayName: 'North', required: true },
-        { spriteCategory: 'vehicle', variant: 'e', displayName: 'East', required: true },
-        { spriteCategory: 'vehicle', variant: 's', displayName: 'South', required: true },
-        { spriteCategory: 'vehicle', variant: 'w', displayName: 'West', required: true }
+        { spriteCategory: 'vehicle', variant: 'sprite', displayName: 'Vehicle Sprite', required: true }
     ],
     effect_ref: [
         { spriteCategory: 'effect', variant: 'main', displayName: 'Effect Sprite', required: true }
@@ -372,12 +369,13 @@ function getTargetDimensions(category, assetKey) {
     }
 
     if (category === 'npc') {
-        // NPCs are small sprites
-        if (assetKey.includes('car')) {
-            return { width: 64, height: 32 };
-        }
         // Pedestrians
         return { width: 32, height: 32 };
+    }
+
+    if (category === 'vehicle') {
+        // Cars - wider than tall for top-down view
+        return { width: 64, height: 32 };
     }
 
     if (category === 'effect') {
@@ -1317,8 +1315,9 @@ const DIRECTIONAL_SPRITE_VARIANTS = {
     // These become {refAssetKey}_walk_1, {refAssetKey}_walk_2 (e.g., pedestrian_walk_1)
     pedestrian: ['walk_1', 'walk_2'],
 
-    // Car: 4 directions × 1 sprite = 4 sprites (cars look different from each angle)
-    car: ['car_n', 'car_s', 'car_e', 'car_w']
+    // Car: 1 top-down sprite (can be rotated in-game for any direction)
+    // Becomes {refAssetKey}_sprite (e.g., car_sedan_sprite)
+    car: ['sprite']
 };
 
 /**
@@ -1665,33 +1664,15 @@ Business casual clothing visible from above. Left arm back, right arm forward (o
 90s CGI stylized rendering. NOT isometric, NOT angled - pure top-down overhead view.
 This sprite will be rotated in-game for different walking directions.`,
 
-    // === CAR DIRECTIONAL SPRITES ===
-    // Each direction is a single 32x32 sprite showing the car facing that direction
-    // Car can drive forwards or backwards using the same sprite (game handles direction)
+    // === CAR SPRITE ===
+    // Single top-down sprite that can be rotated in-game for any direction
     // VIEW: TOP-DOWN OVERHEAD (bird's eye view looking straight down)
-    car_n: `SINGLE SPRITE: 32x32 pixels.
+    sprite: `SINGLE SPRITE: 32x32 pixels.
 TOP-DOWN OVERHEAD VIEW (bird's eye, looking straight down from above).
-Car pointing UP (NORTH - toward top of screen). Roof and hood visible from above, front of car at top.
-Chunky, toy-like 90s proportions. Generic sedan. No brand markings.
-90s CGI stylized rendering. NOT isometric, NOT angled - pure top-down overhead view.`,
-
-    car_s: `SINGLE SPRITE: 32x32 pixels.
-TOP-DOWN OVERHEAD VIEW (bird's eye, looking straight down from above).
-Car pointing DOWN (SOUTH - toward bottom of screen). Roof and trunk visible from above, front of car at bottom.
-Chunky, toy-like 90s proportions. Generic sedan. No brand markings.
-90s CGI stylized rendering. NOT isometric, NOT angled - pure top-down overhead view.`,
-
-    car_e: `SINGLE SPRITE: 32x32 pixels.
-TOP-DOWN OVERHEAD VIEW (bird's eye, looking straight down from above).
-Car pointing RIGHT (EAST - toward right of screen). Roof visible from above, car oriented horizontally, front at right.
-Chunky, toy-like 90s proportions. Generic sedan. No brand markings.
-90s CGI stylized rendering. NOT isometric, NOT angled - pure top-down overhead view.`,
-
-    car_w: `SINGLE SPRITE: 32x32 pixels.
-TOP-DOWN OVERHEAD VIEW (bird's eye, looking straight down from above).
-Car pointing LEFT (WEST - toward left of screen). Roof visible from above, car oriented horizontally, front at left.
-Chunky, toy-like 90s proportions. Generic sedan. No brand markings.
-90s CGI stylized rendering. NOT isometric, NOT angled - pure top-down overhead view.`,
+Car pointing UP (toward top of screen). Roof and hood visible from above, front of car at top.
+Chunky, toy-like 90s proportions. No brand markings.
+90s CGI stylized rendering. NOT isometric, NOT angled - pure top-down overhead view.
+This sprite will be rotated in-game for different driving directions.`,
 
     // === LEGACY AND ADDITIONAL PEDESTRIAN TYPES ===
     // All pedestrians use REALISTIC human proportions (7-8 heads tall), NOT blocky/Roblox style
@@ -3874,18 +3855,20 @@ ${fullPrompt}`;
                 });
             }
 
-            // Check if this is a vehicle reference that should auto-generate directional sprites
+            // Check if this is a vehicle reference that should auto-generate sprite
             if (asset.category === 'vehicle_ref' && asset.asset_key.startsWith('car')) {
-                const directions = DIRECTIONAL_SPRITE_VARIANTS.car;
-                for (const dir of directions) {
-                    // Build prompt for this car direction
-                    const prompt = buildNPCPrompt(dir, '');
+                const variants = DIRECTIONAL_SPRITE_VARIANTS.car;
+                for (const variant of variants) {
+                    // Build asset_key same as UI: {refAssetKey}_{variant} e.g., car_sedan_sprite
+                    const spriteAssetKey = `${asset.asset_key}_${variant}`;
+                    // Build prompt for this car variant
+                    const prompt = buildNPCPrompt(variant, '');
 
                     const insertResult = await env.DB.prepare(`
                         INSERT INTO generated_assets (category, asset_key, variant, base_prompt, current_prompt, status, parent_asset_id)
                         VALUES (?, ?, 1, ?, ?, 'pending', ?)
                         ON CONFLICT (category, asset_key, variant) DO NOTHING
-                    `).bind('npc', dir, prompt, prompt, id).run();
+                    `).bind('vehicle', spriteAssetKey, prompt, prompt, id).run();
 
                     if (insertResult.meta?.changes > 0) {
                         const newId = insertResult.meta?.last_row_id;
@@ -3893,12 +3876,12 @@ ${fullPrompt}`;
                             INSERT INTO asset_generation_queue (asset_id, priority)
                             VALUES (?, 1)
                         `).bind(newId).run();
-                        autoGeneratedVariations.push({ dir, id: newId });
+                        autoGeneratedVariations.push({ variant: spriteAssetKey, id: newId });
                     }
                 }
                 await logAudit(env, 'auto_queue_directions', parseInt(id), user?.username, {
                     base_type: asset.asset_key,
-                    queued_directions: autoGeneratedVariations.map(v => v.dir)
+                    queued_variants: autoGeneratedVariations.map(v => v.variant)
                 });
             }
 

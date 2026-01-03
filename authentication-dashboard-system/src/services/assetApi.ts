@@ -11,6 +11,7 @@ export type AssetCategory =
   | 'character_ref'
   | 'npc'
   | 'vehicle_ref'
+  | 'vehicle'
   | 'effect_ref'
   | 'effect'
   | 'avatar'
@@ -33,6 +34,7 @@ export const REF_CATEGORIES: AssetCategory[] = [
 export const SPRITE_CATEGORIES: AssetCategory[] = [
   'building_sprite',
   'npc',
+  'vehicle',
   'effect',
   'avatar',
 ];
