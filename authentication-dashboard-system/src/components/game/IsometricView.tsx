@@ -160,7 +160,7 @@ export function IsometricView({
       if (tile.owner_company_id) {
         ctx.fillStyle =
           tile.owner_company_id === activeCompanyId
-            ? 'rgba(34, 197, 94, 0.25)' // Green for owned
+            ? 'rgba(59, 130, 246, 0.25)' // Royal blue for owned
             : 'rgba(239, 68, 68, 0.2)'; // Red for enemy
         ctx.fillRect(screenX - tileSize / 2, screenY - tileSize / 2, tileSize, tileSize);
       }
@@ -415,6 +415,77 @@ export function IsometricView({
     setZoom((z) => Math.max(0.5, Math.min(2, z + delta)));
   };
 
+  // Touch handlers for mobile
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 1) {
+      const touch = e.touches[0];
+      setIsDragging(true);
+      setDragStart({ x: touch.clientX, y: touch.clientY });
+      setDragDistance(0);
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isDragging || e.touches.length !== 1) return;
+    e.preventDefault(); // Prevent page scroll
+
+    const touch = e.touches[0];
+    const dx = touch.clientX - dragStart.x;
+    const dy = touch.clientY - dragStart.y;
+
+    // Track total drag distance
+    setDragDistance((prev) => prev + Math.abs(dx) + Math.abs(dy));
+
+    setPanOffset((prev) => ({ x: prev.x + dx, y: prev.y + dy }));
+    setDragStart({ x: touch.clientX, y: touch.clientY });
+
+    // Update center tile when panned far enough
+    const threshold = baseTileSize * zoom;
+    const newPanX = panOffset.x + dx;
+    const newPanY = panOffset.y + dy;
+
+    if (Math.abs(newPanX) > threshold || Math.abs(newPanY) > threshold) {
+      const tileShiftX = Math.round(newPanX / threshold);
+      const tileShiftY = Math.round(newPanY / threshold);
+
+      if (tileShiftX !== 0 || tileShiftY !== 0) {
+        const newX = wrapCoordinate(centerTile.x - tileShiftX, map.width);
+        const newY = wrapCoordinate(centerTile.y - tileShiftY, map.height);
+        onCenterChange({ x: newX, y: newY });
+        setPanOffset({ x: 0, y: 0 });
+      }
+    }
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (!isDragging) return;
+    setIsDragging(false);
+
+    // Only trigger click if finger didn't move much (not a drag)
+    if (dragDistance < 10 && e.changedTouches.length === 1) {
+      const touch = e.changedTouches[0];
+      const rect = canvasRef.current?.getBoundingClientRect();
+      if (!rect) return;
+
+      const screenCenterX = rect.width / 2 + panOffset.x;
+      const screenCenterY = rect.height / 2 + panOffset.y;
+
+      const { gridX, gridY } = screenToGrid(
+        touch.clientX - rect.left,
+        touch.clientY - rect.top,
+        screenCenterX,
+        screenCenterY,
+        zoom,
+        baseTileSize
+      );
+
+      const x = wrapCoordinate(centerTile.x + gridX, map.width);
+      const y = wrapCoordinate(centerTile.y + gridY, map.height);
+
+      onTileClick({ x, y });
+    }
+  };
+
   // Loading state
   if (isLoading) {
     return (
@@ -457,12 +528,15 @@ export function IsometricView({
   return (
     <canvas
       ref={canvasRef}
-      className={`w-full h-full ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+      className={`w-full h-full ${isDragging ? 'cursor-grabbing' : 'cursor-grab'} touch-none`}
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
       onMouseLeave={() => setIsDragging(false)}
       onWheel={handleWheel}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
     />
   );
 }

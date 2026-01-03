@@ -104,8 +104,8 @@ export function renderMap(
       // Apply ownership overlay
       if (tile.owner_company_id) {
         if (tile.owner_company_id === activeCompanyId) {
-          // Green tint for owned tiles
-          color = blendColors(color, '#22c55e', 0.4);
+          // Royal blue tint for owned tiles
+          color = blendColors(color, '#3b82f6', 0.4);
         } else {
           // Red tint for rival tiles
           color = blendColors(color, '#ef4444', 0.3);
