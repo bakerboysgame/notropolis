@@ -5,15 +5,46 @@ import {
   TERRAIN_COLORS,
   gridToScreen,
   screenToGrid,
-  wrapCoordinate,
-  getVisibleTiles,
-  getRelativePosition,
 } from '../../utils/isometricRenderer';
 
 // Responsive tile size: 64px for mobile/tablet, 128px for desktop
 const MOBILE_TILE_SIZE = 64;
 const DESKTOP_TILE_SIZE = 128;
 const BREAKPOINT = 1024; // lg breakpoint
+const VIEWPORT_TILES = 15; // Show ~15x15 tiles in view
+
+// Clamp coordinate to map bounds (no wrapping)
+function clampCoordinate(coord: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, coord));
+}
+
+// Get visible tiles without wrapping
+function getVisibleTilesNoWrap(
+  centerX: number,
+  centerY: number,
+  mapWidth: number,
+  mapHeight: number,
+  viewportRadius: number = Math.ceil(VIEWPORT_TILES / 2) + 2
+): Array<{ x: number; y: number }> {
+  const result: Array<{ x: number; y: number }> = [];
+
+  for (let dy = -viewportRadius; dy <= viewportRadius; dy++) {
+    for (let dx = -viewportRadius; dx <= viewportRadius; dx++) {
+      const x = centerX + dx;
+      const y = centerY + dy;
+      // Only include tiles within map bounds
+      if (x >= 0 && x < mapWidth && y >= 0 && y < mapHeight) {
+        result.push({ x, y });
+      }
+    }
+  }
+
+  // Sort for proper rendering order (top to bottom, left to right)
+  return result.sort((a, b) => {
+    if (a.y !== b.y) return a.y - b.y;
+    return a.x - b.x;
+  });
+}
 
 interface IsometricViewProps {
   map: GameMap;
@@ -68,7 +99,7 @@ export function IsometricView({
 
   // Get visible tiles
   const visibleTiles = useMemo(() => {
-    return getVisibleTiles(centerTile.x, centerTile.y, map.width, map.height);
+    return getVisibleTilesNoWrap(centerTile.x, centerTile.y, map.width, map.height);
   }, [centerTile, map.width, map.height]);
 
   // Render function
@@ -112,15 +143,9 @@ export function IsometricView({
       const tile = tileMap.get(`${x},${y}`);
       if (!tile) continue;
 
-      // Calculate relative position from center (with wrapping)
-      const { relX, relY } = getRelativePosition(
-        x,
-        y,
-        centerTile.x,
-        centerTile.y,
-        map.width,
-        map.height
-      );
+      // Calculate relative position from center (no wrapping)
+      const relX = x - centerTile.x;
+      const relY = y - centerTile.y;
 
       const { screenX, screenY } = gridToScreen(relX, relY, screenCenterX, screenCenterY, zoom, baseTileSize);
 
@@ -373,8 +398,8 @@ export function IsometricView({
       const tileShiftY = Math.round(newPanY / threshold);
 
       if (tileShiftX !== 0 || tileShiftY !== 0) {
-        const newX = wrapCoordinate(centerTile.x - tileShiftX, map.width);
-        const newY = wrapCoordinate(centerTile.y - tileShiftY, map.height);
+        const newX = clampCoordinate(centerTile.x - tileShiftX, 0, map.width - 1);
+        const newY = clampCoordinate(centerTile.y - tileShiftY, 0, map.height - 1);
         onCenterChange({ x: newX, y: newY });
         setPanOffset({ x: 0, y: 0 });
       }
@@ -402,8 +427,8 @@ export function IsometricView({
         baseTileSize
       );
 
-      const x = wrapCoordinate(centerTile.x + gridX, map.width);
-      const y = wrapCoordinate(centerTile.y + gridY, map.height);
+      const x = clampCoordinate(centerTile.x + gridX, 0, map.width - 1);
+      const y = clampCoordinate(centerTile.y + gridY, 0, map.height - 1);
 
       onTileClick({ x, y });
     }
@@ -449,8 +474,8 @@ export function IsometricView({
       const tileShiftY = Math.round(newPanY / threshold);
 
       if (tileShiftX !== 0 || tileShiftY !== 0) {
-        const newX = wrapCoordinate(centerTile.x - tileShiftX, map.width);
-        const newY = wrapCoordinate(centerTile.y - tileShiftY, map.height);
+        const newX = clampCoordinate(centerTile.x - tileShiftX, 0, map.width - 1);
+        const newY = clampCoordinate(centerTile.y - tileShiftY, 0, map.height - 1);
         onCenterChange({ x: newX, y: newY });
         setPanOffset({ x: 0, y: 0 });
       }
@@ -479,8 +504,8 @@ export function IsometricView({
         baseTileSize
       );
 
-      const x = wrapCoordinate(centerTile.x + gridX, map.width);
-      const y = wrapCoordinate(centerTile.y + gridY, map.height);
+      const x = clampCoordinate(centerTile.x + gridX, 0, map.width - 1);
+      const y = clampCoordinate(centerTile.y + gridY, 0, map.height - 1);
 
       onTileClick({ x, y });
     }
