@@ -44,7 +44,7 @@ export async function getMapEvents(env, mapId, options = {}) {
   const countResult = await env.DB.prepare(countQuery).bind(...params).first();
   const total = countResult?.total || 0;
 
-  // Get events with company names
+  // Get events with company names and building info
   const eventsQuery = `
     SELECT
       gt.id,
@@ -57,10 +57,15 @@ export async function getMapEvents(env, mapId, options = {}) {
       gt.target_building_id,
       gt.amount,
       gt.details,
-      gt.created_at
+      gt.created_at,
+      bi.building_type_id,
+      t.x as tile_x,
+      t.y as tile_y
     FROM game_transactions gt
     LEFT JOIN game_companies gc ON gt.company_id = gc.id
     LEFT JOIN game_companies tc ON gt.target_company_id = tc.id
+    LEFT JOIN building_instances bi ON gt.target_building_id = bi.id
+    LEFT JOIN tiles t ON bi.tile_id = t.id
     WHERE ${whereClause}
     ORDER BY gt.created_at DESC
     LIMIT ? OFFSET ?
@@ -88,6 +93,9 @@ export async function getMapEvents(env, mapId, options = {}) {
       targetCompanyName: event.target_company_name,
       targetTileId: event.target_tile_id,
       targetBuildingId: event.target_building_id,
+      buildingTypeId: event.building_type_id,
+      tileX: event.tile_x,
+      tileY: event.tile_y,
       amount: event.amount,
       details,
       createdAt: event.created_at,

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, Navigate, Link } from 'react-router-dom';
+import { useParams, useSearchParams, Navigate, Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { useActiveCompany } from '../contexts/CompanyContext';
 import { useGameMap } from '../hooks/useGameMap';
@@ -20,12 +20,20 @@ type ViewMode = 'overview' | 'zoomed';
  */
 export function GameMap(): JSX.Element {
   const { mapId } = useParams<{ mapId: string }>();
+  const [searchParams] = useSearchParams();
   const { activeCompany, refreshCompany } = useActiveCompany();
   const { mapData, isLoading, error, refetch } = useGameMap(mapId);
 
-  // View mode state
-  const [viewMode, setViewMode] = useState<ViewMode>('overview');
-  const [zoomCenter, setZoomCenter] = useState<{ x: number; y: number } | null>(null);
+  // Check for initial coordinates from URL (e.g., /map/123?x=5&y=10)
+  const initialX = searchParams.get('x');
+  const initialY = searchParams.get('y');
+  const hasInitialCoords = initialX !== null && initialY !== null;
+
+  // View mode state - start in zoomed mode if coordinates provided
+  const [viewMode, setViewMode] = useState<ViewMode>(hasInitialCoords ? 'zoomed' : 'overview');
+  const [zoomCenter, setZoomCenter] = useState<{ x: number; y: number } | null>(
+    hasInitialCoords ? { x: parseInt(initialX, 10), y: parseInt(initialY, 10) } : null
+  );
 
   // Broadcast view mode changes for Layout to use (overlay sidebar in zoomed mode)
   useEffect(() => {

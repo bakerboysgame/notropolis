@@ -1,8 +1,9 @@
 import { useEffect, useState, useCallback } from 'react';
-import { Navigate, useNavigate } from 'react-router-dom';
+import { Navigate, useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, Calendar, Filter, ChevronDown, Loader2 } from 'lucide-react';
 import { useActiveCompany } from '../contexts/CompanyContext';
 import { api, apiHelpers } from '../services/api';
+import { getBuildingSpriteUrl } from '../utils/isometricRenderer';
 
 interface EventItem {
   id: string;
@@ -13,6 +14,9 @@ interface EventItem {
   targetCompanyName: string | null;
   targetTileId: string | null;
   targetBuildingId: string | null;
+  buildingTypeId: string | null;
+  tileX: number | null;
+  tileY: number | null;
   amount: number | null;
   details: Record<string, unknown> | null;
   createdAt: string;
@@ -286,34 +290,63 @@ export function Events(): JSX.Element {
         {!loading && events.length > 0 && (
           <div className="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
             <div className="divide-y divide-gray-700">
-              {events.map((event) => (
-                <div
-                  key={event.id}
-                  className={`p-4 hover:bg-gray-750 ${
-                    event.actorId === activeCompany.id || event.targetCompanyId === activeCompany.id
-                      ? 'bg-blue-900/10'
-                      : ''
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1 min-w-0">
-                      <p className={`text-sm ${getEventTypeColor(event.type)}`}>
-                        {event.description}
-                      </p>
-                      <p className="text-xs text-gray-500 mt-1">
-                        {formatDate(event.createdAt)}
-                      </p>
+              {events.map((event) => {
+                const spriteUrl = event.buildingTypeId ? getBuildingSpriteUrl(event.buildingTypeId) : null;
+                const canNavigate = spriteUrl && event.tileX !== null && event.tileY !== null && activeCompany.current_map_id;
+
+                return (
+                  <div
+                    key={event.id}
+                    className={`p-4 hover:bg-gray-750 ${
+                      event.actorId === activeCompany.id || event.targetCompanyId === activeCompany.id
+                        ? 'bg-blue-900/10'
+                        : ''
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      {/* Building sprite - clickable to navigate to map */}
+                      {spriteUrl && (
+                        canNavigate ? (
+                          <Link
+                            to={`/map/${activeCompany.current_map_id}?x=${event.tileX}&y=${event.tileY}`}
+                            className="flex-shrink-0 w-10 h-10 bg-gray-700 rounded-lg overflow-hidden hover:ring-2 hover:ring-blue-500 transition-all"
+                            title="Go to building"
+                          >
+                            <img
+                              src={spriteUrl}
+                              alt="Building"
+                              className="w-full h-full object-contain"
+                            />
+                          </Link>
+                        ) : (
+                          <div className="flex-shrink-0 w-10 h-10 bg-gray-700 rounded-lg overflow-hidden">
+                            <img
+                              src={spriteUrl}
+                              alt="Building"
+                              className="w-full h-full object-contain"
+                            />
+                          </div>
+                        )
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className={`text-sm ${getEventTypeColor(event.type)}`}>
+                          {event.description}
+                        </p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          {formatDate(event.createdAt)}
+                        </p>
+                      </div>
+                      {event.amount !== null && event.amount !== 0 && (
+                        <span className={`text-sm font-mono whitespace-nowrap ${
+                          event.amount > 0 ? 'text-green-400' : 'text-red-400'
+                        }`}>
+                          {event.amount > 0 ? '+' : ''}${Math.abs(event.amount).toLocaleString()}
+                        </span>
+                      )}
                     </div>
-                    {event.amount !== null && event.amount !== 0 && (
-                      <span className={`text-sm font-mono whitespace-nowrap ${
-                        event.amount > 0 ? 'text-green-400' : 'text-red-400'
-                      }`}>
-                        {event.amount > 0 ? '+' : ''}${Math.abs(event.amount).toLocaleString()}
-                      </span>
-                    )}
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             {/* Load More */}
