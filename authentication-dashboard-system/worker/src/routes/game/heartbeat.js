@@ -21,17 +21,25 @@ export async function handleHeartbeat(request, env, company) {
     return { success: false, error: proofResult.reason };
   }
 
-  // 3. Rate limit: 1 heartbeat per 270s (4.5 min) per company
+  // 3. Rate limit: 1 heartbeat per 270s (4.5 min) per company (KV optional)
   const rateKey = `heartbeat:${company.id}`;
-  const lastHeartbeat = await env.RATE_LIMIT_KV.get(rateKey);
-  if (lastHeartbeat && Date.now() - parseInt(lastHeartbeat) < 270000) {
-    return { success: true, ticks_reset: false, reason: 'cooldown' };
+  try {
+    const lastHeartbeat = await env.RATE_LIMIT_KV.get(rateKey);
+    if (lastHeartbeat && Date.now() - parseInt(lastHeartbeat) < 270000) {
+      return { success: true, ticks_reset: false, reason: 'cooldown' };
+    }
+  } catch (e) {
+    console.warn('KV rate limit check failed, continuing:', e.message);
   }
 
-  // 4. Check for replay attack (same nonce used before)
+  // 4. Check for replay attack (same nonce used before) (KV optional)
   const nonceKey = `nonce:${proof.nonce}`;
-  if (await env.RATE_LIMIT_KV.get(nonceKey)) {
-    return { success: false, error: 'replay_detected' };
+  try {
+    if (await env.RATE_LIMIT_KV.get(nonceKey)) {
+      return { success: false, error: 'replay_detected' };
+    }
+  } catch (e) {
+    console.warn('KV nonce check failed, continuing:', e.message);
   }
 
   // 5. Reset ticks_since_action and log heartbeat
@@ -60,9 +68,13 @@ export async function handleHeartbeat(request, env, company) {
     )
   ]);
 
-  // 6. Store rate limit and nonce to prevent replay
-  await env.RATE_LIMIT_KV.put(rateKey, Date.now().toString(), { expirationTtl: 330 });
-  await env.RATE_LIMIT_KV.put(nonceKey, '1', { expirationTtl: 600 });
+  // 6. Store rate limit and nonce (non-blocking - don't fail if KV is unavailable)
+  try {
+    await env.RATE_LIMIT_KV.put(rateKey, Date.now().toString(), { expirationTtl: 330 });
+    await env.RATE_LIMIT_KV.put(nonceKey, '1', { expirationTtl: 600 });
+  } catch (e) {
+    console.warn('KV write failed (quota?), heartbeat still succeeded:', e.message);
+  }
 
   return { success: true, ticks_reset: true };
 }

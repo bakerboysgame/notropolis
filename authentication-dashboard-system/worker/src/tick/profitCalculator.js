@@ -89,11 +89,13 @@ export async function processMapProfits(env, mapId) {
     const grossProfit = Math.round(company.gross_profit || 0);
     const securityCost = Math.round(company.total_security_cost || 0);
     const taxAmount = Math.round(grossProfit * taxRate);
-    const netProfit = isEarning ? grossProfit - taxAmount - securityCost : 0;
+    // Calculate net profit for all companies (used for statistics display)
+    const netProfit = grossProfit - taxAmount - securityCost;
     const avgDamage = activeBuildings > 0
       ? (company.total_damage_percent || 0) / activeBuildings
       : 0;
 
+    // Only pay companies that are active (ticks_since_action < 6)
     if (isEarning) {
       const newCash = company.cash + netProfit;
       totalGrossProfit += grossProfit;
@@ -131,7 +133,8 @@ export async function processMapProfits(env, mapId) {
       );
     }
 
-    // Always update statistics table (even for idle companies)
+    // Always update statistics table with calculated values (even for idle companies)
+    // net_profit shows what they *would* earn - is_earning shows if they actually get paid
     statements.push(
       env.DB.prepare(`
         INSERT INTO company_statistics (

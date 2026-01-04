@@ -31,10 +31,9 @@ const BUILDING_UNLOCKS = {
  * Trick unlocks per level
  */
 const TRICK_UNLOCKS = {
-  1: ['graffiti', 'smoke_bomb'],
+  1: ['graffiti', 'smoke_bomb', 'fire_bomb'],
   2: ['stink_bomb'],
   3: ['cluster_bomb'],
-  4: ['fire_bomb'],
   5: ['destruction_bomb'],
 };
 

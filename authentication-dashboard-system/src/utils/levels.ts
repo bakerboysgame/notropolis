@@ -63,10 +63,9 @@ function getBuildingUnlocksForLevel(level: number): BuildingTypeInfo[] {
  * Trick unlocks per level - from dirtyTricks.ts
  */
 export const TRICK_UNLOCKS: Record<number, TrickType[]> = {
-  1: ['graffiti', 'smoke_bomb'],
+  1: ['graffiti', 'smoke_bomb', 'fire_bomb'],
   2: ['stink_bomb'],
   3: ['cluster_bomb'],
-  4: ['fire_bomb'],
   5: ['destruction_bomb'],
 };
 

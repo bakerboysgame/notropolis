@@ -369,6 +369,41 @@ export async function joinLocation(request, env, company) {
     JSON.stringify({ location_type: locationType })
   ).run();
 
+  // Initialize company_statistics row with zeroes so stats display immediately
+  const taxRate = locationType === 'capital' ? 0.20 : locationType === 'city' ? 0.15 : 0.10;
+  await env.DB.prepare(`
+    INSERT INTO company_statistics (
+      id, company_id, map_id,
+      building_count, collapsed_count,
+      base_profit, gross_profit, tax_rate, tax_amount, security_cost, net_profit,
+      total_building_value, damaged_building_value,
+      total_damage_percent, average_damage_percent, buildings_on_fire,
+      ticks_since_action, is_earning,
+      last_tick_at
+    ) VALUES (?, ?, ?, 0, 0, 0, 0, ?, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, CURRENT_TIMESTAMP)
+    ON CONFLICT (company_id, map_id) DO UPDATE SET
+      building_count = 0,
+      collapsed_count = 0,
+      base_profit = 0,
+      gross_profit = 0,
+      tax_amount = 0,
+      security_cost = 0,
+      net_profit = 0,
+      total_building_value = 0,
+      damaged_building_value = 0,
+      total_damage_percent = 0,
+      average_damage_percent = 0,
+      buildings_on_fire = 0,
+      ticks_since_action = 0,
+      is_earning = 1,
+      last_tick_at = CURRENT_TIMESTAMP
+  `).bind(
+    crypto.randomUUID(),
+    company.id,
+    map_id,
+    taxRate
+  ).run();
+
   return {
     success: true,
     map_id,

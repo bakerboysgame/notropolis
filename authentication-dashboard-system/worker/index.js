@@ -6,7 +6,7 @@ import { AuthService } from './src/auth.js';
 import { EmailService } from './src/email-postmark.js';
 import { SecurityService } from './src/security.js';
 import { generateJWT } from './src/jwt.js';
-import { checkAuthorization, ROLE_BUILTIN_PAGES } from './src/middleware/authorization.js';
+import { checkAuthorization, ROLE_BUILTIN_PAGES, BASE_USER_PAGES, MASTER_ADMIN_ONLY_PAGES } from './src/middleware/authorization.js';
 import { calculateProfit, markAffectedBuildingsDirty, calculateLandCost } from './src/adjacencyCalculator.js';
 import { processTick } from './src/tick/processor.js';
 import {
@@ -4222,6 +4222,9 @@ async function handleUserPermissions(request, authService, env, corsHeaders) {
     // Built-in pages are always available for specific roles
     let accessiblePages = new Set();
 
+    // Add base pages that ALL authenticated users can access
+    BASE_USER_PAGES.forEach(page => accessiblePages.add(page));
+
     // Add built-in pages for the user's role
     const builtinPages = ROLE_BUILTIN_PAGES[user.role] || [];
     builtinPages.forEach(page => accessiblePages.add(page));
@@ -4259,6 +4262,9 @@ async function handleUserPermissions(request, authService, env, corsHeaders) {
         }
       }
       // RESTRICTIVE: If no company pages configured, user only gets built-in pages
+
+      // Remove master-admin-only pages for all other users (prevents database misconfig from granting access)
+      MASTER_ADMIN_ONLY_PAGES.forEach(page => accessiblePages.delete(page));
     }
 
     return new Response(JSON.stringify({
@@ -6974,9 +6980,59 @@ async function handleGameCompanyRoutes(request, authService, env, corsHeaders) {
         // Update company with map info and starting cash
         await env.DB.prepare(`
           UPDATE game_companies
-          SET current_map_id = ?, location_type = ?, cash = ?
+          SET current_map_id = ?, location_type = ?, cash = ?, ticks_since_action = 0
           WHERE id = ?
         `).bind(map_id, map.location_type, cash, companyId).run();
+
+        // Create location_joined transaction so joinedLocationAt shows correctly
+        await env.DB.prepare(`
+          INSERT INTO game_transactions (id, company_id, map_id, action_type, amount, details)
+          VALUES (?, ?, ?, 'location_joined', ?, ?)
+        `).bind(
+          crypto.randomUUID(),
+          companyId,
+          map_id,
+          cash,
+          JSON.stringify({
+            map_name: map.name,
+            location_type: map.location_type,
+            starting_cash: cash
+          })
+        ).run();
+
+        // Initialize company_statistics row with zeroes so stats display immediately
+        await env.DB.prepare(`
+          INSERT INTO company_statistics (
+            id, company_id, map_id,
+            building_count, collapsed_count,
+            base_profit, gross_profit, tax_rate, tax_amount, security_cost, net_profit,
+            total_building_value, damaged_building_value,
+            total_damage_percent, average_damage_percent, buildings_on_fire,
+            ticks_since_action, is_earning,
+            last_tick_at
+          ) VALUES (?, ?, ?, 0, 0, 0, 0, ?, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, CURRENT_TIMESTAMP)
+          ON CONFLICT (company_id, map_id) DO UPDATE SET
+            building_count = 0,
+            collapsed_count = 0,
+            base_profit = 0,
+            gross_profit = 0,
+            tax_amount = 0,
+            security_cost = 0,
+            net_profit = 0,
+            total_building_value = 0,
+            damaged_building_value = 0,
+            total_damage_percent = 0,
+            average_damage_percent = 0,
+            buildings_on_fire = 0,
+            ticks_since_action = 0,
+            is_earning = 1,
+            last_tick_at = CURRENT_TIMESTAMP
+        `).bind(
+          crypto.randomUUID(),
+          companyId,
+          map_id,
+          map.location_type === 'capital' ? 0.20 : map.location_type === 'city' ? 0.15 : 0.10
+        ).run();
 
         const updatedCompany = await env.DB.prepare(`
           SELECT * FROM game_companies WHERE id = ?

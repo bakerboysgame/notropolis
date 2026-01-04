@@ -12,7 +12,7 @@ const DIRTY_TRICKS = {
   smoke_bomb: { cost: 1500, damage: 15, policeCatchRate: 0.20, securityCatchRate: 0.25, levelRequired: 1 },
   stink_bomb: { cost: 3000, damage: 25, policeCatchRate: 0.30, securityCatchRate: 0.35, levelRequired: 2 },
   cluster_bomb: { cost: 6000, damage: 35, policeCatchRate: 0.40, securityCatchRate: 0.45, levelRequired: 3 },
-  fire_bomb: { cost: 10000, damage: 40, policeCatchRate: 0.50, securityCatchRate: 0.55, levelRequired: 4 },
+  fire_bomb: { cost: 10000, damage: 40, policeCatchRate: 0.50, securityCatchRate: 0.55, levelRequired: 1 },
   destruction_bomb: { cost: 20000, damage: 60, policeCatchRate: 0.70, securityCatchRate: 0.75, levelRequired: 5 },
 };
 

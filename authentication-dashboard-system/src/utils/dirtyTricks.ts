@@ -73,7 +73,7 @@ export const DIRTY_TRICKS: Record<TrickType, DirtyTrick> = {
     damage: 40,
     policeCatchRate: 0.50,
     securityCatchRate: 0.55,
-    levelRequired: 4,
+    levelRequired: 1,
     icon: '🔥'
   },
   destruction_bomb: {

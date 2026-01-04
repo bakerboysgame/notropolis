@@ -128,6 +128,12 @@ function findAuthConfig(path, method) {
   return { pattern: 'default', roles: [], companyIsolation: true };
 }
 
+// Pages that ALL authenticated users can access (personal settings, etc.)
+const BASE_USER_PAGES = ['settings'];
+
+// Pages that can ONLY be accessed by master_admin (never grantable to other users)
+const MASTER_ADMIN_ONLY_PAGES = ['company_users', 'audit_logs', 'user_management'];
+
 // Built-in pages that are always available to specific roles (cannot be restricted)
 const ROLE_BUILTIN_PAGES = {
   master_admin: ['dashboard', 'analytics', 'reports', 'settings', 'user_management', 'audit_logs', 'company_users', 'admin_maps', 'admin_moderation'],
@@ -139,6 +145,14 @@ const ROLE_BUILTIN_PAGES = {
 async function checkPageAccess(user, pageKey, env) {
   // Master admin has access to everything (built-in, cannot be restricted)
   if (user.role === 'master_admin') return true;
+
+  // Base pages are accessible to ALL authenticated users
+  if (BASE_USER_PAGES.includes(pageKey)) return true;
+
+  // Master-admin-only pages can NEVER be accessed by other users
+  if (MASTER_ADMIN_ONLY_PAGES.includes(pageKey)) {
+    return false;
+  }
 
   // Check if this is a built-in page for the user's role
   const builtinPages = ROLE_BUILTIN_PAGES[user.role] || [];
@@ -254,6 +268,8 @@ export {
   checkPageAccess,
   ENDPOINT_AUTHORIZATION,
   ROLE_BUILTIN_PAGES,
+  BASE_USER_PAGES,
+  MASTER_ADMIN_ONLY_PAGES,
   findAuthConfig,
   matchPattern,
   extractCompanyIdFromRequest

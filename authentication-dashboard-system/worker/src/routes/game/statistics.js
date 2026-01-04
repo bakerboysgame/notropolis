@@ -160,7 +160,67 @@ export async function getCompanyStatistics(env, companyId) {
       AND map_id = ?
   `).bind(companyId, company.current_map_id).first();
 
-  const buildingsVal = Math.round(company.damaged_building_value || 0);
+  // If company_statistics has no data, calculate stats from actual building data
+  // This provides a fallback when tick hasn't run yet or data is missing
+  let buildingCount = company.building_count;
+  let collapsedCount = company.collapsed_count;
+  let baseProfit = company.base_profit;
+  let grossProfit = company.gross_profit;
+  let taxRate = company.tax_rate;
+  let taxAmount = company.tax_amount;
+  let securityCost = company.security_cost;
+  let netProfit = company.net_profit;
+  let totalBuildingValue = company.total_building_value;
+  let damagedBuildingValue = company.damaged_building_value;
+  let avgDamage = company.average_damage_percent;
+  let buildingsOnFire = company.buildings_on_fire;
+
+  // Check if we need to calculate stats on-the-fly (no company_statistics data)
+  if (buildingCount === null || buildingCount === undefined) {
+    // Calculate from actual building_instances data
+    const buildingStats = await env.DB.prepare(`
+      SELECT
+        COUNT(bi.id) as building_count,
+        SUM(CASE WHEN bi.is_collapsed = 1 THEN 1 ELSE 0 END) as collapsed_count,
+        SUM(CASE WHEN bi.is_collapsed = 0 THEN COALESCE(bi.calculated_profit, 0) ELSE 0 END) as base_profit,
+        SUM(CASE WHEN bi.is_collapsed = 0 THEN COALESCE(bi.calculated_profit, 0) * (100 - bi.damage_percent * 1.176) / 100 ELSE 0 END) as gross_profit,
+        SUM(CASE WHEN bi.is_collapsed = 0 THEN COALESCE(bs.monthly_cost, 0) ELSE 0 END) / 144 as total_security_cost,
+        SUM(CASE WHEN bi.is_collapsed = 0 THEN bt.cost ELSE 0 END) as total_building_value,
+        SUM(CASE WHEN bi.is_collapsed = 0 THEN bt.cost * (100 - COALESCE(bi.damage_percent, 0)) / 100 ELSE 0 END) as damaged_building_value,
+        SUM(CASE WHEN bi.is_collapsed = 0 THEN bi.damage_percent ELSE 0 END) as total_damage_percent,
+        SUM(CASE WHEN bi.is_collapsed = 0 AND bi.is_on_fire = 1 THEN 1 ELSE 0 END) as buildings_on_fire
+      FROM building_instances bi
+      JOIN tiles t ON bi.tile_id = t.id
+      JOIN building_types bt ON bi.building_type_id = bt.id
+      LEFT JOIN building_security bs ON bi.id = bs.building_id
+      WHERE bi.company_id = ? AND t.map_id = ?
+    `).bind(companyId, company.current_map_id).first();
+
+    if (buildingStats) {
+      buildingCount = buildingStats.building_count || 0;
+      collapsedCount = buildingStats.collapsed_count || 0;
+      baseProfit = Math.round(buildingStats.base_profit || 0);
+      grossProfit = Math.round(buildingStats.gross_profit || 0);
+
+      // Calculate tax rate based on location type
+      taxRate = company.location_type === 'capital' ? 0.20 :
+                company.location_type === 'city' ? 0.15 : 0.10;
+      taxAmount = Math.round(grossProfit * taxRate);
+      securityCost = Math.round(buildingStats.total_security_cost || 0);
+      netProfit = grossProfit - taxAmount - securityCost;
+
+      totalBuildingValue = Math.round(buildingStats.total_building_value || 0);
+      damagedBuildingValue = Math.round(buildingStats.damaged_building_value || 0);
+
+      const activeBuildings = buildingCount - collapsedCount;
+      avgDamage = activeBuildings > 0
+        ? (buildingStats.total_damage_percent || 0) / activeBuildings
+        : 0;
+      buildingsOnFire = buildingStats.buildings_on_fire || 0;
+    }
+  }
+
+  const buildingsVal = Math.round(damagedBuildingValue || 0);
 
   return {
     companyId: company.id,
@@ -168,22 +228,22 @@ export async function getCompanyStatistics(env, companyId) {
     mapId: company.current_map_id,
     mapName: company.map_name,
     locationType: company.location_type,
-    buildingsOwned: company.building_count || 0,
-    collapsedBuildings: company.collapsed_count || 0,
-    monthlyProfit: Math.round(company.net_profit || 0),
-    grossProfit: Math.round(company.gross_profit || 0),
-    baseProfit: Math.round(company.base_profit || 0),
-    taxRate: company.tax_rate || 0,
-    taxAmount: Math.round(company.tax_amount || 0),
-    securityCost: Math.round(company.security_cost || 0),
+    buildingsOwned: buildingCount || 0,
+    collapsedBuildings: collapsedCount || 0,
+    monthlyProfit: Math.round(netProfit || 0),
+    grossProfit: Math.round(grossProfit || 0),
+    baseProfit: Math.round(baseProfit || 0),
+    taxRate: taxRate || 0,
+    taxAmount: Math.round(taxAmount || 0),
+    securityCost: Math.round(securityCost || 0),
     netWorth: Math.round(company.cash + buildingsVal),
     buildingsValue: buildingsVal,
-    totalBuildingsValue: Math.round(company.total_building_value || 0),
+    totalBuildingsValue: Math.round(totalBuildingValue || 0),
     cash: company.cash,
     offshore: company.offshore,
-    averageDamage: Math.round(company.average_damage_percent || 0),
-    buildingsOnFire: company.buildings_on_fire || 0,
-    isEarning: company.is_earning === 1,
+    averageDamage: Math.round(avgDamage || 0),
+    buildingsOnFire: buildingsOnFire || 0,
+    isEarning: company.is_earning === 1 || company.ticks_since_action < 6,
     lastTickAt: company.last_tick_at,
     joinedLocationAt: joinedAt?.joined_at || null
   };
