@@ -10,14 +10,16 @@ import {
   Clock,
   Trash2,
   LogOut,
-  ArrowRightLeft
+  ArrowRightLeft,
+  Map
 } from 'lucide-react';
 import { useCompanies } from '../hooks/useCompanies';
 import { useActiveCompany } from '../contexts/CompanyContext';
 import { LocationPicker } from '../components/game/LocationPicker';
 import { LevelProgress } from '../components/game/LevelProgress';
 import { HeroStatus } from '../components/game/HeroStatus';
-import { GameCompany } from '../types/game';
+import { GameCompany, GameMap } from '../types/game';
+import { api } from '../services/api';
 
 export function CompanyDashboard() {
   const { id } = useParams<{ id: string }>();
@@ -26,6 +28,7 @@ export function CompanyDashboard() {
   const { activeCompany, setActiveCompany } = useActiveCompany();
 
   const [company, setCompany] = useState<GameCompany | null>(null);
+  const [mapInfo, setMapInfo] = useState<GameMap | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -59,6 +62,27 @@ export function CompanyDashboard() {
 
     loadCompany();
   }, [id, getCompany, activeCompany?.id, setActiveCompany]);
+
+  // Fetch map info when company is in a location
+  useEffect(() => {
+    if (!company?.current_map_id) {
+      setMapInfo(null);
+      return;
+    }
+
+    const fetchMapInfo = async () => {
+      try {
+        const response = await api.get(`/api/game/maps/${company.current_map_id}`);
+        if (response.data.success) {
+          setMapInfo(response.data.data.map);
+        }
+      } catch (err) {
+        console.error('Failed to fetch map info:', err);
+      }
+    };
+
+    fetchMapInfo();
+  }, [company?.current_map_id]);
 
   const handleJoinLocation = async () => {
     if (!company || !selectedMap) return;
@@ -123,13 +147,29 @@ export function CompanyDashboard() {
 
   return (
     <div className="p-6">
-      <button
-        onClick={() => navigate('/companies')}
-        className="flex items-center gap-2 text-neutral-400 hover:text-white mb-6"
-      >
-        <ArrowLeft className="w-5 h-5" />
-        All Companies
-      </button>
+      {/* Top Navigation - Go to Map button or Back to Companies */}
+      {company.current_map_id ? (
+        <button
+          onClick={() => navigate(`/map/${company.current_map_id}`)}
+          className="w-full flex items-center justify-center gap-3 px-6 py-4 bg-primary-600 hover:bg-primary-700 text-white rounded-lg mb-6 transition-colors shadow-lg"
+        >
+          <Map className="w-6 h-6" />
+          <div className="text-left">
+            <span className="text-lg font-bold">Go to Map</span>
+            {mapInfo && (
+              <span className="ml-2 text-primary-200">— {mapInfo.name}</span>
+            )}
+          </div>
+        </button>
+      ) : (
+        <button
+          onClick={() => navigate('/companies')}
+          className="flex items-center gap-2 text-neutral-400 hover:text-white mb-6"
+        >
+          <ArrowLeft className="w-5 h-5" />
+          All Companies
+        </button>
+      )}
 
       {/* Company Header */}
       <div className="bg-neutral-800 rounded-lg p-6 mb-6">
@@ -146,13 +186,22 @@ export function CompanyDashboard() {
             </div>
           </div>
 
-          <button
-            onClick={() => setShowDeleteConfirm(true)}
-            className="p-2 text-red-400 hover:text-red-300 hover:bg-red-900/30 rounded"
-            title="Delete company"
-          >
-            <Trash2 className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => navigate('/companies')}
+              className="p-2 text-neutral-400 hover:text-white hover:bg-neutral-700 rounded"
+              title="Back to companies"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+            <button
+              onClick={() => setShowDeleteConfirm(true)}
+              className="p-2 text-red-400 hover:text-red-300 hover:bg-red-900/30 rounded"
+              title="Delete company"
+            >
+              <Trash2 className="w-5 h-5" />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -250,26 +299,22 @@ export function CompanyDashboard() {
           <div>
             <div className="flex items-center justify-between bg-neutral-700 rounded-lg p-4">
               <div>
-                <p className="text-white font-medium capitalize">{company.location_type}</p>
-                <p className="text-neutral-400 text-sm">Currently active in this location</p>
+                <p className="text-white font-medium">
+                  {mapInfo?.name || <span className="capitalize">{company.location_type}</span>}
+                </p>
+                <p className="text-neutral-400 text-sm">
+                  {mapInfo?.country && `${mapInfo.country} • `}
+                  <span className="capitalize">{company.location_type}</span>
+                </p>
               </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => navigate(`/map/${company.current_map_id}`)}
-                  className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded hover:bg-primary-700"
-                >
-                  <MapPin className="w-4 h-4" />
-                  View Map
-                </button>
-                <button
-                  onClick={handleLeaveLocation}
-                  disabled={isSubmitting}
-                  className="flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded hover:bg-orange-700 disabled:opacity-50"
-                >
-                  <LogOut className="w-4 h-4" />
-                  Leave Location
-                </button>
-              </div>
+              <button
+                onClick={handleLeaveLocation}
+                disabled={isSubmitting}
+                className="flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded hover:bg-orange-700 disabled:opacity-50"
+              >
+                <LogOut className="w-4 h-4" />
+                Leave Location
+              </button>
             </div>
             <p className="text-sm text-neutral-500 mt-3">
               Note: Leaving a location will reset your cash to the lobby state (future feature: sell buildings first).

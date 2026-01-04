@@ -25,7 +25,6 @@ import { usePermissions } from '../contexts/PermissionsContext'
 import { useFeatureFlags } from '../hooks/useFeatureFlags'
 import { useTheme } from '../contexts/ThemeContext'
 import { useUnreadMessages } from '../hooks/useUnreadMessages'
-import { useActiveCompany } from '../contexts/CompanyContext'
 
 type SidebarState = 'expanded' | 'collapsed' | 'minimized'
 
@@ -56,7 +55,7 @@ interface NavigationItem {
 const navigation: NavigationItem[] = [
   { name: 'Home', href: '/', icon: Home, pageKey: 'dashboard' },
   { name: 'Companies', href: '/companies', icon: Briefcase, pageKey: 'companies' },
-  { name: 'Headquarters', href: '/headquarters', icon: Building2, pageKey: 'headquarters' },
+  { name: 'Headquarters', href: '/headquarters', icon: Building2, pageKey: 'headquarters', requiresMapLocation: true },
   { name: 'Statistics', href: '/statistics', icon: BarChart3, pageKey: 'statistics', requiresMapLocation: true },
   { name: 'Events', href: '/events', icon: Calendar, pageKey: 'events', requiresMapLocation: true },
   { name: 'Chat', href: '/chat', icon: MessageCircle, pageKey: 'chat', requiresMapLocation: true },
@@ -70,7 +69,6 @@ export default function Sidebar() {
   const { companyManagementEnabled, auditLoggingEnabled } = useFeatureFlags()
   const { theme, toggleTheme } = useTheme()
   const { unreadCount } = useUnreadMessages()
-  const { activeCompany } = useActiveCompany()
   const isMobile = useIsMobile()
   const sidebarRef = useRef<HTMLDivElement>(null)
   const touchStartX = useRef<number>(0)
@@ -152,6 +150,9 @@ export default function Sidebar() {
   const glassOpacity = transparency / 100
   const blurAmount = Math.max(0, (100 - transparency) / 25) // 0-3px blur (very subtle)
 
+  // Check if currently on a map page
+  const isOnMapPage = location.pathname.startsWith('/map/')
+
   // Combine navigation items based on user role, feature flags, and page access permissions
   const allNavigation: NavigationItem[] = useMemo(() => {
     let items = [...navigation]
@@ -181,17 +182,14 @@ export default function Sidebar() {
     // Note: 'companies' is always accessible to all authenticated users (game feature)
     const alwaysAccessible = ['companies']
 
-    // Check if company is in a location (has current_map_id)
-    const hasMapLocation = !!activeCompany?.current_map_id
-
     return items.filter(item => {
-      // Filter out items that require map location if company is not in a location
-      if (item.requiresMapLocation && !hasMapLocation) {
+      // Filter out items that require map location if not currently on a map page
+      if (item.requiresMapLocation && !isOnMapPage) {
         return false
       }
       return alwaysAccessible.includes(item.pageKey) || hasPageAccess(item.pageKey)
     })
-  }, [user?.role, companyManagementEnabled, auditLoggingEnabled, hasPageAccess, activeCompany?.current_map_id])
+  }, [user?.role, companyManagementEnabled, auditLoggingEnabled, hasPageAccess, isOnMapPage])
 
   // Glass effect inline styles - using brand neutral colors
   const glassStyle = {
