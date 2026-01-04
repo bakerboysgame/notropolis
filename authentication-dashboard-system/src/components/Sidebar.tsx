@@ -277,25 +277,36 @@ export default function Sidebar() {
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
       >
-      {/* Collapse/Expand Button - cycles through states on both mobile and desktop */}
+      {/* Collapse/Expand Button - vertically centered arrow matching minimized style */}
       <button
         onClick={cycleState}
         className={clsx(
-          'absolute -right-3 top-8 bg-white/90 dark:bg-neutral-800/90 backdrop-blur-sm border border-neutral-200 dark:border-neutral-700 rounded-full shadow-md transition-colors z-10',
+          'absolute right-0 top-1/2 -translate-y-1/2 z-50',
+          'bg-gradient-to-l from-neutral-800 to-neutral-900 backdrop-blur-sm',
+          'border border-neutral-600 border-r-0 shadow-xl',
+          'rounded-l-xl transition-all duration-200',
           isMobile
-            ? 'p-2 active:bg-neutral-100 dark:active:bg-neutral-700'
-            : 'p-1 hover:bg-neutral-50 dark:hover:bg-neutral-700'
+            ? 'px-3 py-8 active:from-neutral-700 active:to-neutral-800'
+            : 'px-2 py-6 hover:from-neutral-700 hover:to-neutral-800 hover:shadow-2xl hover:px-3'
         )}
-        aria-label={isCollapsed ? 'Minimize sidebar' : 'Collapse sidebar'}
-        title={isCollapsed ? 'Click to minimize' : 'Click to collapse'}
+        aria-label="Close menu"
       >
-        <ChevronLeft className={clsx(
-          'text-neutral-600 dark:text-neutral-400 transition-transform duration-300',
-          isMobile ? 'w-5 h-5' : 'w-4 h-4'
-        )} />
-        {isCollapsed && unreadCount > 0 && (
-          <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-white dark:border-neutral-800 animate-pulse" />
-        )}
+        <div className="flex flex-col items-center gap-2">
+          {unreadCount > 0 && (
+            <span className={clsx(
+              'bg-red-500 rounded-full border-2 border-neutral-800 animate-pulse flex items-center justify-center',
+              isMobile ? 'w-5 h-5' : 'w-4 h-4'
+            )}>
+              <span className={clsx('font-bold text-white', isMobile ? 'text-[9px]' : 'text-[8px]')}>
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            </span>
+          )}
+          <ChevronLeft className={clsx(
+            'text-neutral-300',
+            isMobile ? 'w-6 h-6' : 'w-5 h-5'
+          )} />
+        </div>
       </button>
 
       {/* Logo and Brand */}

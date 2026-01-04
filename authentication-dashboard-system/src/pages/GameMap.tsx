@@ -130,12 +130,6 @@ export function GameMap(): JSX.Element {
     setModalTile(null);
   };
 
-  // Return to overview mode
-  const handleBackToOverview = () => {
-    setViewMode('overview');
-    setModalTile(null);
-  };
-
   // Overview mode zoom controls
   const handleZoomIn = () => {
     setZoom((z) => Math.min(4, z + 0.5));
@@ -205,15 +199,6 @@ export function GameMap(): JSX.Element {
             onCenterChange={setZoomCenter}
           />
 
-          {/* Back to Overview button */}
-          <button
-            onClick={handleBackToOverview}
-            className="absolute top-4 left-4 z-10 flex items-center gap-2 px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition-colors shadow-lg"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Back to Overview
-          </button>
-
           {/* Mini-map overlay */}
           <div className="absolute top-4 right-4 z-10">
             <MiniMap
@@ -225,13 +210,6 @@ export function GameMap(): JSX.Element {
               onNavigate={setZoomCenter}
             />
           </div>
-
-          {/* Controls hint */}
-          <div className="absolute bottom-4 left-4 bg-gray-800/90 px-4 py-2 rounded-lg">
-            <p className="text-gray-300 text-sm">Drag to pan, scroll to zoom, click tile for actions</p>
-          </div>
-
-          <MapLegend />
         </div>
       )}
 
