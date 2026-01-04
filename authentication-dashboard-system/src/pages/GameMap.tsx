@@ -179,11 +179,6 @@ export function GameMap(): JSX.Element {
           />
 
           <MapLegend />
-
-          {/* Click to zoom hint */}
-          <div className="absolute bottom-4 left-4 bg-gray-800/90 px-4 py-2 rounded-lg">
-            <p className="text-gray-300 text-sm">Click any tile to zoom in</p>
-          </div>
         </div>
       ) : (
         // ZOOMED MODE - Isometric view (full screen)

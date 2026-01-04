@@ -9,6 +9,9 @@ export function MapLegend(): JSX.Element {
   const { highlightedCompanies } = useHighlights();
   const highlightedList = Array.from(highlightedCompanies.values());
 
+  // Debug: log highlighted companies
+  console.log('[MapLegend] highlightedCompanies:', highlightedCompanies.size, highlightedList);
+
   return (
     <div className="absolute bottom-4 left-4 bg-gray-800/95 backdrop-blur-sm p-3 rounded-lg text-sm shadow-lg border border-gray-700">
       <h4 className="text-white font-bold mb-2 text-xs uppercase tracking-wide">Legend</h4>
