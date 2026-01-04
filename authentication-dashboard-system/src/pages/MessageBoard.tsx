@@ -94,6 +94,11 @@ export function MessageBoard(): JSX.Element {
     return <Navigate to="/companies" replace />;
   }
 
+  // Redirect if company is not in a location
+  if (!activeCompany.current_map_id) {
+    return <Navigate to={`/companies/${activeCompany.id}`} replace />;
+  }
+
   return (
     <div className="min-h-screen bg-gray-900 p-6">
       <div className="max-w-2xl mx-auto">

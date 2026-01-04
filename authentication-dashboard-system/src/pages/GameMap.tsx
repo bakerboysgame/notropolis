@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, Navigate, Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { useActiveCompany } from '../contexts/CompanyContext';
@@ -27,6 +27,18 @@ export function GameMap(): JSX.Element {
   // View mode state
   const [viewMode, setViewMode] = useState<ViewMode>('overview');
   const [zoomCenter, setZoomCenter] = useState<{ x: number; y: number } | null>(null);
+
+  // Broadcast view mode changes for Layout to use (overlay sidebar in zoomed mode)
+  useEffect(() => {
+    localStorage.setItem('mapViewMode', viewMode);
+    window.dispatchEvent(new CustomEvent('mapViewModeChange', { detail: viewMode }));
+
+    // Cleanup on unmount - reset to overview so Layout knows we're not on map
+    return () => {
+      localStorage.setItem('mapViewMode', 'none');
+      window.dispatchEvent(new CustomEvent('mapViewModeChange', { detail: 'none' }));
+    };
+  }, [viewMode]);
 
   // Modal state for zoomed view
   const [modalTile, setModalTile] = useState<{ x: number; y: number } | null>(null);
@@ -86,8 +98,17 @@ export function GameMap(): JSX.Element {
     setSelectedTile(null); // Clear any selected tile from side panel
   };
 
-  // Handle click in zoomed mode - open property modal
+  // Handle click in zoomed mode - open property modal (skip terrain tiles)
   const handleZoomedClick = (coords: { x: number; y: number }) => {
+    // Find the tile at these coordinates
+    const tile = tiles.find((t) => t.x === coords.x && t.y === coords.y);
+
+    // Don't open modal for terrain objects (water, road, trees, etc.)
+    // These are owned by the map and cannot be interacted with
+    if (tile && tile.terrain_type !== 'free_land') {
+      return;
+    }
+
     setModalTile(coords);
   };
 

@@ -2,12 +2,19 @@ import { useNavigate } from 'react-router-dom';
 import { Building2, Plus } from 'lucide-react';
 import { useCompanies } from '../hooks/useCompanies';
 import { useActiveCompany } from '../contexts/CompanyContext';
+import { useMultipleCompanyStats } from '../hooks/useCompanyStats';
+import { useUnreadCounts } from '../hooks/useUnreadCounts';
 import { CompanyCard } from '../components/game/CompanyCard';
 
 export function Companies() {
   const navigate = useNavigate();
   const { companies, maxCompanies, isLoading, error } = useCompanies();
   const { activeCompany, setActiveCompany } = useActiveCompany();
+
+  // Fetch stats for all companies
+  const companyIds = companies.map(c => c.id);
+  const { statsMap, isLoading: isLoadingStats } = useMultipleCompanyStats(companyIds);
+  const { unreadCounts } = useUnreadCounts();
 
   const canCreateMore = companies.length < maxCompanies;
 
@@ -74,6 +81,9 @@ export function Companies() {
               <CompanyCard
                 key={company.id}
                 company={company}
+                stats={statsMap.get(company.id)}
+                unreadMessages={unreadCounts[company.id] || 0}
+                isLoadingStats={isLoadingStats}
                 isActive={activeCompany?.id === company.id}
                 onSelect={() => {
                   setActiveCompany(company);

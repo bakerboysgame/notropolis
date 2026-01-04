@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Building2, MapPin, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Building2, MapPin, AlertCircle, User } from 'lucide-react';
 import { useCompanies } from '../hooks/useCompanies';
 import { useActiveCompany } from '../contexts/CompanyContext';
 import { LocationPicker } from '../components/game/LocationPicker';
@@ -14,6 +14,7 @@ export function CompanyCreate() {
 
   const [step, setStep] = useState<Step>('name');
   const [name, setName] = useState('');
+  const [bossName, setBossName] = useState('');
   const [selectedMap, setSelectedMap] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -24,12 +25,17 @@ export function CompanyCreate() {
       return;
     }
 
+    if (!bossName.trim()) {
+      setError('Please enter a boss name');
+      return;
+    }
+
     setIsSubmitting(true);
     setError(null);
 
     try {
       // Create the company
-      const company = await createCompany(name.trim());
+      const company = await createCompany(name.trim(), bossName.trim());
       if (!company) {
         setError(apiError || 'Failed to create company');
         setIsSubmitting(false);
@@ -73,26 +79,49 @@ export function CompanyCreate() {
           </div>
 
           <div className="bg-neutral-800 rounded-lg p-6">
-            <label className="block text-white mb-2 font-medium">
-              Company Name
-            </label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => {
-                setName(e.target.value);
-                setError(null);
-              }}
-              placeholder="Enter a name for your company"
-              className="w-full p-3 rounded-lg bg-neutral-700 text-white border border-neutral-600 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
-              maxLength={30}
-              autoFocus
-            />
-            <p className="text-sm text-neutral-500 mt-2">
-              {name.length}/30 characters
-            </p>
+            <div className="mb-6">
+              <label className="block text-white mb-2 font-medium">
+                Company Name
+              </label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => {
+                  setName(e.target.value);
+                  setError(null);
+                }}
+                placeholder="Enter a name for your company"
+                className="w-full p-3 rounded-lg bg-neutral-700 text-white border border-neutral-600 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                maxLength={30}
+                autoFocus
+              />
+              <p className="text-sm text-neutral-500 mt-2">
+                {name.length}/30 characters
+              </p>
+            </div>
 
-            <p className="text-sm text-neutral-400 mt-4 flex items-start gap-2">
+            <div className="mb-6">
+              <label className="block text-white mb-2 font-medium flex items-center gap-2">
+                <User className="w-4 h-4 text-primary-400" />
+                Boss Name
+              </label>
+              <input
+                type="text"
+                value={bossName}
+                onChange={(e) => {
+                  setBossName(e.target.value);
+                  setError(null);
+                }}
+                placeholder="e.g., Don Vito, The Professor, Big Tony"
+                className="w-full p-3 rounded-lg bg-neutral-700 text-white border border-neutral-600 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                maxLength={30}
+              />
+              <p className="text-sm text-neutral-500 mt-2">
+                {bossName.length}/30 characters
+              </p>
+            </div>
+
+            <p className="text-sm text-neutral-400 flex items-start gap-2">
               <span className="text-primary-400 mt-0.5">*</span>
               Your company identity is anonymous. Other players cannot see who owns it.
             </p>
@@ -106,7 +135,7 @@ export function CompanyCreate() {
 
             <button
               onClick={() => setStep('location')}
-              disabled={!name.trim()}
+              disabled={!name.trim() || !bossName.trim()}
               className="w-full mt-6 py-3 bg-primary-600 text-white rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-primary-700 transition"
             >
               Next: Choose Location

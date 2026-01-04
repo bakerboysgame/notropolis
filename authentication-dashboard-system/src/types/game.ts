@@ -4,6 +4,7 @@ export interface GameCompany {
   id: string;
   user_id: string;
   name: string;
+  boss_name: string;
   created_at: string;
   current_map_id: string | null;
   location_type: 'town' | 'city' | 'capital' | null;

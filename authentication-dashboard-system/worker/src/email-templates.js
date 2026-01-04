@@ -173,17 +173,19 @@ export function buildInvitationEmail({ brandName, firstName, companyName, invita
 
     <p>You've been invited to join <b>${brandName}</b> as an <b>Admin</b> for <b>${companyName}</b>.</p><br>
 
-    <p>Click below to accept your invitation and set up your account.</p><br>
+    <p>Click the button below to get started. This is your one-time login link - you'll create your password when you first sign in.</p><br>
 
     <a href="${invitationLink}" target="_blank" style="background-color:#0194F9; color:#ffffff; padding:12px 24px; text-decoration:none; border-radius:6px; font-weight:bold; display:inline-block; margin-top:16px; margin-bottom:16px;">
-      Accept Invitation
+      Accept Invitation & Create Password
     </a><br><br>
 
     <p>If the button doesn't work, copy and paste this link into your browser:</p><br>
 
     <p><a href="${invitationLink}" target="_blank">${invitationLink}</a></p><br>
 
-    <p>This link expires in 72 hours. Contact ${brandName} at ${supportEmail} for a new link after this time.</p><br>
+    <p><b>Important:</b> This link expires in 72 hours and can only be used once. After you've set up your password, you can log in normally at any time.</p><br>
+
+    <p>Need help? Contact ${brandName} at ${supportEmail}.</p><br>
 
     <p>If you weren't expecting this invitation, you can safely ignore this email.</p><br>
 
@@ -254,17 +256,17 @@ export function buildUserInvitationEmail({ brandName, firstName, companyName, in
 
     <p><b>${inviterName}</b> has invited you to join <b>${companyName}</b> on <b>${brandName}</b>.</p><br>
 
-    <p>Click below to accept your invitation and set up your account.</p><br>
+    <p>Click the button below to get started. This is your one-time login link - you'll create your password when you first sign in.</p><br>
 
     <a href="${invitationLink}" target="_blank" style="background-color:#0194F9; color:#ffffff; padding:12px 24px; text-decoration:none; border-radius:6px; font-weight:bold; display:inline-block; margin-top:16px; margin-bottom:16px;">
-      Accept Invitation
+      Accept Invitation & Create Password
     </a><br><br>
 
     <p>If the button doesn't work, copy and paste this link into your browser:</p><br>
 
     <p><a href="${invitationLink}" target="_blank">${invitationLink}</a></p><br>
 
-    <p>This link expires in 72 hours.</p><br>
+    <p><b>Important:</b> This link expires in 72 hours and can only be used once. After you've set up your password, you can log in normally at any time.</p><br>
 
     <p>If you weren't expecting this invitation, you can safely ignore this email.</p><br>
 

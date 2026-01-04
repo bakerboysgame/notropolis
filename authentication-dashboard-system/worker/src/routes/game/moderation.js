@@ -114,6 +114,86 @@ export async function moderateMessage(env, companyId, messageContent) {
   }
 }
 
+// Moderate a name (company name or boss name) for inappropriate content
+// Uses a simpler prompt focused on name validation
+export async function moderateName(env, nameType, name) {
+  const settings = await getModerationSettings(env);
+
+  // If moderation is disabled, allow all
+  if (!settings || !settings.enabled) {
+    return { allowed: true };
+  }
+
+  const startTime = Date.now();
+
+  const namePrompt = `You are a content moderator for a game. Your job is to check if a ${nameType} is appropriate.
+
+REJECT names that contain:
+- Profanity, slurs, or vulgar language
+- Hate speech or discriminatory terms
+- Sexual or explicit content
+- Real-world offensive references
+- Attempts to bypass filters (e.g., "f*ck", "sh1t", letter substitutions)
+
+ALLOW names that are:
+- Creative business/character names
+- Funny but clean names
+- Puns or wordplay (as long as not offensive)
+- Normal names
+
+Respond with JSON only:
+{"allowed": true} or {"allowed": false, "reason": "brief reason"}`;
+
+  try {
+    const response = await fetch(DEEPSEEK_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${env.DEEPSEEK_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: settings.model,
+        messages: [
+          { role: 'system', content: namePrompt },
+          { role: 'user', content: `${nameType} to review: "${name}"` },
+        ],
+        temperature: 0, // Use 0 for consistent moderation
+        max_tokens: 100,
+      }),
+    });
+
+    if (!response.ok) {
+      console.error('DeepSeek API error:', response.status);
+      // On API error, allow name
+      return { allowed: true, error: 'API error' };
+    }
+
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content || '';
+
+    // Parse JSON response
+    let result;
+    try {
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      result = JSON.parse(jsonMatch ? jsonMatch[0] : content);
+    } catch {
+      console.error('Failed to parse name moderation response:', content);
+      // On parse error, allow name
+      return { allowed: true, error: 'Parse error' };
+    }
+
+    return {
+      allowed: result.allowed,
+      reason: result.reason,
+      responseTimeMs: Date.now() - startTime,
+    };
+  } catch (error) {
+    console.error('Name moderation error:', error);
+    // On error, allow name to avoid blocking users
+    return { allowed: true, error: error.message };
+  }
+}
+
 // Admin API: Get settings (master_admin only)
 export async function handleGetModerationSettings(request, authService, env, corsHeaders) {
   const authHeader = request.headers.get('Authorization');

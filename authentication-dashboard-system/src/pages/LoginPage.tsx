@@ -29,7 +29,7 @@ export function LoginPage() {
     if (token) {
       // Handle magic link token
       localStorage.setItem('token', token);
-      window.location.href = '/home';
+      window.location.href = '/companies';
       return;
     }
 
@@ -42,12 +42,12 @@ export function LoginPage() {
   // Redirect if already logged in
   useEffect(() => {
     if (user && token) {
-      navigate('/home');
+      navigate('/companies');
     }
   }, [user, token, navigate]);
 
   const handleLoginSuccess = () => {
-    navigate('/home');
+    navigate('/companies');
   };
 
 

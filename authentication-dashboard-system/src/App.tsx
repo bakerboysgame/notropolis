@@ -27,6 +27,8 @@ import { Temple } from './pages/Temple';
 import { Casino } from './pages/Casino';
 import { Avatar } from './pages/Avatar';
 import { Achievements } from './pages/Achievements';
+import { Statistics } from './pages/Statistics';
+import { Events } from './pages/Events';
 import { ProtectedPageRoute } from './components/ProtectedPageRoute';
 import { api, apiHelpers } from './services/api';
 
@@ -153,10 +155,7 @@ function App() {
                 <ProtectedRoute>
                   <ProtectedPageRoute pageKey="statistics">
                     <Layout>
-                      <div className="text-center py-20">
-                        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Statistics</h1>
-                        <p className="text-gray-600 dark:text-gray-400 mt-2">Coming soon...</p>
-                      </div>
+                      <Statistics />
                     </Layout>
                   </ProtectedPageRoute>
                 </ProtectedRoute>
@@ -165,10 +164,7 @@ function App() {
                 <ProtectedRoute>
                   <ProtectedPageRoute pageKey="events">
                     <Layout>
-                      <div className="text-center py-20">
-                        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Events</h1>
-                        <p className="text-gray-600 dark:text-gray-400 mt-2">Coming soon...</p>
-                      </div>
+                      <Events />
                     </Layout>
                   </ProtectedPageRoute>
                 </ProtectedRoute>

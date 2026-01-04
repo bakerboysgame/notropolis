@@ -42,12 +42,14 @@ import {
   handleGetModerationSettings,
   handleUpdateModerationSettings,
   handleTestModeration,
-  handleGetModerationLog
+  handleGetModerationLog,
+  moderateName
 } from './src/routes/game/moderation.js';
 import {
   getMessages,
   postMessage,
   getUnreadCount,
+  getUnreadCountsForUser,
   markMessagesAsRead,
   donate,
   getDonationLeaderboard,
@@ -63,6 +65,8 @@ import {
   checkAchievements,
   getUserBadges,
 } from './src/routes/game/achievements.js';
+import { getMapStatistics, getCompanyStatistics } from './src/routes/game/statistics.js';
+import { getMapEvents, getMapCompanies } from './src/routes/game/events.js';
 import { handleAssetRoutes } from './src/routes/admin/assets.js';
 
 // Helper to get active company from request (used by social endpoints)
@@ -544,10 +548,75 @@ export default {
           });
         }
 
+        case path === '/api/game/messages/unread-all' && method === 'GET': {
+          const authHeader = request.headers.get('Authorization');
+          const token = authHeader.split(' ')[1];
+          const { user } = await authService.getUserFromToken(token);
+          const result = await getUnreadCountsForUser(env, user.id);
+          return new Response(JSON.stringify({ success: true, ...result }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
         case path === '/api/game/messages/read' && method === 'POST': {
           const company = await getActiveCompany(authService, env, request, requestBody);
           const result = await markMessagesAsRead(env, company);
           return new Response(JSON.stringify({ success: true, ...result }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        // ==================== STATISTICS ENDPOINTS ====================
+        case path === '/api/game/statistics' && method === 'GET': {
+          const company = await getActiveCompany(authService, env, request);
+          if (!company.current_map_id) {
+            throw new Error('Company must be in a location to view statistics');
+          }
+          const result = await getMapStatistics(env, company.current_map_id);
+          return new Response(JSON.stringify({ success: true, data: result }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        case path.match(/^\/api\/game\/companies\/([^/]+)\/stats$/) && method === 'GET': {
+          const match = path.match(/^\/api\/game\/companies\/([^/]+)\/stats$/);
+          const companyId = match[1];
+          const result = await getCompanyStatistics(env, companyId);
+          return new Response(JSON.stringify({ success: true, data: result }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        // ==================== EVENTS ENDPOINTS ====================
+        case path === '/api/game/events' && method === 'GET': {
+          const company = await getActiveCompany(authService, env, request);
+          if (!company.current_map_id) {
+            throw new Error('Company must be in a location to view events');
+          }
+          const url = new URL(request.url);
+          const byCompanyId = url.searchParams.get('by') || undefined;
+          const toCompanyId = url.searchParams.get('to') || undefined;
+          const limit = parseInt(url.searchParams.get('limit') || '25', 10);
+          const offset = parseInt(url.searchParams.get('offset') || '0', 10);
+
+          const result = await getMapEvents(env, company.current_map_id, {
+            byCompanyId,
+            toCompanyId,
+            limit,
+            offset
+          });
+          return new Response(JSON.stringify({ success: true, data: result }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        case path === '/api/game/events/companies' && method === 'GET': {
+          const company = await getActiveCompany(authService, env, request);
+          if (!company.current_map_id) {
+            throw new Error('Company must be in a location');
+          }
+          const companies = await getMapCompanies(env, company.current_map_id);
+          return new Response(JSON.stringify({ success: true, data: companies }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }
           });
         }
@@ -2595,14 +2664,11 @@ async function handleCompanyRoutes(request, authService, db) {
           });
         }
         
-        // Authorization: Company admin OR master admin
-        const isAuditCompanyAdmin = auditCompany.admin_user_id === user.id;
-        const isAuditMasterAdmin = user.role === 'master_admin';
-        
-        if (!isAuditCompanyAdmin && !isAuditMasterAdmin) {
+        // Authorization: Master admin only
+        if (user.role !== 'master_admin') {
           return new Response(JSON.stringify({
             success: false,
-            error: 'Only company admin or master admin can view audit logs'
+            error: 'Master admin access required'
           }), {
             status: 403,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -3843,13 +3909,13 @@ async function handleAuditRoutes(request, authService, db) {
   }
 
   // POST /api/audit/log is allowed for all authenticated users (for frontend logging)
-  // Other audit endpoints require admin access
+  // Other audit endpoints require master_admin access only
   const isPostLogEndpoint = path === '/api/audit/log' && method === 'POST';
 
-  if (!isPostLogEndpoint && user.role !== 'admin' && user.role !== 'master_admin') {
+  if (!isPostLogEndpoint && user.role !== 'master_admin') {
     return new Response(JSON.stringify({
       success: false,
-      error: 'Admin access required'
+      error: 'Master admin access required'
     }), {
       status: 403,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -6536,9 +6602,9 @@ async function handleGameCompanyRoutes(request, authService, env, corsHeaders) {
       // POST /api/game/companies - Create new company
       case path === '/api/game/companies' && method === 'POST': {
         const body = await request.json();
-        const { name } = body;
+        const { name, boss_name } = body;
 
-        // Validate name
+        // Validate company name
         if (!name || typeof name !== 'string') {
           return new Response(JSON.stringify({
             success: false,
@@ -6553,6 +6619,51 @@ async function handleGameCompanyRoutes(request, authService, env, corsHeaders) {
           return new Response(JSON.stringify({
             success: false,
             error: 'Company name must be between 1 and 30 characters'
+          }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        // Validate boss name
+        if (!boss_name || typeof boss_name !== 'string') {
+          return new Response(JSON.stringify({
+            success: false,
+            error: 'Boss name is required'
+          }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        if (boss_name.trim().length === 0 || boss_name.length > 30) {
+          return new Response(JSON.stringify({
+            success: false,
+            error: 'Boss name must be between 1 and 30 characters'
+          }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        // Moderate company name
+        const companyNameModeration = await moderateName(env, 'company name', name.trim());
+        if (!companyNameModeration.allowed) {
+          return new Response(JSON.stringify({
+            success: false,
+            error: companyNameModeration.reason || 'Company name contains inappropriate content'
+          }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        // Moderate boss name
+        const bossNameModeration = await moderateName(env, 'boss name', boss_name.trim());
+        if (!bossNameModeration.allowed) {
+          return new Response(JSON.stringify({
+            success: false,
+            error: bossNameModeration.reason || 'Boss name contains inappropriate content'
           }), {
             status: 400,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -6578,10 +6689,10 @@ async function handleGameCompanyRoutes(request, authService, env, corsHeaders) {
         const companyId = crypto.randomUUID();
         await env.DB.prepare(`
           INSERT INTO game_companies (
-            id, user_id, name, cash, offshore, level, total_actions,
+            id, user_id, name, boss_name, cash, offshore, level, total_actions,
             is_in_prison, prison_fine, ticks_since_action, land_ownership_streak, land_percentage
-          ) VALUES (?, ?, ?, 50000, 0, 1, 0, 0, 0, 0, 0, 0)
-        `).bind(companyId, user.id, name.trim()).run();
+          ) VALUES (?, ?, ?, ?, 50000, 0, 1, 0, 0, 0, 0, 0, 0)
+        `).bind(companyId, user.id, name.trim(), boss_name.trim()).run();
 
         // Fetch the created company
         const company = await env.DB.prepare(`
@@ -6623,14 +6734,25 @@ async function handleGameCompanyRoutes(request, authService, env, corsHeaders) {
         });
       }
 
-      // PUT /api/game/companies/:id - Update company (name only)
+      // PUT /api/game/companies/:id - Update company (name/boss_name - master_admin only)
       case path.match(/^\/api\/game\/companies\/[^/]+$/) && method === 'PUT': {
         const companyId = path.split('/')[4];
 
-        // Verify ownership
+        // Only master_admin can update company name or boss_name
+        if (user.role !== 'master_admin') {
+          return new Response(JSON.stringify({
+            success: false,
+            error: 'Company name and boss name cannot be changed after creation'
+          }), {
+            status: 403,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        // Find the company (master_admin can update any company)
         const existingCompany = await env.DB.prepare(`
-          SELECT * FROM game_companies WHERE id = ? AND user_id = ?
-        `).bind(companyId, user.id).first();
+          SELECT * FROM game_companies WHERE id = ?
+        `).bind(companyId).first();
 
         if (!existingCompany) {
           return new Response(JSON.stringify({
@@ -6643,21 +6765,54 @@ async function handleGameCompanyRoutes(request, authService, env, corsHeaders) {
         }
 
         const body = await request.json();
-        const { name } = body;
+        const { name, boss_name } = body;
 
-        if (!name || typeof name !== 'string' || name.trim().length === 0 || name.length > 30) {
+        // Build update query dynamically
+        const updates = [];
+        const values = [];
+
+        if (name !== undefined) {
+          if (typeof name !== 'string' || name.trim().length === 0 || name.length > 30) {
+            return new Response(JSON.stringify({
+              success: false,
+              error: 'Company name must be between 1 and 30 characters'
+            }), {
+              status: 400,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            });
+          }
+          updates.push('name = ?');
+          values.push(name.trim());
+        }
+
+        if (boss_name !== undefined) {
+          if (typeof boss_name !== 'string' || boss_name.trim().length === 0 || boss_name.length > 30) {
+            return new Response(JSON.stringify({
+              success: false,
+              error: 'Boss name must be between 1 and 30 characters'
+            }), {
+              status: 400,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            });
+          }
+          updates.push('boss_name = ?');
+          values.push(boss_name.trim());
+        }
+
+        if (updates.length === 0) {
           return new Response(JSON.stringify({
             success: false,
-            error: 'Company name must be between 1 and 30 characters'
+            error: 'No valid fields to update'
           }), {
             status: 400,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }
           });
         }
 
+        values.push(companyId);
         await env.DB.prepare(`
-          UPDATE game_companies SET name = ? WHERE id = ?
-        `).bind(name.trim(), companyId).run();
+          UPDATE game_companies SET ${updates.join(', ')} WHERE id = ?
+        `).bind(...values).run();
 
         const updatedCompany = await env.DB.prepare(`
           SELECT * FROM game_companies WHERE id = ?

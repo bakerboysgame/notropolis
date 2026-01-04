@@ -91,6 +91,38 @@ export async function getUnreadCount(env, company) {
   return { unread_count: result?.count || 0 };
 }
 
+// Get unread message counts for all companies belonging to a user
+export async function getUnreadCountsForUser(env, userId) {
+  // Get all companies for this user that are in a location
+  const companies = await env.DB.prepare(`
+    SELECT id, current_map_id
+    FROM game_companies
+    WHERE user_id = ? AND current_map_id IS NOT NULL
+  `).bind(userId).all();
+
+  if (!companies.results || companies.results.length === 0) {
+    return { unread_counts: {} };
+  }
+
+  // For each company, get unread count
+  const unreadCounts = {};
+  for (const company of companies.results) {
+    const result = await env.DB.prepare(`
+      SELECT COUNT(*) as count
+      FROM messages m
+      LEFT JOIN message_read_status mrs
+        ON mrs.company_id = ? AND mrs.map_id = m.map_id
+      WHERE m.map_id = ?
+        AND m.company_id != ?
+        AND (mrs.last_read_at IS NULL OR m.created_at > mrs.last_read_at)
+    `).bind(company.id, company.current_map_id, company.id).first();
+
+    unreadCounts[company.id] = result?.count || 0;
+  }
+
+  return { unread_counts: unreadCounts };
+}
+
 // Mark messages as read (called when viewing message board)
 export async function markMessagesAsRead(env, company) {
   await env.DB.prepare(`

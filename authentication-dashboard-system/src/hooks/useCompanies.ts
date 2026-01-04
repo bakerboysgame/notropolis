@@ -8,7 +8,7 @@ interface UseCompaniesReturn {
   isLoading: boolean;
   error: string | null;
   fetchCompanies: () => Promise<void>;
-  createCompany: (name: string) => Promise<GameCompany | null>;
+  createCompany: (name: string, bossName: string) => Promise<GameCompany | null>;
   updateCompany: (id: string, name: string) => Promise<GameCompany | null>;
   deleteCompany: (id: string) => Promise<boolean>;
   joinLocation: (companyId: string, mapId: string) => Promise<GameCompany | null>;
@@ -41,10 +41,10 @@ export function useCompanies(): UseCompaniesReturn {
     }
   }, []);
 
-  const createCompany = useCallback(async (name: string): Promise<GameCompany | null> => {
+  const createCompany = useCallback(async (name: string, bossName: string): Promise<GameCompany | null> => {
     setError(null);
     try {
-      const response = await api.post('/api/game/companies', { name });
+      const response = await api.post('/api/game/companies', { name, boss_name: bossName });
       if (response.data.success) {
         const newCompany = response.data.data.company;
         setCompanies(prev => [newCompany, ...prev]);

@@ -25,6 +25,7 @@ import { usePermissions } from '../contexts/PermissionsContext'
 import { useFeatureFlags } from '../hooks/useFeatureFlags'
 import { useTheme } from '../contexts/ThemeContext'
 import { useUnreadMessages } from '../hooks/useUnreadMessages'
+import { useActiveCompany } from '../contexts/CompanyContext'
 
 type SidebarState = 'expanded' | 'collapsed' | 'minimized'
 
@@ -49,15 +50,16 @@ interface NavigationItem {
   icon: LucideIcon;
   pageKey: string;
   requiresMasterAdmin?: boolean;
+  requiresMapLocation?: boolean;
 }
 
 const navigation: NavigationItem[] = [
   { name: 'Home', href: '/', icon: Home, pageKey: 'dashboard' },
   { name: 'Companies', href: '/companies', icon: Briefcase, pageKey: 'companies' },
   { name: 'Headquarters', href: '/headquarters', icon: Building2, pageKey: 'headquarters' },
-  { name: 'Statistics', href: '/statistics', icon: BarChart3, pageKey: 'statistics' },
-  { name: 'Events', href: '/events', icon: Calendar, pageKey: 'events' },
-  { name: 'Chat', href: '/chat', icon: MessageCircle, pageKey: 'chat' },
+  { name: 'Statistics', href: '/statistics', icon: BarChart3, pageKey: 'statistics', requiresMapLocation: true },
+  { name: 'Events', href: '/events', icon: Calendar, pageKey: 'events', requiresMapLocation: true },
+  { name: 'Chat', href: '/chat', icon: MessageCircle, pageKey: 'chat', requiresMapLocation: true },
 ]
 
 export default function Sidebar() {
@@ -68,6 +70,7 @@ export default function Sidebar() {
   const { companyManagementEnabled, auditLoggingEnabled } = useFeatureFlags()
   const { theme, toggleTheme } = useTheme()
   const { unreadCount } = useUnreadMessages()
+  const { activeCompany } = useActiveCompany()
   const isMobile = useIsMobile()
   const sidebarRef = useRef<HTMLDivElement>(null)
   const touchStartX = useRef<number>(0)
@@ -88,19 +91,8 @@ export default function Sidebar() {
     return saved ? parseInt(saved, 10) : 100
   })
 
-  // Auto-minimize on mobile when first loading or when switching to mobile
-  useEffect(() => {
-    if (isMobile && sidebarState === 'expanded') {
-      setSidebarState('minimized')
-    }
-  }, [isMobile]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Auto-close sidebar on navigation (mobile only)
-  useEffect(() => {
-    if (isMobile && sidebarState !== 'minimized') {
-      setSidebarState('minimized')
-    }
-  }, [location.pathname]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Sidebar state is now persisted and consistent across mobile and desktop
+  // No auto-minimize behaviors - user controls the sidebar state
 
   // Persist sidebar state and dispatch event for Layout to listen
   useEffect(() => {
@@ -153,14 +145,8 @@ export default function Sidebar() {
     }
   }
 
-  // Close sidebar (for backdrop click)
-  const closeSidebar = useCallback(() => {
-    setSidebarState('minimized')
-  }, [])
-
   const isCollapsed = sidebarState === 'collapsed'
   const isMinimized = sidebarState === 'minimized'
-  const isOpen = !isMinimized
 
   // Calculate glass effect styles
   const glassOpacity = transparency / 100
@@ -188,17 +174,24 @@ export default function Sidebar() {
       if (companyManagementEnabled) {
         items.push({ name: 'Company Users', href: '/company-users', icon: Users, pageKey: 'company_users' })
       }
-      // Admin gets audit logs if audit logging is enabled (built-in page)
-      if (auditLoggingEnabled) {
-        items.push({ name: 'Audit Logs', href: '/audit-logs', icon: ScrollText, pageKey: 'audit_logs' })
-      }
+      // Note: Audit Logs is master_admin only - admins do not have access
     }
 
     // Filter items based on page access permissions
     // Note: 'companies' is always accessible to all authenticated users (game feature)
     const alwaysAccessible = ['companies']
-    return items.filter(item => alwaysAccessible.includes(item.pageKey) || hasPageAccess(item.pageKey))
-  }, [user?.role, companyManagementEnabled, auditLoggingEnabled, hasPageAccess])
+
+    // Check if company is in a location (has current_map_id)
+    const hasMapLocation = !!activeCompany?.current_map_id
+
+    return items.filter(item => {
+      // Filter out items that require map location if company is not in a location
+      if (item.requiresMapLocation && !hasMapLocation) {
+        return false
+      }
+      return alwaysAccessible.includes(item.pageKey) || hasPageAccess(item.pageKey)
+    })
+  }, [user?.role, companyManagementEnabled, auditLoggingEnabled, hasPageAccess, activeCompany?.current_map_id])
 
   // Glass effect inline styles - using brand neutral colors
   const glassStyle = {
@@ -217,28 +210,19 @@ export default function Sidebar() {
         className={clsx(
           'fixed left-0 bg-neutral-900/90 backdrop-blur-sm border border-neutral-700 border-l-0 shadow-md transition-all duration-200 z-50 rounded-r-sm',
           // Position below header area on both mobile and desktop
+          // Desktop: taller button for easier access
           isMobile
             ? 'top-20 px-0.5 py-1 active:bg-neutral-700'
-            : 'top-16 px-0.5 py-1 hover:bg-neutral-700'
+            : 'top-16 px-1 py-8 hover:bg-neutral-700'
         )}
         aria-label="Open menu"
       >
-        <ChevronRight className="w-3 h-3 text-neutral-400" />
+        <ChevronRight className={clsx('text-neutral-400', isMobile ? 'w-3 h-3' : 'w-4 h-4')} />
       </button>
     )
   }
 
   return (
-    <>
-      {/* Mobile backdrop overlay - click to close */}
-      {isMobile && isOpen && (
-        <div
-          className="fixed inset-0 bg-black/30 backdrop-blur-sm z-30 transition-opacity duration-300"
-          onClick={closeSidebar}
-          aria-hidden="true"
-        />
-      )}
-
       <div
         ref={sidebarRef}
         className={clsx(
@@ -252,17 +236,17 @@ export default function Sidebar() {
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
       >
-      {/* Collapse/Expand Button - cycles through states (or close on mobile) */}
+      {/* Collapse/Expand Button - cycles through states on both mobile and desktop */}
       <button
-        onClick={isMobile ? closeSidebar : cycleState}
+        onClick={cycleState}
         className={clsx(
           'absolute -right-3 top-8 bg-white/90 dark:bg-neutral-800/90 backdrop-blur-sm border border-neutral-200 dark:border-neutral-700 rounded-full shadow-md transition-colors z-10',
           isMobile
             ? 'p-2 active:bg-neutral-100 dark:active:bg-neutral-700'
             : 'p-1 hover:bg-neutral-50 dark:hover:bg-neutral-700'
         )}
-        aria-label={isMobile ? 'Close menu' : isCollapsed ? 'Minimize sidebar' : 'Collapse sidebar'}
-        title={isMobile ? 'Close menu' : isCollapsed ? 'Click to minimize' : 'Click to collapse'}
+        aria-label={isCollapsed ? 'Minimize sidebar' : 'Collapse sidebar'}
+        title={isCollapsed ? 'Click to minimize' : 'Click to collapse'}
       >
         <ChevronLeft className={clsx(
           'text-neutral-600 dark:text-neutral-400 transition-transform duration-300',
@@ -426,6 +410,5 @@ export default function Sidebar() {
         )}
       </div>
     </div>
-    </>
   )
 }

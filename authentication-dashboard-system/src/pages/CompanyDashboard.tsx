@@ -8,7 +8,6 @@ import {
   Landmark,
   TrendingUp,
   Clock,
-  Edit2,
   Trash2,
   LogOut,
   ArrowRightLeft
@@ -23,16 +22,12 @@ import { GameCompany } from '../types/game';
 export function CompanyDashboard() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { getCompany, updateCompany, deleteCompany, joinLocation, leaveLocation } = useCompanies();
+  const { getCompany, deleteCompany, joinLocation, leaveLocation } = useCompanies();
   const { activeCompany, setActiveCompany } = useActiveCompany();
 
   const [company, setCompany] = useState<GameCompany | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  // Edit mode
-  const [isEditing, setIsEditing] = useState(false);
-  const [editName, setEditName] = useState('');
 
   // Location picker
   const [showLocationPicker, setShowLocationPicker] = useState(false);
@@ -53,7 +48,6 @@ export function CompanyDashboard() {
       const data = await getCompany(id);
       if (data) {
         setCompany(data);
-        setEditName(data.name);
         if (activeCompany?.id !== data.id) {
           setActiveCompany(data);
         }
@@ -65,18 +59,6 @@ export function CompanyDashboard() {
 
     loadCompany();
   }, [id, getCompany, activeCompany?.id, setActiveCompany]);
-
-  const handleSaveName = async () => {
-    if (!company || !editName.trim()) return;
-    setIsSubmitting(true);
-    const updated = await updateCompany(company.id, editName.trim());
-    if (updated) {
-      setCompany(updated);
-      setActiveCompany(updated);
-      setIsEditing(false);
-    }
-    setIsSubmitting(false);
-  };
 
   const handleJoinLocation = async () => {
     if (!company || !selectedMap) return;
@@ -157,44 +139,7 @@ export function CompanyDashboard() {
               <Building2 className="w-8 h-8 text-white" />
             </div>
             <div>
-              {isEditing ? (
-                <div className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={editName}
-                    onChange={(e) => setEditName(e.target.value)}
-                    className="text-2xl font-bold bg-neutral-700 text-white px-3 py-1 rounded border border-neutral-600 focus:border-primary-500 focus:outline-none"
-                    maxLength={30}
-                  />
-                  <button
-                    onClick={handleSaveName}
-                    disabled={isSubmitting || !editName.trim()}
-                    className="px-3 py-1 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50"
-                  >
-                    Save
-                  </button>
-                  <button
-                    onClick={() => {
-                      setIsEditing(false);
-                      setEditName(company.name);
-                    }}
-                    className="px-3 py-1 bg-neutral-600 text-white rounded hover:bg-neutral-500"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              ) : (
-                <div className="flex items-center gap-2">
-                  <h1 className="text-2xl font-bold text-white">{company.name}</h1>
-                  <button
-                    onClick={() => setIsEditing(true)}
-                    className="p-1 text-neutral-400 hover:text-white"
-                    title="Edit name"
-                  >
-                    <Edit2 className="w-4 h-4" />
-                  </button>
-                </div>
-              )}
+              <h1 className="text-2xl font-bold text-white">{company.name}</h1>
               <p className="text-neutral-400 mt-1">
                 Level {company.level} • Created {new Date(company.created_at).toLocaleDateString()}
               </p>
