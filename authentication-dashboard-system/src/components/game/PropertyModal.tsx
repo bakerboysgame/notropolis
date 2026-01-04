@@ -528,8 +528,8 @@ export function PropertyModal({
                 </>
               )}
 
-              {/* Enemy Property */}
-              {isEnemyOwned && building && !building.is_collapsed && activeCompany && (
+              {/* Attack any building (including your own) */}
+              {(isEnemyOwned || isOwned) && building && !building.is_collapsed && activeCompany && (
                 <button
                   onClick={() => setShowAttackModal(true)}
                   className="w-full py-3 px-4 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2"

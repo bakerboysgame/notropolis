@@ -81,11 +81,6 @@ export async function performAttack(request, env, company) {
     throw new Error('Location mismatch - building is not at the specified coordinates');
   }
 
-  // Cannot attack own building
-  if (building.company_id === company.id) {
-    throw new Error('Cannot attack your own building');
-  }
-
   // Cannot attack collapsed building
   if (building.is_collapsed) {
     throw new Error('Building is already collapsed');

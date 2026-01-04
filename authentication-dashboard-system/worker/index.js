@@ -7099,10 +7099,41 @@ async function handleGameCompanyRoutes(request, authService, env, corsHeaders) {
           });
         }
 
-        // Remove map assignment (future: sell buildings, return cash, etc.)
+        // Forfeit all cash and buildings when leaving a location
+        const mapId = existingCompany.current_map_id;
+
+        // Get all tiles owned by this company on this map
+        const ownedTiles = await env.DB.prepare(`
+          SELECT id FROM tiles WHERE owner_company_id = ? AND map_id = ?
+        `).bind(companyId, mapId).all();
+
+        const tileIds = (ownedTiles.results || []).map(t => t.id);
+
+        if (tileIds.length > 0) {
+          // Delete building security for buildings on owned tiles
+          await env.DB.prepare(`
+            DELETE FROM building_security
+            WHERE building_id IN (
+              SELECT id FROM building_instances WHERE tile_id IN (${tileIds.map(() => '?').join(',')})
+            )
+          `).bind(...tileIds).run();
+
+          // Delete all buildings on owned tiles
+          await env.DB.prepare(`
+            DELETE FROM building_instances WHERE tile_id IN (${tileIds.map(() => '?').join(',')})
+          `).bind(...tileIds).run();
+
+          // Release ownership of all tiles
+          await env.DB.prepare(`
+            UPDATE tiles SET owner_company_id = NULL, purchased_at = NULL
+            WHERE owner_company_id = ? AND map_id = ?
+          `).bind(companyId, mapId).run();
+        }
+
+        // Reset company: remove from map and forfeit all cash
         await env.DB.prepare(`
           UPDATE game_companies
-          SET current_map_id = NULL, location_type = NULL, cash = 50000
+          SET current_map_id = NULL, location_type = NULL, cash = 0
           WHERE id = ?
         `).bind(companyId).run();
 
@@ -7252,6 +7283,24 @@ async function handleBuyLand(request, authService, env, corsHeaders) {
       return new Response(JSON.stringify({
         success: false,
         error: 'Cannot purchase special buildings'
+      }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Check free land slot limit (max 10 unbuilt tiles per company)
+    const unbuiltCount = await env.DB.prepare(`
+      SELECT COUNT(*) as count
+      FROM tiles t
+      LEFT JOIN building_instances bi ON t.id = bi.tile_id
+      WHERE t.owner_company_id = ? AND t.map_id = ? AND bi.id IS NULL
+    `).bind(company.id, company.current_map_id).first();
+
+    if (unbuiltCount?.count >= 10) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'You can only own up to 10 unbuilt land slots at a time. Build on your existing land first.'
       }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
