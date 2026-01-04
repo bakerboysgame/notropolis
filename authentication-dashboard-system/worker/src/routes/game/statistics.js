@@ -1,6 +1,7 @@
 /**
  * Statistics Routes
  * Returns leaderboard data for companies in a map
+ * Uses company_statistics table populated during tick processing
  */
 
 /**
@@ -19,47 +20,40 @@ export async function getMapStatistics(env, mapId) {
     throw new Error('Map not found');
   }
 
-  // Get all companies on this map with their monthly profit/loss
-  // Monthly profit = most recent tick_income (each tick = 1 in-game month)
+  // Get profit leaderboard from company_statistics table
+  // Includes all companies with buildings on this map
   const profitResult = await env.DB.prepare(`
     SELECT
       gc.id,
       gc.name,
       gc.cash,
-      COALESCE((
-        SELECT gt.amount
-        FROM game_transactions gt
-        WHERE gt.company_id = gc.id
-          AND gt.map_id = ?
-          AND gt.action_type = 'tick_income'
-        ORDER BY gt.created_at DESC
-        LIMIT 1
-      ), 0) as monthly_profit
+      COALESCE(cs.net_profit, 0) as monthly_profit,
+      COALESCE(cs.gross_profit, 0) as gross_profit,
+      COALESCE(cs.tax_amount, 0) as tax_amount,
+      COALESCE(cs.security_cost, 0) as security_cost,
+      COALESCE(cs.building_count, 0) as building_count,
+      COALESCE(cs.average_damage_percent, 0) as average_damage,
+      COALESCE(cs.is_earning, 1) as is_earning,
+      cs.last_tick_at
     FROM game_companies gc
+    LEFT JOIN company_statistics cs ON cs.company_id = gc.id AND cs.map_id = ?
     WHERE gc.current_map_id = ?
     ORDER BY monthly_profit DESC
   `).bind(mapId, mapId).all();
 
-  // Get net worth for all companies on this map
-  // Net worth = cash + sum of (building_cost * health_factor)
-  // health_factor = (100 - damage_percent) / 100
+  // Get net worth leaderboard from company_statistics table
   const netWorthResult = await env.DB.prepare(`
     SELECT
       gc.id,
       gc.name,
       gc.cash,
-      COALESCE(SUM(
-        bt.cost * (100 - COALESCE(bi.damage_percent, 0)) / 100
-      ), 0) as buildings_value,
-      gc.cash + COALESCE(SUM(
-        bt.cost * (100 - COALESCE(bi.damage_percent, 0)) / 100
-      ), 0) as net_worth
+      COALESCE(cs.damaged_building_value, 0) as buildings_value,
+      gc.cash + COALESCE(cs.damaged_building_value, 0) as net_worth,
+      COALESCE(cs.building_count, 0) as building_count,
+      COALESCE(cs.collapsed_count, 0) as collapsed_count
     FROM game_companies gc
-    LEFT JOIN building_instances bi ON bi.company_id = gc.id AND bi.is_collapsed = 0
-    LEFT JOIN tiles t ON bi.tile_id = t.id AND t.map_id = ?
-    LEFT JOIN building_types bt ON bi.building_type_id = bt.id
+    LEFT JOIN company_statistics cs ON cs.company_id = gc.id AND cs.map_id = ?
     WHERE gc.current_map_id = ?
-    GROUP BY gc.id
     ORDER BY net_worth DESC
   `).bind(mapId, mapId).all();
 
@@ -71,7 +65,14 @@ export async function getMapStatistics(env, mapId) {
       rank: index + 1,
       companyId: company.id,
       companyName: company.name,
-      monthlyProfit: Math.round(company.monthly_profit || 0)
+      monthlyProfit: Math.round(company.monthly_profit || 0),
+      grossProfit: Math.round(company.gross_profit || 0),
+      taxAmount: Math.round(company.tax_amount || 0),
+      securityCost: Math.round(company.security_cost || 0),
+      buildingCount: company.building_count || 0,
+      averageDamage: Math.round(company.average_damage || 0),
+      isEarning: company.is_earning === 1,
+      lastTickAt: company.last_tick_at
     })),
     netWorthLeaderboard: netWorthResult.results.map((company, index) => ({
       rank: index + 1,
@@ -79,7 +80,9 @@ export async function getMapStatistics(env, mapId) {
       companyName: company.name,
       cash: Math.round(company.cash || 0),
       buildingsValue: Math.round(company.buildings_value || 0),
-      netWorth: Math.round(company.net_worth || 0)
+      netWorth: Math.round(company.net_worth || 0),
+      buildingCount: company.building_count || 0,
+      collapsedCount: company.collapsed_count || 0
     }))
   };
 }
@@ -91,14 +94,30 @@ export async function getMapStatistics(env, mapId) {
  * @returns {Object} Company statistics including buildings, profit, net worth
  */
 export async function getCompanyStatistics(env, companyId) {
-  // Get company with map info
+  // Get company with map info and statistics
   const company = await env.DB.prepare(`
     SELECT
       gc.*,
       m.name as map_name,
-      m.location_type
+      m.location_type,
+      cs.building_count,
+      cs.collapsed_count,
+      cs.base_profit,
+      cs.gross_profit,
+      cs.tax_rate,
+      cs.tax_amount,
+      cs.security_cost,
+      cs.net_profit,
+      cs.total_building_value,
+      cs.damaged_building_value,
+      cs.total_damage_percent,
+      cs.average_damage_percent,
+      cs.buildings_on_fire,
+      cs.is_earning,
+      cs.last_tick_at
     FROM game_companies gc
     LEFT JOIN maps m ON gc.current_map_id = m.id
+    LEFT JOIN company_statistics cs ON cs.company_id = gc.id AND cs.map_id = gc.current_map_id
     WHERE gc.id = ?
   `).bind(companyId).first();
 
@@ -115,50 +134,25 @@ export async function getCompanyStatistics(env, companyId) {
       mapName: null,
       locationType: null,
       buildingsOwned: 0,
+      collapsedBuildings: 0,
       monthlyProfit: 0,
+      grossProfit: 0,
+      taxRate: 0,
+      taxAmount: 0,
+      securityCost: 0,
       netWorth: company.cash,
       buildingsValue: 0,
       cash: company.cash,
       offshore: company.offshore,
+      averageDamage: 0,
+      buildingsOnFire: 0,
+      isEarning: true,
+      lastTickAt: null,
       joinedLocationAt: null
     };
   }
 
-  // Get building count for this company on current map
-  const buildingCount = await env.DB.prepare(`
-    SELECT COUNT(*) as count
-    FROM building_instances bi
-    JOIN tiles t ON bi.tile_id = t.id
-    WHERE bi.company_id = ?
-      AND t.map_id = ?
-      AND bi.is_collapsed = 0
-  `).bind(companyId, company.current_map_id).first();
-
-  // Get monthly profit (most recent tick_income - each tick = 1 in-game month)
-  const profitResult = await env.DB.prepare(`
-    SELECT COALESCE(amount, 0) as monthly_profit
-    FROM game_transactions
-    WHERE company_id = ?
-      AND map_id = ?
-      AND action_type = 'tick_income'
-    ORDER BY created_at DESC
-    LIMIT 1
-  `).bind(companyId, company.current_map_id).first();
-
-  // Get buildings value (cost * health factor)
-  const buildingsValue = await env.DB.prepare(`
-    SELECT COALESCE(SUM(
-      bt.cost * (100 - COALESCE(bi.damage_percent, 0)) / 100
-    ), 0) as total_value
-    FROM building_instances bi
-    JOIN tiles t ON bi.tile_id = t.id
-    JOIN building_types bt ON bi.building_type_id = bt.id
-    WHERE bi.company_id = ?
-      AND t.map_id = ?
-      AND bi.is_collapsed = 0
-  `).bind(companyId, company.current_map_id).first();
-
-  // Get when company joined the location (first transaction on this map or location join)
+  // Get when company joined the location (first transaction on this map)
   const joinedAt = await env.DB.prepare(`
     SELECT MIN(created_at) as joined_at
     FROM game_transactions
@@ -166,7 +160,7 @@ export async function getCompanyStatistics(env, companyId) {
       AND map_id = ?
   `).bind(companyId, company.current_map_id).first();
 
-  const buildingsVal = Math.round(buildingsValue?.total_value || 0);
+  const buildingsVal = Math.round(company.damaged_building_value || 0);
 
   return {
     companyId: company.id,
@@ -174,12 +168,23 @@ export async function getCompanyStatistics(env, companyId) {
     mapId: company.current_map_id,
     mapName: company.map_name,
     locationType: company.location_type,
-    buildingsOwned: buildingCount?.count || 0,
-    monthlyProfit: Math.round(profitResult?.monthly_profit || 0),
+    buildingsOwned: company.building_count || 0,
+    collapsedBuildings: company.collapsed_count || 0,
+    monthlyProfit: Math.round(company.net_profit || 0),
+    grossProfit: Math.round(company.gross_profit || 0),
+    baseProfit: Math.round(company.base_profit || 0),
+    taxRate: company.tax_rate || 0,
+    taxAmount: Math.round(company.tax_amount || 0),
+    securityCost: Math.round(company.security_cost || 0),
     netWorth: Math.round(company.cash + buildingsVal),
     buildingsValue: buildingsVal,
+    totalBuildingsValue: Math.round(company.total_building_value || 0),
     cash: company.cash,
     offshore: company.offshore,
+    averageDamage: Math.round(company.average_damage_percent || 0),
+    buildingsOnFire: company.buildings_on_fire || 0,
+    isEarning: company.is_earning === 1,
+    lastTickAt: company.last_tick_at,
     joinedLocationAt: joinedAt?.joined_at || null
   };
 }

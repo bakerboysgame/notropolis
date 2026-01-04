@@ -5,24 +5,26 @@
 
 /**
  * Get events for a map with filtering and pagination
- * Events are from game_transactions and attacks tables
+ * Only returns events where the requesting company is involved (as actor or target)
  *
  * @param {Object} env - Worker environment with DB binding
  * @param {string} mapId - Map ID to get events for
+ * @param {string} companyId - The requesting company's ID (required - only shows their events)
  * @param {Object} options - Query options
- * @param {string} options.byCompanyId - Filter events by actor (who performed the action)
- * @param {string} options.toCompanyId - Filter events to a target (who was affected)
+ * @param {string} options.byCompanyId - Additional filter by actor (who performed the action)
+ * @param {string} options.toCompanyId - Additional filter to a target (who was affected)
  * @param {number} options.limit - Number of events to return (default 25)
  * @param {number} options.offset - Offset for pagination (default 0)
  * @returns {Object} { events, hasMore, total }
  */
-export async function getMapEvents(env, mapId, options = {}) {
+export async function getMapEvents(env, mapId, companyId, options = {}) {
   const { byCompanyId, toCompanyId, limit = 25, offset = 0 } = options;
 
-  // Build WHERE conditions
-  const conditions = ['gt.map_id = ?'];
-  const params = [mapId];
+  // Build WHERE conditions - always filter to events involving the requesting company
+  const conditions = ['gt.map_id = ?', '(gt.company_id = ? OR gt.target_company_id = ?)'];
+  const params = [mapId, companyId, companyId];
 
+  // Additional filters narrow down further
   if (byCompanyId) {
     conditions.push('gt.company_id = ?');
     params.push(byCompanyId);
@@ -182,6 +184,19 @@ function formatEventDescription(event, details) {
     case 'security_purchase':
       const securityType = details?.security_type || 'security';
       return `${actor} purchased ${securityType} for ${amount}`;
+
+    case 'cleanup':
+      const cleanedCount = details?.attacks_cleaned || 0;
+      return `${actor} cleaned up ${cleanedCount} trick effect${cleanedCount !== 1 ? 's' : ''} for ${amount}`;
+
+    case 'extinguish':
+      return target
+        ? `${actor} extinguished fire on ${target}'s building`
+        : `${actor} extinguished a fire`;
+
+    case 'repair':
+      const damageFixed = details?.damage_repaired || 0;
+      return `${actor} repaired ${damageFixed}% damage for ${amount}`;
 
     default:
       return `${actor} performed ${event.action_type}`;

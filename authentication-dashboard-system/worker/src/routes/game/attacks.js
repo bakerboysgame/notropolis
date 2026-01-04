@@ -457,3 +457,189 @@ export async function cleanupTrick(request, env, company) {
     cleanup_cost: cleanupCost
   };
 }
+
+/**
+ * POST /api/game/buildings/extinguish
+ * Put out fire on any building (any player can do this - community action)
+ * - Sets is_on_fire = 0
+ * - Marks fire_bomb attacks as cleaned
+ * - FREE action (no cost)
+ */
+export async function extinguishFire(request, env, company) {
+  const { building_id, map_id, x, y } = await request.json();
+
+  // Validate required fields
+  if (!building_id || !map_id || x === undefined || y === undefined) {
+    throw new Error('Missing required fields: building_id, map_id, x, y');
+  }
+
+  // Validate prison status
+  if (company.is_in_prison) {
+    throw new Error(`You are in prison! Pay your fine of $${company.prison_fine?.toLocaleString()} to continue.`);
+  }
+
+  // Get building with location verification
+  const building = await env.DB.prepare(`
+    SELECT bi.*, t.x, t.y, t.map_id, gc.name as owner_name
+    FROM building_instances bi
+    JOIN tiles t ON bi.tile_id = t.id
+    JOIN game_companies gc ON bi.company_id = gc.id
+    WHERE bi.id = ?
+  `).bind(building_id).first();
+
+  if (!building) {
+    throw new Error('Building not found');
+  }
+
+  // Verify location (prevent blind extinguishing by guessing IDs)
+  if (building.map_id !== map_id || building.x !== x || building.y !== y) {
+    throw new Error('Location mismatch');
+  }
+
+  if (!building.is_on_fire) {
+    throw new Error('Building is not on fire');
+  }
+
+  if (building.is_collapsed) {
+    throw new Error('Building has collapsed');
+  }
+
+  // Execute extinguish
+  await env.DB.batch([
+    // Put out fire
+    env.DB.prepare(`
+      UPDATE building_instances SET is_on_fire = 0 WHERE id = ?
+    `).bind(building_id),
+
+    // Mark fire_bomb attacks as cleaned
+    env.DB.prepare(`
+      UPDATE attacks SET is_cleaned = 1
+      WHERE target_building_id = ? AND trick_type = 'fire_bomb' AND is_cleaned = 0
+    `).bind(building_id),
+
+    // Update company action tracking
+    env.DB.prepare(`
+      UPDATE game_companies
+      SET total_actions = total_actions + 1, last_action_at = ?, ticks_since_action = 0
+      WHERE id = ?
+    `).bind(new Date().toISOString(), company.id),
+
+    // Log transaction
+    env.DB.prepare(`
+      INSERT INTO game_transactions (id, company_id, map_id, action_type, target_building_id, target_company_id, amount)
+      VALUES (?, ?, ?, 'extinguish', ?, ?, 0)
+    `).bind(
+      crypto.randomUUID(),
+      company.id,
+      building.map_id,
+      building_id,
+      building.company_id
+    ),
+  ]);
+
+  // Mark adjacent buildings dirty (fire status affects adjacency)
+  await markAffectedBuildingsDirty(env, building.x, building.y, building.map_id);
+
+  return {
+    success: true,
+    building_id,
+    owner_name: building.owner_name,
+    message: 'Fire extinguished'
+  };
+}
+
+/**
+ * POST /api/game/buildings/repair
+ * Fully repair building damage (owner only)
+ * - Resets damage_percent to 0
+ * - Cost = damage_percent% of building base cost
+ * - Cannot repair collapsed buildings (must demolish)
+ */
+export async function repairBuilding(request, env, company) {
+  const { building_id } = await request.json();
+
+  if (!building_id) {
+    throw new Error('Missing required field: building_id');
+  }
+
+  // Validate prison status
+  if (company.is_in_prison) {
+    throw new Error(`You are in prison! Pay your fine of $${company.prison_fine?.toLocaleString()} to continue.`);
+  }
+
+  // Get building with type info
+  const building = await env.DB.prepare(`
+    SELECT bi.*, bt.cost as type_cost, bt.name as type_name,
+           t.x, t.y, t.map_id
+    FROM building_instances bi
+    JOIN building_types bt ON bi.building_type_id = bt.id
+    JOIN tiles t ON bi.tile_id = t.id
+    WHERE bi.id = ? AND bi.company_id = ?
+  `).bind(building_id, company.id).first();
+
+  if (!building) {
+    throw new Error('Building not found or not owned by you');
+  }
+
+  if (building.is_collapsed) {
+    throw new Error('Cannot repair collapsed buildings - use demolish instead');
+  }
+
+  if (building.damage_percent === 0) {
+    throw new Error('Building is not damaged');
+  }
+
+  if (building.is_on_fire) {
+    throw new Error('Put out the fire before repairing');
+  }
+
+  // Calculate repair cost: damage% of building base cost
+  // e.g., 75% damage on $100,000 building = $75,000 to repair
+  const repairCost = Math.round(building.type_cost * (building.damage_percent / 100));
+
+  if (company.cash < repairCost) {
+    throw new Error(`Insufficient funds. Repair costs $${repairCost.toLocaleString()}`);
+  }
+
+  const oldDamage = building.damage_percent;
+
+  // Execute repair
+  await env.DB.batch([
+    // Reset damage to 0
+    env.DB.prepare(`
+      UPDATE building_instances
+      SET damage_percent = 0, needs_profit_recalc = 1
+      WHERE id = ?
+    `).bind(building_id),
+
+    // Deduct cost from company
+    env.DB.prepare(`
+      UPDATE game_companies
+      SET cash = cash - ?, total_actions = total_actions + 1,
+          last_action_at = ?, ticks_since_action = 0
+      WHERE id = ?
+    `).bind(repairCost, new Date().toISOString(), company.id),
+
+    // Log transaction
+    env.DB.prepare(`
+      INSERT INTO game_transactions (id, company_id, map_id, action_type, target_building_id, amount, details)
+      VALUES (?, ?, ?, 'repair', ?, ?, ?)
+    `).bind(
+      crypto.randomUUID(),
+      company.id,
+      building.map_id,
+      building_id,
+      -repairCost,
+      JSON.stringify({ damage_repaired: oldDamage })
+    ),
+  ]);
+
+  // Mark adjacent buildings dirty (damage affects adjacency penalties)
+  await markAffectedBuildingsDirty(env, building.x, building.y, building.map_id);
+
+  return {
+    success: true,
+    damage_repaired: oldDamage,
+    repair_cost: repairCost
+  };
+}

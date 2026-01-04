@@ -22,7 +22,9 @@ import {
   performAttack,
   payFine,
   getAttackHistory,
-  cleanupTrick
+  cleanupTrick,
+  extinguishFire,
+  repairBuilding
 } from './src/routes/game/attacks.js';
 import {
   purchaseSecurity,
@@ -500,6 +502,12 @@ export default {
         case path === '/api/game/buildings/cleanup' && method === 'POST':
           return handleMarketAction(request, authService, env, corsHeaders, cleanupTrick);
 
+        case path === '/api/game/buildings/extinguish' && method === 'POST':
+          return handleMarketAction(request, authService, env, corsHeaders, extinguishFire);
+
+        case path === '/api/game/buildings/repair' && method === 'POST':
+          return handleMarketAction(request, authService, env, corsHeaders, repairBuilding);
+
         // ==================== GAME HEARTBEAT ENDPOINT ====================
         case path === '/api/game/heartbeat' && method === 'POST':
           return handleMarketAction(request, authService, env, corsHeaders, handleHeartbeat);
@@ -612,7 +620,7 @@ export default {
           const limit = parseInt(url.searchParams.get('limit') || '25', 10);
           const offset = parseInt(url.searchParams.get('offset') || '0', 10);
 
-          const result = await getMapEvents(env, company.current_map_id, {
+          const result = await getMapEvents(env, company.current_map_id, company.id, {
             byCompanyId,
             toCompanyId,
             limit,

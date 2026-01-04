@@ -17,10 +17,10 @@ const TAX_RATES = {
 /**
  * Process profits for a single map
  * 1. Recalculate dirty buildings
- * 2. Get all companies with buildings on this map
+ * 2. Get all companies with buildings on this map (including idle ones for statistics)
  * 3. Calculate profits for active companies (ticks_since_action < 6)
  * 4. Apply tax based on location
- * 5. Update company cash
+ * 5. Update company cash and company_statistics table
  *
  * @param {Object} env - Worker environment with DB binding
  * @param {string} mapId - Map ID to process
@@ -41,26 +41,28 @@ export async function processMapProfits(env, mapId) {
 
   const taxRate = TAX_RATES[map.location_type] || 0.10;
 
-  // Step 3: Get all companies with buildings on this map
-  // Only companies with ticks_since_action < 6 earn profit
-  // Health-based profit: profit * (100 - damage_percent * 1.176) / 100
-  // 85% damage (15% health) = $0 profit, then goes NEGATIVE
-  // Note: Trick debuffs (graffiti, smoke, stink) are separate and will stack on top (Stage 08)
-  // Deduct security costs: monthly_cost / 144 (10 min ticks in a month)
+  // Step 3: Get ALL companies with buildings on this map (for statistics)
+  // We need comprehensive data for the statistics table
   const companiesWithBuildings = await env.DB.prepare(`
     SELECT
       gc.id,
       gc.cash,
       gc.ticks_since_action,
-      SUM(COALESCE(bi.calculated_profit, 0) * (100 - bi.damage_percent * 1.176) / 100) as total_profit,
-      SUM(COALESCE(bs.monthly_cost, 0)) / 144 as total_security_cost
+      COUNT(bi.id) as building_count,
+      SUM(CASE WHEN bi.is_collapsed = 1 THEN 1 ELSE 0 END) as collapsed_count,
+      SUM(CASE WHEN bi.is_collapsed = 0 THEN COALESCE(bi.calculated_profit, 0) ELSE 0 END) as base_profit,
+      SUM(CASE WHEN bi.is_collapsed = 0 THEN COALESCE(bi.calculated_profit, 0) * (100 - bi.damage_percent * 1.176) / 100 ELSE 0 END) as gross_profit,
+      SUM(CASE WHEN bi.is_collapsed = 0 THEN COALESCE(bs.monthly_cost, 0) ELSE 0 END) / 144 as total_security_cost,
+      SUM(CASE WHEN bi.is_collapsed = 0 THEN bt.cost ELSE 0 END) as total_building_value,
+      SUM(CASE WHEN bi.is_collapsed = 0 THEN bt.cost * (100 - COALESCE(bi.damage_percent, 0)) / 100 ELSE 0 END) as damaged_building_value,
+      SUM(CASE WHEN bi.is_collapsed = 0 THEN bi.damage_percent ELSE 0 END) as total_damage_percent,
+      SUM(CASE WHEN bi.is_collapsed = 0 AND bi.is_on_fire = 1 THEN 1 ELSE 0 END) as buildings_on_fire
     FROM game_companies gc
     JOIN building_instances bi ON bi.company_id = gc.id
     JOIN tiles t ON bi.tile_id = t.id
+    JOIN building_types bt ON bi.building_type_id = bt.id
     LEFT JOIN building_security bs ON bi.id = bs.building_id
     WHERE t.map_id = ?
-      AND bi.is_collapsed = 0
-      AND gc.ticks_since_action < 6
     GROUP BY gc.id
   `).bind(mapId).all();
 
@@ -81,36 +83,102 @@ export async function processMapProfits(env, mapId) {
   let totalNetProfit = 0;
 
   for (const company of companiesWithBuildings.results) {
-    const grossProfit = Math.round(company.total_profit || 0);
+    const isEarning = company.ticks_since_action < 6;
+    const activeBuildings = company.building_count - (company.collapsed_count || 0);
+    const baseProfit = Math.round(company.base_profit || 0);
+    const grossProfit = Math.round(company.gross_profit || 0);
     const securityCost = Math.round(company.total_security_cost || 0);
     const taxAmount = Math.round(grossProfit * taxRate);
-    const netProfit = grossProfit - taxAmount - securityCost;
-    const newCash = company.cash + netProfit;
+    const netProfit = isEarning ? grossProfit - taxAmount - securityCost : 0;
+    const avgDamage = activeBuildings > 0
+      ? (company.total_damage_percent || 0) / activeBuildings
+      : 0;
 
-    totalGrossProfit += grossProfit;
-    totalTaxAmount += taxAmount;
-    totalNetProfit += netProfit;
+    if (isEarning) {
+      const newCash = company.cash + netProfit;
+      totalGrossProfit += grossProfit;
+      totalTaxAmount += taxAmount;
+      totalNetProfit += netProfit;
 
-    // Update company cash and increment ticks_since_action
+      // Update company cash and increment ticks_since_action
+      statements.push(
+        env.DB.prepare(`
+          UPDATE game_companies
+          SET cash = ?, ticks_since_action = ticks_since_action + 1
+          WHERE id = ?
+        `).bind(newCash, company.id)
+      );
+
+      // Record tick_income transaction for history
+      statements.push(
+        env.DB.prepare(`
+          INSERT INTO game_transactions (id, company_id, map_id, action_type, amount, details)
+          VALUES (?, ?, ?, 'tick_income', ?, ?)
+        `).bind(
+          crypto.randomUUID(),
+          company.id,
+          mapId,
+          netProfit,
+          JSON.stringify({
+            base_profit: baseProfit,
+            gross_profit: grossProfit,
+            tax_rate: taxRate,
+            tax_amount: taxAmount,
+            security_cost: securityCost,
+            net_profit: netProfit
+          })
+        )
+      );
+    }
+
+    // Always update statistics table (even for idle companies)
     statements.push(
       env.DB.prepare(`
-        UPDATE game_companies
-        SET cash = ?, ticks_since_action = ticks_since_action + 1
-        WHERE id = ?
-      `).bind(newCash, company.id)
-    );
-
-    // Record tick_income transaction for statistics tracking
-    statements.push(
-      env.DB.prepare(`
-        INSERT INTO game_transactions (id, company_id, map_id, action_type, amount, description)
-        VALUES (?, ?, ?, 'tick_income', ?, ?)
+        INSERT INTO company_statistics (
+          id, company_id, map_id,
+          building_count, collapsed_count,
+          base_profit, gross_profit, tax_rate, tax_amount, security_cost, net_profit,
+          total_building_value, damaged_building_value,
+          total_damage_percent, average_damage_percent, buildings_on_fire,
+          ticks_since_action, is_earning,
+          last_tick_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+        ON CONFLICT (company_id, map_id) DO UPDATE SET
+          building_count = excluded.building_count,
+          collapsed_count = excluded.collapsed_count,
+          base_profit = excluded.base_profit,
+          gross_profit = excluded.gross_profit,
+          tax_rate = excluded.tax_rate,
+          tax_amount = excluded.tax_amount,
+          security_cost = excluded.security_cost,
+          net_profit = excluded.net_profit,
+          total_building_value = excluded.total_building_value,
+          damaged_building_value = excluded.damaged_building_value,
+          total_damage_percent = excluded.total_damage_percent,
+          average_damage_percent = excluded.average_damage_percent,
+          buildings_on_fire = excluded.buildings_on_fire,
+          ticks_since_action = excluded.ticks_since_action,
+          is_earning = excluded.is_earning,
+          last_tick_at = CURRENT_TIMESTAMP
       `).bind(
         crypto.randomUUID(),
         company.id,
         mapId,
+        company.building_count,
+        company.collapsed_count || 0,
+        baseProfit,
+        grossProfit,
+        taxRate,
+        taxAmount,
+        securityCost,
         netProfit,
-        `Tick income: £${grossProfit} gross - £${taxAmount} tax - £${securityCost} security = £${netProfit} net`
+        Math.round(company.total_building_value || 0),
+        Math.round(company.damaged_building_value || 0),
+        Math.round(company.total_damage_percent || 0),
+        Math.round(avgDamage * 100) / 100,
+        company.buildings_on_fire || 0,
+        company.ticks_since_action,
+        isEarning ? 1 : 0
       )
     );
   }
@@ -119,7 +187,7 @@ export async function processMapProfits(env, mapId) {
   await env.DB.batch(statements);
 
   return {
-    companiesUpdated: statements.length,
+    companiesUpdated: companiesWithBuildings.results.filter(c => c.ticks_since_action < 6).length,
     buildingsRecalculated,
     grossProfit: totalGrossProfit,
     taxAmount: totalTaxAmount,
