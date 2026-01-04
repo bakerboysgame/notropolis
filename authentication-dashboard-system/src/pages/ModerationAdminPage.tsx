@@ -456,23 +456,6 @@ export default function ModerationAdminPage() {
                 </p>
               </div>
 
-              {/* Name user prompt */}
-              <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Name User Prompt (Boss/Company)
-                </label>
-                <textarea
-                  value={nameUserPrompt}
-                  onChange={(e) => setNameUserPrompt(e.target.value)}
-                  rows={2}
-                  placeholder='{type} to review: "{content}"'
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 font-mono text-xs"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  Use <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded">{'{type}'}</code> for "boss name" or "company name" and <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded">{'{content}'}</code> for the actual name
-                </p>
-              </div>
-
               {/* Save button */}
               <button
                 onClick={handleSave}
@@ -597,6 +580,46 @@ export default function ModerationAdminPage() {
                 <label htmlFor="attack_enabled" className="text-gray-700 dark:text-gray-300">
                   Enable AI moderation for attack messages
                 </label>
+              </div>
+
+              {/* Model selector */}
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Model
+                </label>
+                <select
+                  value={model}
+                  onChange={(e) => setModel(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                >
+                  {settings?.available_models.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.name} - {m.description}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-500 mt-1">
+                  Shared with Chat Settings
+                </p>
+              </div>
+
+              {/* Temperature */}
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Temperature: {temperature}
+                </label>
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.05"
+                  value={temperature}
+                  onChange={(e) => setTemperature(parseFloat(e.target.value))}
+                  className="w-full h-2 bg-gray-200 rounded-lg cursor-pointer accent-orange-600"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  0 = deterministic (recommended), 1 = creative. Shared with Chat Settings
+                </p>
               </div>
 
               {/* Attack system prompt */}
@@ -745,6 +768,46 @@ export default function ModerationAdminPage() {
                 <label htmlFor="name_enabled" className="text-gray-700 dark:text-gray-300">
                   Enable AI moderation for boss/company names
                 </label>
+              </div>
+
+              {/* Model selector */}
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Model
+                </label>
+                <select
+                  value={model}
+                  onChange={(e) => setModel(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                >
+                  {settings?.available_models.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.name} - {m.description}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-500 mt-1">
+                  Shared with Chat Settings
+                </p>
+              </div>
+
+              {/* Temperature */}
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Temperature: {temperature}
+                </label>
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.05"
+                  value={temperature}
+                  onChange={(e) => setTemperature(parseFloat(e.target.value))}
+                  className="w-full h-2 bg-gray-200 rounded-lg cursor-pointer accent-blue-600"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  0 = deterministic (recommended), 1 = creative. Shared with Chat Settings
+                </p>
               </div>
 
               {/* Name system prompt */}
