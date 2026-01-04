@@ -10,6 +10,7 @@ import {
   X,
   Loader2,
   Clock,
+  MessageSquare,
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../components/ui/Toast';
@@ -18,6 +19,7 @@ import {
   ModerationSettings,
   ModerationLogEntry,
   TestResult,
+  AttackMessageEntry,
 } from '../services/moderationAdminApi';
 
 export default function ModerationAdminPage() {
@@ -48,8 +50,13 @@ export default function ModerationAdminPage() {
   const [testing, setTesting] = useState(false);
 
   // Tab state
-  const [activeTab, setActiveTab] = useState<'settings' | 'log'>('settings');
+  const [activeTab, setActiveTab] = useState<'settings' | 'log' | 'attacks'>('settings');
   const [showRejectedOnly, setShowRejectedOnly] = useState(false);
+
+  // Attack messages state
+  const [attackMessages, setAttackMessages] = useState<AttackMessageEntry[]>([]);
+  const [attackMessagesStatus, setAttackMessagesStatus] = useState<'pending' | 'approved' | 'rejected' | 'all'>('pending');
+  const [processingAttackId, setProcessingAttackId] = useState<number | null>(null);
 
   // Load data
   useEffect(() => {
@@ -136,6 +143,51 @@ export default function ModerationAdminPage() {
     }
   }, [activeTab, showRejectedOnly]);
 
+  // Load attack messages
+  const loadAttackMessages = async () => {
+    try {
+      const messages = await moderationAdminApi.getAttackMessages({
+        status: attackMessagesStatus,
+        limit: 50,
+      });
+      setAttackMessages(messages);
+    } catch (err) {
+      showToast('Failed to load attack messages', 'error');
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'attacks') {
+      loadAttackMessages();
+    }
+  }, [activeTab, attackMessagesStatus]);
+
+  const handleApproveAttackMessage = async (id: number) => {
+    setProcessingAttackId(id);
+    try {
+      await moderationAdminApi.approveAttackMessage(id);
+      showToast('Message approved', 'success');
+      loadAttackMessages();
+    } catch (err) {
+      showToast('Failed to approve message', 'error');
+    } finally {
+      setProcessingAttackId(null);
+    }
+  };
+
+  const handleRejectAttackMessage = async (id: number) => {
+    setProcessingAttackId(id);
+    try {
+      await moderationAdminApi.rejectAttackMessage(id);
+      showToast('Message rejected', 'success');
+      loadAttackMessages();
+    } catch (err) {
+      showToast('Failed to reject message', 'error');
+    } finally {
+      setProcessingAttackId(null);
+    }
+  };
+
   // Access denied
   if (!isMasterAdmin) {
     return (
@@ -216,6 +268,22 @@ export default function ModerationAdminPage() {
             }`}
           >
             Moderation Log ({log.length})
+          </button>
+          <button
+            onClick={() => setActiveTab('attacks')}
+            className={`py-4 px-1 border-b-2 font-medium text-sm flex items-center gap-2 ${
+              activeTab === 'attacks'
+                ? 'border-red-500 text-red-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            <MessageSquare className="w-4 h-4" />
+            Attack Messages
+            {attackMessagesStatus === 'pending' && attackMessages.length > 0 && (
+              <span className="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">
+                {attackMessages.length}
+              </span>
+            )}
           </button>
         </nav>
       </div>
@@ -501,6 +569,139 @@ export default function ModerationAdminPage() {
                       <Clock className="w-3 h-3" />
                       {entry.response_time_ms}ms
                     </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Attack Messages Tab */}
+      {activeTab === 'attacks' && (
+        <div className="bg-white dark:bg-gray-800 shadow-sm rounded-lg p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+              Attack Message Moderation
+            </h2>
+            <div className="flex items-center gap-4">
+              <select
+                value={attackMessagesStatus}
+                onChange={(e) => setAttackMessagesStatus(e.target.value as typeof attackMessagesStatus)}
+                className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"
+              >
+                <option value="pending">Pending</option>
+                <option value="approved">Approved</option>
+                <option value="rejected">Rejected</option>
+                <option value="all">All</option>
+              </select>
+              <button
+                onClick={loadAttackMessages}
+                className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              >
+                <RefreshCw className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+            Players can leave messages when attacking buildings. These messages require approval before being visible on buildings.
+          </p>
+
+          <div className="space-y-3">
+            {attackMessages.length === 0 ? (
+              <p className="text-gray-500 text-center py-8">
+                {attackMessagesStatus === 'pending'
+                  ? 'No pending messages to review.'
+                  : 'No messages found.'}
+              </p>
+            ) : (
+              attackMessages.map((msg) => (
+                <div
+                  key={msg.id}
+                  className={`p-4 rounded-lg border ${
+                    msg.message_status === 'pending'
+                      ? 'border-yellow-200 dark:border-yellow-800 bg-yellow-50 dark:bg-yellow-900/10'
+                      : msg.message_status === 'approved'
+                      ? 'border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/10'
+                      : 'border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/10'
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1">
+                      {/* Message content */}
+                      <p className="text-lg text-gray-900 dark:text-gray-100 mb-2 italic">
+                        "{msg.message}"
+                      </p>
+
+                      {/* Attacker info */}
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                          From: {msg.attacker_boss_name} ({msg.attacker_company_name})
+                        </span>
+                        <span className="text-xs px-2 py-0.5 bg-gray-200 dark:bg-gray-700 rounded">
+                          {msg.trick_type.replace('_', ' ')}
+                        </span>
+                      </div>
+
+                      {/* Target info */}
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        Target: {msg.building_name} owned by {msg.target_company_name} at ({msg.x}, {msg.y}) in {msg.map_name}
+                      </p>
+
+                      {/* Timestamp */}
+                      <p className="text-xs text-gray-500 mt-1">
+                        {new Date(msg.created_at).toLocaleString()}
+                      </p>
+
+                      {/* Rejection reason */}
+                      {msg.message_rejection_reason && (
+                        <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+                          Rejected: {msg.message_rejection_reason}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Actions */}
+                    {msg.message_status === 'pending' && (
+                      <div className="flex flex-col gap-2">
+                        <button
+                          onClick={() => handleApproveAttackMessage(msg.id)}
+                          disabled={processingAttackId === msg.id}
+                          className="flex items-center gap-1 px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700 disabled:opacity-50"
+                        >
+                          {processingAttackId === msg.id ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <CheckCircle className="w-4 h-4" />
+                          )}
+                          Approve
+                        </button>
+                        <button
+                          onClick={() => handleRejectAttackMessage(msg.id)}
+                          disabled={processingAttackId === msg.id}
+                          className="flex items-center gap-1 px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 disabled:opacity-50"
+                        >
+                          {processingAttackId === msg.id ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <X className="w-4 h-4" />
+                          )}
+                          Reject
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Status badge */}
+                    {msg.message_status !== 'pending' && (
+                      <span className={`px-2 py-1 text-xs rounded ${
+                        msg.message_status === 'approved'
+                          ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
+                          : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
+                      }`}>
+                        {msg.message_status}
+                      </span>
+                    )}
                   </div>
                 </div>
               ))

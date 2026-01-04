@@ -43,6 +43,7 @@ export async function processMapProfits(env, mapId) {
 
   // Step 3: Get ALL companies with buildings on this map (for statistics)
   // We need comprehensive data for the statistics table
+  // Collapsed buildings incur a maintenance cost of 5% of building cost per tick
   const companiesWithBuildings = await env.DB.prepare(`
     SELECT
       gc.id,
@@ -53,6 +54,7 @@ export async function processMapProfits(env, mapId) {
       SUM(CASE WHEN bi.is_collapsed = 0 THEN COALESCE(bi.calculated_profit, 0) ELSE 0 END) as base_profit,
       SUM(CASE WHEN bi.is_collapsed = 0 THEN COALESCE(bi.calculated_profit, 0) * (100 - bi.damage_percent * 1.176) / 100 ELSE 0 END) as gross_profit,
       SUM(CASE WHEN bi.is_collapsed = 0 THEN COALESCE(bs.monthly_cost, 0) ELSE 0 END) / 144 as total_security_cost,
+      SUM(CASE WHEN bi.is_collapsed = 1 THEN bt.cost * 0.05 ELSE 0 END) as collapsed_maintenance_cost,
       SUM(CASE WHEN bi.is_collapsed = 0 THEN bt.cost ELSE 0 END) as total_building_value,
       SUM(CASE WHEN bi.is_collapsed = 0 THEN bt.cost * (100 - COALESCE(bi.damage_percent, 0)) / 100 ELSE 0 END) as damaged_building_value,
       SUM(CASE WHEN bi.is_collapsed = 0 THEN bi.damage_percent ELSE 0 END) as total_damage_percent,
@@ -88,9 +90,11 @@ export async function processMapProfits(env, mapId) {
     const baseProfit = Math.round(company.base_profit || 0);
     const grossProfit = Math.round(company.gross_profit || 0);
     const securityCost = Math.round(company.total_security_cost || 0);
+    const collapsedMaintenanceCost = Math.round(company.collapsed_maintenance_cost || 0);
     const taxAmount = Math.round(grossProfit * taxRate);
     // Calculate net profit for all companies (used for statistics display)
-    const netProfit = grossProfit - taxAmount - securityCost;
+    // Collapsed buildings incur maintenance costs that reduce profit
+    const netProfit = grossProfit - taxAmount - securityCost - collapsedMaintenanceCost;
     const avgDamage = activeBuildings > 0
       ? (company.total_damage_percent || 0) / activeBuildings
       : 0;
@@ -127,6 +131,7 @@ export async function processMapProfits(env, mapId) {
             tax_rate: taxRate,
             tax_amount: taxAmount,
             security_cost: securityCost,
+            collapsed_maintenance_cost: collapsedMaintenanceCost,
             net_profit: netProfit
           })
         )

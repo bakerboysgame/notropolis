@@ -17,7 +17,12 @@ export default function Layout({ children }: LayoutProps) {
   })
 
   const [mapViewMode, setMapViewMode] = useState<string>(() => {
-    return localStorage.getItem('mapViewMode') || 'none'
+    // Only trust localStorage if we're actually on a map page
+    const path = window.location.pathname
+    if (path.startsWith('/map/')) {
+      return localStorage.getItem('mapViewMode') || 'overview'
+    }
+    return 'none'
   })
 
   // Listen for sidebar state changes

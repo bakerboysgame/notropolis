@@ -84,17 +84,29 @@ export function calculateProfit(tile, buildingType, allTiles, allBuildings, map)
     }
   }
 
-  // Damaged building penalty - scales with damage level
-  // 0% damage = 0% penalty, 50% damage = -5%, 100% damage = -10%
+  // Collapsed and damaged building penalties
   adjacentTiles.forEach(t => {
     const adjBuilding = buildingByTile.get(`${t.x},${t.y}`);
-    if (adjBuilding && adjBuilding.damage_percent > 0) {
-      const penalty = -0.10 * (adjBuilding.damage_percent / 100);
-      totalModifier += penalty;
-      breakdown.push({
-        source: `Damaged building (${adjBuilding.damage_percent}%)`,
-        modifier: penalty
-      });
+    if (adjBuilding) {
+      // Collapsed neighbor penalty - ruined buildings are an eyesore and safety hazard
+      if (adjBuilding.is_collapsed) {
+        const penalty = -0.12; // 12% penalty per collapsed neighbor
+        totalModifier += penalty;
+        breakdown.push({
+          source: 'Collapsed building nearby',
+          modifier: penalty
+        });
+      }
+      // Damaged building penalty - scales with damage level (only for non-collapsed)
+      // 0% damage = 0% penalty, 50% damage = -5%, 100% damage = -10%
+      else if (adjBuilding.damage_percent > 0) {
+        const penalty = -0.10 * (adjBuilding.damage_percent / 100);
+        totalModifier += penalty;
+        breakdown.push({
+          source: `Damaged building (${adjBuilding.damage_percent}%)`,
+          modifier: penalty
+        });
+      }
     }
   });
 
@@ -147,12 +159,13 @@ export async function recalculateDirtyBuildings(env, mapId) {
   if (dirtyBuildings.results.length === 0) return 0;
 
   // Get all tiles and buildings for adjacency lookup
+  // Include collapsed buildings so they can apply penalties to neighbors
   const [allTiles, allBuildings] = await Promise.all([
     env.DB.prepare('SELECT * FROM tiles WHERE map_id = ?').bind(mapId).all(),
     env.DB.prepare(`
       SELECT bi.*, t.x, t.y FROM building_instances bi
       JOIN tiles t ON bi.tile_id = t.id
-      WHERE t.map_id = ? AND bi.is_collapsed = 0
+      WHERE t.map_id = ?
     `).bind(mapId).all()
   ]);
 
@@ -219,8 +232,18 @@ function calculateProfitFromMaps(building, tileByCoord, buildingByCoord) {
         breakdown.push({ source: 'adjacent_building', modifier: bonuses['commercial'] * 0.5 });
       }
 
+      // Collapsed neighbor penalty - ruined buildings are an eyesore and safety hazard
+      if (adjBuilding && adjBuilding.is_collapsed) {
+        const penalty = -0.12; // 12% penalty per collapsed neighbor
+        totalModifier += penalty;
+        breakdown.push({
+          source: 'collapsed_neighbor',
+          modifier: penalty
+        });
+      }
       // Damaged neighbor penalty - scales with damage (0-100% damage = 0-10% penalty)
-      if (adjBuilding && adjBuilding.damage_percent > 0) {
+      // Only applies to non-collapsed buildings (collapsed have their own penalty above)
+      else if (adjBuilding && adjBuilding.damage_percent > 0) {
         const penalty = -0.10 * (adjBuilding.damage_percent / 100);
         totalModifier += penalty;
         breakdown.push({

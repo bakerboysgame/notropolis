@@ -46,6 +46,15 @@ export function GameMap(): JSX.Element {
     };
   }, [viewMode]);
 
+  // Listen for toggle view mode events from Sidebar
+  useEffect(() => {
+    const handleToggleViewMode = () => {
+      setViewMode((prev) => (prev === 'overview' ? 'zoomed' : 'overview'));
+    };
+    window.addEventListener('toggleMapViewMode', handleToggleViewMode);
+    return () => window.removeEventListener('toggleMapViewMode', handleToggleViewMode);
+  }, []);
+
   // Modal state for zoomed view
   const [modalTile, setModalTile] = useState<{ x: number; y: number } | null>(null);
 

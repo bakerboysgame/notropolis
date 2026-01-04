@@ -80,6 +80,10 @@ export default function Sidebar() {
   const [prisonLoading, setPrisonLoading] = useState(false)
   const [prisonError, setPrisonError] = useState<string | null>(null)
   const sidebarRef = useRef<HTMLDivElement>(null)
+  const [mapViewMode, setMapViewMode] = useState<'overview' | 'zoomed' | 'none'>(() => {
+    const saved = localStorage.getItem('mapViewMode')
+    return (saved === 'overview' || saved === 'zoomed') ? saved : 'none'
+  })
   const touchStartX = useRef<number>(0)
   const touchEndX = useRef<number>(0)
 
@@ -111,6 +115,15 @@ export default function Sidebar() {
   useEffect(() => {
     localStorage.setItem('sidebarTransparency', transparency.toString())
   }, [transparency])
+
+  // Listen for map view mode changes
+  useEffect(() => {
+    const handleMapViewModeChange = (e: CustomEvent<'overview' | 'zoomed' | 'none'>) => {
+      setMapViewMode(e.detail)
+    }
+    window.addEventListener('mapViewModeChange', handleMapViewModeChange as EventListener)
+    return () => window.removeEventListener('mapViewModeChange', handleMapViewModeChange as EventListener)
+  }, [])
 
   // Swipe gesture handlers - only trigger on horizontal swipes near edge
   const touchStartY = useRef<number>(0)
@@ -217,22 +230,35 @@ export default function Sidebar() {
     WebkitBackdropFilter: blurAmount > 0 ? `blur(${blurAmount}px) saturate(180%)` : 'none',
   }
 
-  // Minimized state: show a floating tab with arrow to expand
+  // Minimized state: show a floating expand button centered vertically
   if (isMinimized) {
     return (
       <button
         onClick={expandFromMinimized}
         className={clsx(
-          'fixed left-0 bg-neutral-900/90 backdrop-blur-sm border border-neutral-700 border-l-0 shadow-lg transition-all duration-200 z-50 rounded-r-md',
-          // Mobile: larger touch target (min 44px), positioned for easy thumb access
-          // Desktop: taller button for easier access
+          'fixed left-0 top-1/2 -translate-y-1/2 z-50',
+          'bg-gradient-to-r from-neutral-800 to-neutral-900 backdrop-blur-sm',
+          'border border-neutral-600 border-l-0 shadow-xl',
+          'rounded-r-xl transition-all duration-200 group',
           isMobile
-            ? 'top-4 px-2 py-6 active:bg-neutral-700'
-            : 'top-16 px-1 py-8 hover:bg-neutral-700'
+            ? 'px-3 py-8 active:from-neutral-700 active:to-neutral-800'
+            : 'px-2.5 py-10 hover:from-neutral-700 hover:to-neutral-800 hover:shadow-2xl hover:px-4'
         )}
         aria-label="Open menu"
       >
-        <ChevronRight className={clsx('text-neutral-300', isMobile ? 'w-5 h-5' : 'w-4 h-4')} />
+        <div className="relative flex flex-col items-center gap-1">
+          <ChevronRight className={clsx(
+            'text-neutral-300 transition-transform duration-200',
+            isMobile ? 'w-6 h-6' : 'w-5 h-5 group-hover:translate-x-0.5'
+          )} />
+          {unreadCount > 0 && (
+            <span className="absolute -top-3 -right-2 w-4 h-4 bg-red-500 rounded-full border-2 border-neutral-800 animate-pulse flex items-center justify-center">
+              <span className="text-[8px] font-bold text-white">
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            </span>
+          )}
+        </div>
       </button>
     )
   }
@@ -267,6 +293,9 @@ export default function Sidebar() {
           'text-neutral-600 dark:text-neutral-400 transition-transform duration-300',
           isMobile ? 'w-5 h-5' : 'w-4 h-4'
         )} />
+        {isCollapsed && unreadCount > 0 && (
+          <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-white dark:border-neutral-800 animate-pulse" />
+        )}
       </button>
 
       {/* Logo and Brand */}
@@ -300,10 +329,20 @@ export default function Sidebar() {
             const isMasterAdminItem = item.requiresMasterAdmin === true
             const ItemIcon = item.icon
 
+            // Special handling for Map button when already on map page - toggle view mode
+            const isMapButtonOnMapPage = item.pageKey === 'map' && location.pathname.startsWith('/map/')
+            const handleMapClick = (e: React.MouseEvent) => {
+              if (isMapButtonOnMapPage) {
+                e.preventDefault()
+                window.dispatchEvent(new CustomEvent('toggleMapViewMode'))
+              }
+            }
+
             return (
               <li key={item.name}>
                 <Link
                   to={resolvedHref}
+                  onClick={handleMapClick}
                   className={clsx(
                     'flex items-center rounded-lg font-medium transition-all',
                     // Mobile: larger touch targets (min 44px)
@@ -317,12 +356,12 @@ export default function Sidebar() {
                       : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 hover:text-neutral-900 dark:hover:text-neutral-100 active:bg-neutral-200 dark:active:bg-neutral-700',
                     isMasterAdminItem ? 'relative' : ''
                   )}
-                  title={isCollapsed && !isMobile ? item.name : undefined}
+                  title={isCollapsed && !isMobile ? (isMapButtonOnMapPage ? (mapViewMode === 'zoomed' ? 'Zoom Out' : 'Zoom In') : item.name) : undefined}
                 >
                   <ItemIcon className={clsx('flex-shrink-0', isMobile ? 'w-6 h-6' : isCollapsed ? 'w-6 h-6' : 'w-5 h-5')} />
                   {(!isCollapsed || isMobile) && (
                     <span className="whitespace-nowrap flex items-center gap-2 flex-1">
-                      {item.name}
+                      {isMapButtonOnMapPage ? (mapViewMode === 'zoomed' ? 'Overview' : 'Zoom In') : item.name}
                       {isMasterAdminItem && (
                         <span className="text-[10px] bg-primary-100 dark:bg-primary-900/50 text-primary-700 dark:text-primary-300 px-1.5 py-0.5 rounded font-semibold">
                           ADMIN
