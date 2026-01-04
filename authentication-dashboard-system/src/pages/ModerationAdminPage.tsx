@@ -38,6 +38,8 @@ export default function ModerationAdminPage() {
   const [temperature, setTemperature] = useState(0);
   const [maxTokens, setMaxTokens] = useState(256);
   const [systemPrompt, setSystemPrompt] = useState('');
+  const [chatUserPrompt, setChatUserPrompt] = useState('');
+  const [nameUserPrompt, setNameUserPrompt] = useState('');
   const [enabled, setEnabled] = useState(true);
 
   // Test state
@@ -71,6 +73,8 @@ export default function ModerationAdminPage() {
       setTemperature(settingsData.temperature);
       setMaxTokens(settingsData.max_tokens);
       setSystemPrompt(settingsData.system_prompt);
+      setChatUserPrompt(settingsData.chat_user_prompt || '');
+      setNameUserPrompt(settingsData.name_user_prompt || '');
       setEnabled(!!settingsData.enabled);
     } catch (err) {
       showToast('Failed to load settings', 'error');
@@ -87,6 +91,8 @@ export default function ModerationAdminPage() {
         temperature,
         max_tokens: maxTokens,
         system_prompt: systemPrompt,
+        chat_user_prompt: chatUserPrompt,
+        name_user_prompt: nameUserPrompt,
         enabled,
       });
       showToast('Settings saved - changes apply immediately', 'success');
@@ -162,10 +168,10 @@ export default function ModerationAdminPage() {
             <Shield className="w-8 h-8 text-purple-600" />
             <div>
               <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-                Chat Moderation
+                Moderation
               </h1>
               <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                Configure AI moderation for the location message board
+                Configure AI moderation for chat and company/boss name creation
               </p>
             </div>
           </div>
@@ -234,7 +240,7 @@ export default function ModerationAdminPage() {
                   className="h-5 w-5 text-purple-600 rounded"
                 />
                 <label htmlFor="enabled" className="text-gray-700 dark:text-gray-300">
-                  Enable AI moderation for all messages
+                  Enable AI moderation for chat and names
                 </label>
               </div>
 
@@ -293,14 +299,48 @@ export default function ModerationAdminPage() {
               {/* System prompt */}
               <div className="mb-6">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  System Prompt
+                  Chat System Prompt
                 </label>
                 <textarea
                   value={systemPrompt}
                   onChange={(e) => setSystemPrompt(e.target.value)}
-                  rows={16}
+                  rows={12}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 font-mono text-xs"
                 />
+              </div>
+
+              {/* Chat user prompt */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Chat User Prompt
+                </label>
+                <textarea
+                  value={chatUserPrompt}
+                  onChange={(e) => setChatUserPrompt(e.target.value)}
+                  rows={3}
+                  placeholder="Message to review:\n\n{content}"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 font-mono text-xs"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Use <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded">{'{content}'}</code> as placeholder for the message
+                </p>
+              </div>
+
+              {/* Name user prompt */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Name User Prompt (Boss/Company)
+                </label>
+                <textarea
+                  value={nameUserPrompt}
+                  onChange={(e) => setNameUserPrompt(e.target.value)}
+                  rows={2}
+                  placeholder='{type} to review: "{content}"'
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 font-mono text-xs"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Use <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded">{'{type}'}</code> for "boss name" or "company name" and <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded">{'{content}'}</code> for the actual name
+                </p>
               </div>
 
               {/* Save button */}

@@ -154,14 +154,19 @@ export function Statistics(): JSX.Element {
                         }`}>
                           {entry.rank}
                         </span>
-                        <span className={`font-medium ${
-                          entry.companyId === activeCompany.id ? 'text-blue-400' : 'text-white'
-                        }`}>
-                          {entry.companyName}
-                          {entry.companyId === activeCompany.id && (
+                        {entry.companyId === activeCompany.id ? (
+                          <span className="font-medium text-blue-400">
+                            {entry.companyName}
                             <span className="ml-2 text-xs text-blue-400">(You)</span>
-                          )}
-                        </span>
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() => navigate(`/enemy-hq/${entry.companyId}`)}
+                            className="font-medium text-white hover:text-purple-400 hover:underline cursor-pointer transition-colors"
+                          >
+                            {entry.companyName}
+                          </button>
+                        )}
                       </div>
                       <div className={`flex items-center gap-2 font-mono font-bold ${
                         entry.monthlyProfit >= 0 ? 'text-green-400' : 'text-red-400'
@@ -208,14 +213,19 @@ export function Statistics(): JSX.Element {
                           }`}>
                             {entry.rank}
                           </span>
-                          <span className={`font-medium ${
-                            entry.companyId === activeCompany.id ? 'text-blue-400' : 'text-white'
-                          }`}>
-                            {entry.companyName}
-                            {entry.companyId === activeCompany.id && (
+                          {entry.companyId === activeCompany.id ? (
+                            <span className="font-medium text-blue-400">
+                              {entry.companyName}
                               <span className="ml-2 text-xs text-blue-400">(You)</span>
-                            )}
-                          </span>
+                            </span>
+                          ) : (
+                            <button
+                              onClick={() => navigate(`/enemy-hq/${entry.companyId}`)}
+                              className="font-medium text-white hover:text-purple-400 hover:underline cursor-pointer transition-colors"
+                            >
+                              {entry.companyName}
+                            </button>
+                          )}
                         </div>
                         <span className="font-mono font-bold text-purple-400">
                           {formatNetWorth(entry.netWorth)}

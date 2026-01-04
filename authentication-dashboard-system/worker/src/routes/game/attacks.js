@@ -33,7 +33,12 @@ const SECURITY_BONUSES = {
  * Perform a dirty trick attack on another player's building
  */
 export async function performAttack(request, env, company) {
-  const { building_id, trick_type } = await request.json();
+  const { building_id, trick_type, map_id, x, y } = await request.json();
+
+  // Validate required fields
+  if (!building_id || !trick_type || !map_id || x === undefined || y === undefined) {
+    throw new Error('Missing required fields: building_id, trick_type, map_id, x, y');
+  }
 
   // Validate trick type
   const trick = DIRTY_TRICKS[trick_type];
@@ -69,6 +74,11 @@ export async function performAttack(request, env, company) {
 
   if (!building) {
     throw new Error('Building not found');
+  }
+
+  // Verify location matches - prevents blind attacks by guessing building IDs
+  if (building.map_id !== map_id || building.x !== x || building.y !== y) {
+    throw new Error('Location mismatch - building is not at the specified coordinates');
   }
 
   // Cannot attack own building
@@ -249,6 +259,15 @@ export async function performAttack(request, env, company) {
     police_active: policeActive,
     police_strike: isStrikeDay,
     levelUp,
+    target: {
+      building_id,
+      owner_name: building.owner_name,
+      owner_company_id: building.company_id,
+      map_id: building.map_id,
+      x: building.x,
+      y: building.y,
+      location_type: building.location_type,
+    },
   };
 }
 

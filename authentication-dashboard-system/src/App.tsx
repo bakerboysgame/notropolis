@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { PermissionsProvider } from './contexts/PermissionsContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { CompanyProvider } from './contexts/CompanyContext';
+import { HighlightProvider } from './contexts/HighlightContext';
 import { ToastProvider } from './components/ui/Toast';
 import { LoginPage } from './pages/LoginPage';
 import { MagicLinkVerification } from './components/auth/MagicLinkVerification';
@@ -29,6 +30,7 @@ import { Avatar } from './pages/Avatar';
 import { Achievements } from './pages/Achievements';
 import { Statistics } from './pages/Statistics';
 import { Events } from './pages/Events';
+import { EnemyHeadquarters } from './pages/EnemyHeadquarters';
 import { ProtectedPageRoute } from './components/ProtectedPageRoute';
 import { api, apiHelpers } from './services/api';
 
@@ -112,6 +114,7 @@ function App() {
       <AuthProvider>
         <PermissionsProvider>
           <CompanyProvider>
+          <HighlightProvider>
           <ToastProvider>
             <Router>
             <Routes>
@@ -123,7 +126,7 @@ function App() {
               {/* Protected Routes with Page-Level Access Control */}
               <Route path="/" element={
                 <ProtectedRoute>
-                  <ProtectedPageRoute pageKey="dashboard">
+                  <ProtectedPageRoute pageKey="dashboard" fallbackPath="/companies">
                     <Layout>
                       <Home />
                     </Layout>
@@ -132,7 +135,7 @@ function App() {
               } />
               <Route path="/home" element={
                 <ProtectedRoute>
-                  <ProtectedPageRoute pageKey="dashboard">
+                  <ProtectedPageRoute pageKey="dashboard" fallbackPath="/companies">
                     <Layout>
                       <Home />
                     </Layout>
@@ -156,6 +159,15 @@ function App() {
                   <ProtectedPageRoute pageKey="statistics">
                     <Layout>
                       <Statistics />
+                    </Layout>
+                  </ProtectedPageRoute>
+                </ProtectedRoute>
+              } />
+              <Route path="/enemy-hq/:companyId" element={
+                <ProtectedRoute>
+                  <ProtectedPageRoute pageKey="statistics">
+                    <Layout>
+                      <EnemyHeadquarters />
                     </Layout>
                   </ProtectedPageRoute>
                 </ProtectedRoute>
@@ -286,7 +298,9 @@ function App() {
               {/* Game Map Route */}
               <Route path="/map/:mapId" element={
                 <ProtectedRoute>
-                  <GameMap />
+                  <Layout>
+                    <GameMap />
+                  </Layout>
                 </ProtectedRoute>
               } />
 
@@ -333,6 +347,7 @@ function App() {
             </Routes>
             </Router>
           </ToastProvider>
+          </HighlightProvider>
           </CompanyProvider>
         </PermissionsProvider>
       </AuthProvider>

@@ -1,6 +1,7 @@
 import { useRef, useEffect, useState, useMemo } from 'react';
 import { GameMap, Tile, BuildingInstance } from '../../types/game';
 import { renderMap, screenToTile } from '../../utils/mapRenderer';
+import { useHighlights } from '../../contexts/HighlightContext';
 
 interface MapCanvasProps {
   map: GameMap;
@@ -47,6 +48,14 @@ export function MapCanvas({
     return m;
   }, [buildings]);
 
+  // Get highlighted companies and convert to Map<companyId, color>
+  const { highlightedCompanies } = useHighlights();
+  const highlightMap = useMemo(() => {
+    const m = new Map<string, string>();
+    highlightedCompanies.forEach((data, id) => m.set(id, data.color));
+    return m;
+  }, [highlightedCompanies]);
+
   // Render map whenever dependencies change
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -55,8 +64,8 @@ export function MapCanvas({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    renderMap(ctx, map, tileMap, buildingMap, activeCompanyId, zoom, offset);
-  }, [map, tileMap, buildingMap, activeCompanyId, zoom, offset]);
+    renderMap(ctx, map, tileMap, buildingMap, activeCompanyId, zoom, offset, highlightMap);
+  }, [map, tileMap, buildingMap, activeCompanyId, zoom, offset, highlightMap]);
 
   // Handle canvas resize
   useEffect(() => {
@@ -70,14 +79,14 @@ export function MapCanvas({
       // Re-render after resize
       const ctx = canvas.getContext('2d');
       if (ctx) {
-        renderMap(ctx, map, tileMap, buildingMap, activeCompanyId, zoom, offset);
+        renderMap(ctx, map, tileMap, buildingMap, activeCompanyId, zoom, offset, highlightMap);
       }
     };
 
     handleResize();
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-  }, [map, tileMap, buildingMap, activeCompanyId, zoom, offset]);
+  }, [map, tileMap, buildingMap, activeCompanyId, zoom, offset, highlightMap]);
 
   // Mouse down handler
   const handleMouseDown = (e: React.MouseEvent) => {

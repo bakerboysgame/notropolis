@@ -51,6 +51,16 @@ function hexToRgb(hex: string): { r: number; g: number; b: number } {
 }
 
 /**
+ * Convert hex color to rgba string
+ */
+export function hexToRgba(hex: string, alpha = 0.8): string {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+/**
  * Blend two colors together
  */
 function blendColors(base: string, overlay: string, amount: number): string {
@@ -73,7 +83,8 @@ export function renderMap(
   buildings: Map<string, Building>,
   activeCompanyId: string,
   zoom: number,
-  offset: { x: number; y: number }
+  offset: { x: number; y: number },
+  highlightedCompanies?: Map<string, string>
 ): void {
   const tileSize = TILE_SIZE * zoom;
 
@@ -101,14 +112,19 @@ export function renderMap(
         ? SPECIAL_COLORS[tile.special_building] || TERRAIN_COLORS.free_land
         : TERRAIN_COLORS[tile.terrain_type] || TERRAIN_COLORS.free_land;
 
-      // Check if this is the user's owned property
+      // Check if this is the user's owned property or highlighted
       const isOwnedByUser = tile.owner_company_id === activeCompanyId;
+      const highlightColor = highlightedCompanies?.get(tile.owner_company_id ?? '');
+      const isHighlighted = !!highlightColor;
 
       // Apply ownership overlay
       if (tile.owner_company_id) {
         if (isOwnedByUser) {
           // Solid royal blue for owned tiles (matches halo in zoomed view)
           color = '#3b82f6';
+        } else if (isHighlighted) {
+          // Solid highlight color for highlighted companies (same as user)
+          color = highlightColor;
         } else {
           // Red tint for rival tiles
           color = blendColors(color, '#ef4444', 0.3);
@@ -119,9 +135,9 @@ export function renderMap(
       ctx.fillStyle = color;
       ctx.fillRect(px, py, tileSize - 1, tileSize - 1);
 
-      // Draw building indicator (small dot) - but not for user-owned properties
+      // Draw building indicator (small dot) - but not for user-owned or highlighted properties
       const building = buildings.get(tile.id);
-      if (building && tileSize >= 8 && !isOwnedByUser) {
+      if (building && tileSize >= 8 && !isOwnedByUser && !isHighlighted) {
         // Draw for-sale highlight (yellow border)
         if (building.is_for_sale && !building.is_collapsed) {
           ctx.strokeStyle = '#fbbf24'; // Yellow/gold color

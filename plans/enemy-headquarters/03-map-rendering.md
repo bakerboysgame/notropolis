@@ -12,24 +12,31 @@ Medium
 ## Files to Modify
 
 ### `src/utils/mapRenderer.ts`
-Add parameter and logic:
+Add parameter and logic. **Highlighted companies render exactly like user's own properties:**
 ```typescript
 export function renderMap(
   ctx, map, tiles, buildings, activeCompanyId, zoom, offset,
   highlightedCompanies?: Map<string, string>  // NEW
 ): void {
+  // Check highlight status (treat like ownership for rendering)
+  const isOwnedByUser = tile.owner_company_id === activeCompanyId;
+  const highlightColor = highlightedCompanies?.get(tile.owner_company_id);
+  const isHighlighted = !!highlightColor;
+
   // In ownership section (~line 108):
   if (tile.owner_company_id) {
     if (isOwnedByUser) {
       color = '#3b82f6';  // existing blue
+    } else if (isHighlighted) {
+      color = highlightColor;  // solid highlight color (same as user)
     } else {
-      const highlightColor = highlightedCompanies?.get(tile.owner_company_id);
-      if (highlightColor) {
-        color = highlightColor;  // solid highlight color
-      } else {
-        color = blendColors(color, '#ef4444', 0.3);  // existing red tint
-      }
+      color = blendColors(color, '#ef4444', 0.3);  // red tint for non-highlighted
     }
+  }
+
+  // Skip white dot for BOTH user-owned AND highlighted companies (~line 124):
+  if (building && tileSize >= 8 && !isOwnedByUser && !isHighlighted) {
+    // draw white dot only for non-highlighted rivals
   }
 }
 

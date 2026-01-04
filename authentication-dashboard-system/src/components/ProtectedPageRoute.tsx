@@ -12,6 +12,7 @@ interface ProtectedPageRouteProps {
 // Map page keys to their routes and display names
 // Update this mapping when adding new pages to your application
 const PAGE_ROUTES: Record<string, { path: string; name: string }> = {
+  companies: { path: '/companies', name: 'Companies' },
   dashboard: { path: '/', name: 'Dashboard' },
   analytics: { path: '/analytics', name: 'Analytics' },
   reports: { path: '/reports', name: 'Reports' },

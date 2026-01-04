@@ -5,11 +5,10 @@ import { useActiveCompany } from '../contexts/CompanyContext';
 import { useGameMap } from '../hooks/useGameMap';
 import { MapCanvas } from '../components/game/MapCanvas';
 import { IsometricView } from '../components/game/IsometricView';
-import { TileInfo } from '../components/game/TileInfo';
 import { PropertyModal } from '../components/game/PropertyModal';
 import { MapLegend } from '../components/game/MapLegend';
 import { MapControls } from '../components/game/MapControls';
-import { MapOverview } from '../components/game/MapOverview';
+import { MiniMap } from '../components/game/MiniMap';
 import { PrisonStatus } from '../components/game/PrisonStatus';
 
 type ViewMode = 'overview' | 'zoomed';
@@ -43,8 +42,7 @@ export function GameMap(): JSX.Element {
   // Modal state for zoomed view
   const [modalTile, setModalTile] = useState<{ x: number; y: number } | null>(null);
 
-  // Overview mode state (legacy side panel)
-  const [selectedTile, setSelectedTile] = useState<{ x: number; y: number } | null>(null);
+  // Overview mode state
   const [zoom, setZoom] = useState(1);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
 
@@ -89,13 +87,12 @@ export function GameMap(): JSX.Element {
     );
   }
 
-  const { map, tiles, buildings, playerTileCount, totalFreeLand } = mapData;
+  const { map, tiles, buildings } = mapData;
 
   // Handle click in overview mode - transition to zoomed view
   const handleOverviewClick = (coords: { x: number; y: number }) => {
     setZoomCenter(coords);
     setViewMode('zoomed');
-    setSelectedTile(null); // Clear any selected tile from side panel
   };
 
   // Handle click in zoomed mode - open property modal (skip terrain tiles)
@@ -135,7 +132,6 @@ export function GameMap(): JSX.Element {
   const handleReset = () => {
     setZoom(1);
     setOffset({ x: 0, y: 0 });
-    setSelectedTile(null);
   };
 
   return (
@@ -155,64 +151,41 @@ export function GameMap(): JSX.Element {
 
       {/* Full-screen map area */}
       {viewMode === 'overview' ? (
-        // OVERVIEW MODE - Grid view with side panel
-        <div className="flex h-full">
-          <div className="flex-1 relative overflow-hidden">
-            <MapCanvas
-              map={map}
-              tiles={tiles}
-              buildings={buildings}
-              activeCompanyId={activeCompany.id}
-              zoom={zoom}
-              offset={offset}
-              onTileClick={handleOverviewClick}
-              onPan={setOffset}
-              onZoom={setZoom}
-            />
+        // OVERVIEW MODE - Grid view
+        <div className="h-full relative overflow-hidden">
+          <MapCanvas
+            map={map}
+            tiles={tiles}
+            buildings={buildings}
+            activeCompanyId={activeCompany.id}
+            zoom={zoom}
+            offset={offset}
+            onTileClick={handleOverviewClick}
+            onPan={setOffset}
+            onZoom={setZoom}
+          />
 
-            {/* Back to menu button */}
-            <Link
-              to="/companies"
-              className="absolute top-4 left-4 z-10 flex items-center gap-2 px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition-colors shadow-lg"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              Back to Menu
-            </Link>
+          {/* Back to menu button */}
+          <Link
+            to="/companies"
+            className="absolute top-4 left-4 z-10 flex items-center gap-2 px-4 py-2 bg-gray-800 text-white rounded-lg hover:bg-gray-700 transition-colors shadow-lg"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back to Menu
+          </Link>
 
-            <MapControls
-              zoom={zoom}
-              onZoomIn={handleZoomIn}
-              onZoomOut={handleZoomOut}
-              onReset={handleReset}
-            />
+          <MapControls
+            zoom={zoom}
+            onZoomIn={handleZoomIn}
+            onZoomOut={handleZoomOut}
+            onReset={handleReset}
+          />
 
-            <MapLegend />
+          <MapLegend />
 
-            {/* Click to zoom hint */}
-            <div className="absolute bottom-4 left-4 bg-gray-800/90 px-4 py-2 rounded-lg">
-              <p className="text-gray-300 text-sm">Click any tile to zoom in</p>
-            </div>
-          </div>
-
-          {/* Side panel - hidden on mobile */}
-          <div className="hidden md:block w-80 bg-gray-800 border-l border-gray-700 overflow-y-auto">
-            {selectedTile ? (
-              <TileInfo
-                mapId={map.id}
-                x={selectedTile.x}
-                y={selectedTile.y}
-                map={map}
-                onClose={() => setSelectedTile(null)}
-                onRefresh={refetch}
-              />
-            ) : (
-              <MapOverview
-                map={map}
-                totalTiles={tiles.length}
-                ownedTiles={playerTileCount}
-                totalFreeLand={totalFreeLand}
-              />
-            )}
+          {/* Click to zoom hint */}
+          <div className="absolute bottom-4 left-4 bg-gray-800/90 px-4 py-2 rounded-lg">
+            <p className="text-gray-300 text-sm">Click any tile to zoom in</p>
           </div>
         </div>
       ) : (
@@ -238,10 +211,16 @@ export function GameMap(): JSX.Element {
             Back to Overview
           </button>
 
-          {/* Map info overlay */}
-          <div className="absolute top-4 right-4 z-10 bg-gray-800/90 px-4 py-2 rounded-lg">
-            <p className="text-white font-medium">{map.name}</p>
-            <p className="text-gray-400 text-sm">{map.country}</p>
+          {/* Mini-map overlay */}
+          <div className="absolute top-4 right-4 z-10">
+            <MiniMap
+              map={map}
+              tiles={tiles}
+              buildings={buildings}
+              activeCompanyId={activeCompany.id}
+              centerTile={zoomCenter || { x: Math.floor(map.width / 2), y: Math.floor(map.height / 2) }}
+              onNavigate={setZoomCenter}
+            />
           </div>
 
           {/* Controls hint */}

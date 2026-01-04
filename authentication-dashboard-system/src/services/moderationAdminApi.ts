@@ -7,6 +7,8 @@ export interface ModerationSettings {
   temperature: number;
   max_tokens: number;
   system_prompt: string;
+  chat_user_prompt: string;
+  name_user_prompt: string;
   enabled: boolean;
   updated_at: string;
   updated_by: string | null;

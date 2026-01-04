@@ -62,7 +62,12 @@ const ENDPOINT_AUTHORIZATION = [
   { pattern: '/api/game/buildings/*', roles: [], companyIsolation: false },
 
   // ==================== GAME MARKET ENDPOINTS ====================
-  { pattern: '/api/game/market/*', roles: [], companyIsolation: false }, // All market endpoints require auth
+  { pattern: '/api/game/market/*', roles: [], companyIsolation: false },
+
+  // ==================== GAME PVP ENDPOINTS ====================
+  // Cross-company interactions - business logic handles validation (costs, prison, level requirements)
+  { pattern: '/api/game/attacks', roles: [], companyIsolation: false },
+  { pattern: '/api/game/attacks/*', roles: [], companyIsolation: false },
 
   // ==================== GAME MODERATION ADMIN ENDPOINTS ====================
   { pattern: '/api/game/moderation/*', roles: ['master_admin'], companyIsolation: false },

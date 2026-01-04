@@ -55,7 +55,7 @@ export async function moderateMessage(env, companyId, messageContent) {
         model: settings.model,
         messages: [
           { role: 'system', content: settings.system_prompt },
-          { role: 'user', content: `Message to review:\n\n${messageContent}` },
+          { role: 'user', content: (settings.chat_user_prompt || 'Message to review:\n\n{content}').replace('{content}', messageContent) },
         ],
         temperature: settings.temperature,
         max_tokens: settings.max_tokens,
@@ -155,7 +155,7 @@ Respond with JSON only:
         model: settings.model,
         messages: [
           { role: 'system', content: namePrompt },
-          { role: 'user', content: `${nameType} to review: "${name}"` },
+          { role: 'user', content: (settings.name_user_prompt || '{type} to review: "{content}"').replace('{type}', nameType).replace('{content}', name) },
         ],
         temperature: 0, // Use 0 for consistent moderation
         max_tokens: 100,
@@ -257,7 +257,7 @@ export async function handleUpdateModerationSettings(request, authService, env, 
     });
   }
 
-  const { model, temperature, max_tokens, system_prompt, enabled } = await request.json();
+  const { model, temperature, max_tokens, system_prompt, chat_user_prompt, name_user_prompt, enabled } = await request.json();
 
   // Validate model
   if (model && !DEEPSEEK_MODELS.find(m => m.id === model)) {
@@ -286,6 +286,8 @@ export async function handleUpdateModerationSettings(request, authService, env, 
         temperature = COALESCE(?, temperature),
         max_tokens = COALESCE(?, max_tokens),
         system_prompt = COALESCE(?, system_prompt),
+        chat_user_prompt = COALESCE(?, chat_user_prompt),
+        name_user_prompt = COALESCE(?, name_user_prompt),
         enabled = COALESCE(?, enabled),
         updated_at = CURRENT_TIMESTAMP,
         updated_by = ?
@@ -295,6 +297,8 @@ export async function handleUpdateModerationSettings(request, authService, env, 
     temperature ?? null,
     max_tokens || null,
     system_prompt || null,
+    chat_user_prompt || null,
+    name_user_prompt || null,
     enabled !== undefined ? (enabled ? 1 : 0) : null,
     user.id
   ).run();

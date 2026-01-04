@@ -6,6 +6,8 @@ import {
   gridToScreen,
   screenToGrid,
 } from '../../utils/isometricRenderer';
+import { useHighlights } from '../../contexts/HighlightContext';
+import { hexToRgba } from '../../utils/mapRenderer';
 
 // Responsive tile size: 64px for mobile/tablet, 85px for desktop (2/3 of 128)
 const MOBILE_TILE_SIZE = 64;
@@ -96,6 +98,9 @@ export function IsometricView({
     buildings.forEach((b) => m.set(b.tile_id, b));
     return m;
   }, [buildings]);
+
+  // Get highlight function for company colors
+  const { getCompanyHighlight } = useHighlights();
 
   // Get visible tiles
   const visibleTiles = useMemo(() => {
@@ -221,10 +226,18 @@ export function IsometricView({
           const spriteWidth = buildingSprite.naturalWidth * baseScale * zoom;
           const spriteHeight = buildingSprite.naturalHeight * baseScale * zoom;
 
-          // Ownership glow (blue halo for user's buildings)
+          // Ownership glow (blue halo for user's buildings) or highlight glow
           const isOwned = tile.owner_company_id === activeCompanyId;
+          const highlightColor = !isOwned && tile.owner_company_id
+            ? getCompanyHighlight(tile.owner_company_id) : null;
+
           if (isOwned) {
             ctx.shadowColor = 'rgba(59, 130, 246, 0.8)';
+            ctx.shadowBlur = 12 * zoom;
+            ctx.shadowOffsetX = 0;
+            ctx.shadowOffsetY = 0;
+          } else if (highlightColor) {
+            ctx.shadowColor = hexToRgba(highlightColor, 0.8);
             ctx.shadowBlur = 12 * zoom;
             ctx.shadowOffsetX = 0;
             ctx.shadowOffsetY = 0;
@@ -240,7 +253,7 @@ export function IsometricView({
           );
 
           // Reset shadow
-          if (isOwned) {
+          if (isOwned || highlightColor) {
             ctx.shadowColor = 'transparent';
             ctx.shadowBlur = 0;
           }
@@ -296,10 +309,18 @@ export function IsometricView({
           const spriteWidth = stakeSprite.naturalWidth * stakeScale * zoom;
           const spriteHeight = stakeSprite.naturalHeight * stakeScale * zoom;
 
-          // Blue glow for user's own claim stakes
+          // Blue glow for user's own claim stakes, or highlight color for tracked companies
           const isOwned = tile.owner_company_id === activeCompanyId;
+          const stakeHighlightColor = !isOwned
+            ? getCompanyHighlight(tile.owner_company_id) : null;
+
           if (isOwned) {
             ctx.shadowColor = 'rgba(59, 130, 246, 0.8)';
+            ctx.shadowBlur = 12 * zoom;
+            ctx.shadowOffsetX = 0;
+            ctx.shadowOffsetY = 0;
+          } else if (stakeHighlightColor) {
+            ctx.shadowColor = hexToRgba(stakeHighlightColor, 0.8);
             ctx.shadowBlur = 12 * zoom;
             ctx.shadowOffsetX = 0;
             ctx.shadowOffsetY = 0;
@@ -314,7 +335,7 @@ export function IsometricView({
           );
 
           // Reset shadow
-          if (isOwned) {
+          if (isOwned || stakeHighlightColor) {
             ctx.shadowColor = 'transparent';
             ctx.shadowBlur = 0;
           }
@@ -348,6 +369,7 @@ export function IsometricView({
     map.width,
     map.height,
     baseTileSize,
+    getCompanyHighlight,
   ]);
 
   // Render on changes

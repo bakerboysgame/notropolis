@@ -25,6 +25,7 @@ import { usePermissions } from '../contexts/PermissionsContext'
 import { useFeatureFlags } from '../hooks/useFeatureFlags'
 import { useTheme } from '../contexts/ThemeContext'
 import { useUnreadMessages } from '../hooks/useUnreadMessages'
+import { CompanyHUD } from './CompanyHUD'
 
 type SidebarState = 'expanded' | 'collapsed' | 'minimized'
 
@@ -103,21 +104,25 @@ export default function Sidebar() {
     localStorage.setItem('sidebarTransparency', transparency.toString())
   }, [transparency])
 
-  // Swipe gesture handlers
+  // Swipe gesture handlers - only trigger on horizontal swipes near edge
+  const touchStartY = useRef<number>(0)
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX
+    touchStartY.current = e.touches[0].clientY
   }, [])
 
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
     touchEndX.current = e.touches[0].clientX
   }, [])
 
-  const handleTouchEnd = useCallback(() => {
-    const swipeDistance = touchStartX.current - touchEndX.current
+  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    const swipeDistanceX = touchStartX.current - touchEndX.current
+    const swipeDistanceY = Math.abs(e.changedTouches[0].clientY - touchStartY.current)
     const minSwipeDistance = 50
 
-    if (Math.abs(swipeDistance) > minSwipeDistance) {
-      if (swipeDistance > 0) {
+    // Only trigger swipe if horizontal movement > vertical (not scrolling)
+    if (Math.abs(swipeDistanceX) > minSwipeDistance && Math.abs(swipeDistanceX) > swipeDistanceY) {
+      if (swipeDistanceX > 0) {
         // Swiped left - collapse/minimize
         setSidebarState(prev => prev === 'expanded' ? 'collapsed' : 'minimized')
       } else {
@@ -161,21 +166,16 @@ export default function Sidebar() {
       // Master admin gets user management if company management is enabled
       if (companyManagementEnabled) {
         items.push({ name: 'User Management', href: '/user-management', icon: Users, pageKey: 'user_management', requiresMasterAdmin: true })
+        items.push({ name: 'Company Users', href: '/company-users', icon: Users, pageKey: 'company_users', requiresMasterAdmin: true })
       }
       // Master admin gets audit logs if audit logging is enabled
       if (auditLoggingEnabled) {
         items.push({ name: 'Audit Logs', href: '/audit-logs', icon: ScrollText, pageKey: 'audit_logs', requiresMasterAdmin: true })
       }
-      // Master admin gets map builder
+      // Master admin gets map builder and other admin tools
       items.push({ name: 'Map Builder', href: '/admin/maps', icon: Map, pageKey: 'admin_maps', requiresMasterAdmin: true })
       items.push({ name: 'Chat Moderation', href: '/admin/moderation', icon: Shield, pageKey: 'admin_moderation', requiresMasterAdmin: true })
       items.push({ name: 'Assets', href: '/admin/assets', icon: Image, pageKey: 'admin_assets', requiresMasterAdmin: true })
-    } else if (user?.role === 'admin') {
-      // Admin gets company users if company management is enabled (built-in page)
-      if (companyManagementEnabled) {
-        items.push({ name: 'Company Users', href: '/company-users', icon: Users, pageKey: 'company_users' })
-      }
-      // Note: Audit Logs is master_admin only - admins do not have access
     }
 
     // Filter items based on page access permissions
@@ -226,8 +226,8 @@ export default function Sidebar() {
         className={clsx(
           'h-screen flex flex-col shadow-lg border-r border-neutral-200/50 dark:border-neutral-800/50 transition-all duration-300 ease-in-out relative z-40',
           isCollapsed ? 'w-20' : 'w-64',
-          // On mobile, skip collapsed state - just expanded or minimized
-          isMobile && 'w-72'
+          // On mobile, skip collapsed state - just expanded or minimized, and allow scroll
+          isMobile && 'w-72 overflow-y-auto overscroll-contain'
         )}
         style={glassStyle}
         onTouchStart={handleTouchStart}
@@ -265,6 +265,9 @@ export default function Sidebar() {
           />
         </div>
       </div>
+
+      {/* Company HUD */}
+      <CompanyHUD isCollapsed={isCollapsed} isMobile={isMobile} />
 
       {/* Navigation - grows to fill space */}
       <nav className={clsx('flex-1 px-4 pb-4 overflow-y-auto', isCollapsed && 'px-2')}>
