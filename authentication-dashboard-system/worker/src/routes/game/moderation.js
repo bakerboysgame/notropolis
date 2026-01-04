@@ -401,3 +401,168 @@ export async function handleGetModerationLog(request, authService, env, corsHead
     data: logs.results,
   }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
 }
+
+// Admin API: Get attack messages pending moderation (master_admin only)
+export async function handleGetAttackMessages(request, authService, env, corsHeaders) {
+  const authHeader = request.headers.get('Authorization');
+  if (!authHeader?.startsWith('Bearer ')) {
+    return new Response(JSON.stringify({ success: false, error: 'Unauthorized' }), {
+      status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+
+  let user;
+  try {
+    const result = await authService.getUserFromToken(authHeader.split(' ')[1]);
+    user = result.user;
+  } catch (error) {
+    return new Response(JSON.stringify({ success: false, error: 'Invalid or expired token' }), {
+      status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+
+  if (user.role !== 'master_admin') {
+    return new Response(JSON.stringify({ success: false, error: 'Master admin only' }), {
+      status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+
+  const url = new URL(request.url);
+  const status = url.searchParams.get('status') || 'pending'; // pending, approved, rejected, all
+  const limit = Math.min(parseInt(url.searchParams.get('limit') || '50'), 100);
+
+  let query = `
+    SELECT a.id, a.message, a.message_status, a.trick_type, a.created_at,
+           a.message_moderated_at, a.message_rejection_reason,
+           attacker.name as attacker_company_name, attacker.boss_name as attacker_boss_name,
+           target_company.name as target_company_name,
+           bi.building_type_id, bt.name as building_name,
+           t.x, t.y, m.name as map_name
+    FROM attacks a
+    JOIN game_companies attacker ON a.attacker_company_id = attacker.id
+    JOIN building_instances bi ON a.target_building_id = bi.id
+    JOIN building_types bt ON bi.building_type_id = bt.id
+    JOIN game_companies target_company ON bi.company_id = target_company.id
+    JOIN tiles t ON bi.tile_id = t.id
+    JOIN maps m ON t.map_id = m.id
+    WHERE a.message IS NOT NULL
+  `;
+
+  if (status !== 'all') {
+    query += ` AND a.message_status = '${status}'`;
+  }
+
+  query += ' ORDER BY a.created_at DESC LIMIT ?';
+
+  const messages = await env.DB.prepare(query).bind(limit).all();
+
+  return new Response(JSON.stringify({
+    success: true,
+    data: messages.results,
+  }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+}
+
+// Admin API: Approve attack message (master_admin only)
+export async function handleApproveAttackMessage(request, authService, env, corsHeaders) {
+  const authHeader = request.headers.get('Authorization');
+  if (!authHeader?.startsWith('Bearer ')) {
+    return new Response(JSON.stringify({ success: false, error: 'Unauthorized' }), {
+      status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+
+  let user;
+  try {
+    const result = await authService.getUserFromToken(authHeader.split(' ')[1]);
+    user = result.user;
+  } catch (error) {
+    return new Response(JSON.stringify({ success: false, error: 'Invalid or expired token' }), {
+      status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+
+  if (user.role !== 'master_admin') {
+    return new Response(JSON.stringify({ success: false, error: 'Master admin only' }), {
+      status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+
+  const { attack_id } = await request.json();
+
+  if (!attack_id) {
+    return new Response(JSON.stringify({ success: false, error: 'Attack ID required' }), {
+      status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+
+  const result = await env.DB.prepare(`
+    UPDATE attacks
+    SET message_status = 'approved',
+        message_moderated_at = datetime('now'),
+        message_moderated_by = ?
+    WHERE id = ? AND message IS NOT NULL AND message_status = 'pending'
+  `).bind(user.id, attack_id).run();
+
+  if (result.meta.changes === 0) {
+    return new Response(JSON.stringify({ success: false, error: 'Message not found or already moderated' }), {
+      status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+
+  return new Response(JSON.stringify({ success: true }), {
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+  });
+}
+
+// Admin API: Reject attack message (master_admin only)
+export async function handleRejectAttackMessage(request, authService, env, corsHeaders) {
+  const authHeader = request.headers.get('Authorization');
+  if (!authHeader?.startsWith('Bearer ')) {
+    return new Response(JSON.stringify({ success: false, error: 'Unauthorized' }), {
+      status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+
+  let user;
+  try {
+    const result = await authService.getUserFromToken(authHeader.split(' ')[1]);
+    user = result.user;
+  } catch (error) {
+    return new Response(JSON.stringify({ success: false, error: 'Invalid or expired token' }), {
+      status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+
+  if (user.role !== 'master_admin') {
+    return new Response(JSON.stringify({ success: false, error: 'Master admin only' }), {
+      status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+
+  const { attack_id, reason } = await request.json();
+
+  if (!attack_id) {
+    return new Response(JSON.stringify({ success: false, error: 'Attack ID required' }), {
+      status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+
+  const result = await env.DB.prepare(`
+    UPDATE attacks
+    SET message_status = 'rejected',
+        message_moderated_at = datetime('now'),
+        message_moderated_by = ?,
+        message_rejection_reason = ?
+    WHERE id = ? AND message IS NOT NULL AND message_status = 'pending'
+  `).bind(user.id, reason || null, attack_id).run();
+
+  if (result.meta.changes === 0) {
+    return new Response(JSON.stringify({ success: false, error: 'Message not found or already moderated' }), {
+      status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+
+  return new Response(JSON.stringify({ success: true }), {
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+  });
+}

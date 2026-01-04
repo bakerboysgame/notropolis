@@ -2,11 +2,21 @@ import { useState, useEffect, useCallback } from 'react';
 import { api } from '../services/api';
 import { Tile, BuildingInstance, BuildingSecurity, BuildingType } from '../types/game';
 
+interface AttackMessage {
+  id: number;
+  message: string;
+  trick_type: string;
+  created_at: string;
+  attacker_company_name: string;
+  attacker_boss_name: string;
+}
+
 interface TileDetailData {
   tile: Tile;
   building: (BuildingInstance & BuildingType) | null;
   owner: { name: string } | null;
   security: BuildingSecurity | null;
+  attackMessages: AttackMessage[];
 }
 
 interface UseTileDetailReturn {

@@ -316,8 +316,8 @@ export function CompanyDashboard() {
                 Leave Location
               </button>
             </div>
-            <p className="text-sm text-neutral-500 mt-3">
-              Note: Leaving a location will reset your cash to the lobby state (future feature: sell buildings first).
+            <p className="text-sm text-red-400 mt-3">
+              Warning: Leaving a location will forfeit ALL cash and building value. Your land and buildings will be permanently lost.
             </p>
           </div>
         ) : showLocationPicker ? (

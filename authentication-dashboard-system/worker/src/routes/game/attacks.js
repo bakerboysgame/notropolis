@@ -33,12 +33,15 @@ const SECURITY_BONUSES = {
  * Perform a dirty trick attack on another player's building
  */
 export async function performAttack(request, env, company) {
-  const { building_id, trick_type, map_id, x, y } = await request.json();
+  const { building_id, trick_type, map_id, x, y, message } = await request.json();
 
   // Validate required fields
   if (!building_id || !trick_type || !map_id || x === undefined || y === undefined) {
     throw new Error('Missing required fields: building_id, trick_type, map_id, x, y');
   }
+
+  // Validate optional message (max 100 characters)
+  const attackMessage = message ? String(message).trim().slice(0, 100) : null;
 
   // Validate trick type
   const trick = DIRTY_TRICKS[trick_type];
@@ -189,15 +192,15 @@ export async function performAttack(request, env, company) {
     );
   }
 
-  // Log attack to attacks table
+  // Log attack to attacks table (with optional message for moderation)
   statements.push(
     env.DB.prepare(`
       INSERT INTO attacks (
         attacker_company_id, target_building_id, trick_type,
         damage_dealt, was_caught, caught_by, fine_amount,
-        security_active, police_active
+        security_active, police_active, message, message_status
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).bind(
       company.id,
       building_id,
@@ -207,7 +210,9 @@ export async function performAttack(request, env, company) {
       caughtBy,
       fineAmount,
       securityActive ? 1 : 0,
-      policeActive ? 1 : 0
+      policeActive ? 1 : 0,
+      attackMessage,
+      attackMessage ? 'pending' : null
     )
   );
 
@@ -254,6 +259,7 @@ export async function performAttack(request, env, company) {
     police_active: policeActive,
     police_strike: isStrikeDay,
     levelUp,
+    message_submitted: !!attackMessage,
     target: {
       building_id,
       owner_name: building.owner_name,

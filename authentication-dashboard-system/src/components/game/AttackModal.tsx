@@ -35,6 +35,7 @@ export function AttackModal({
   const [selectedTrick, setSelectedTrick] = useState<TrickType | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState('');
 
   // Check if police are on strike today
   const policeOnStrike = map ? isPoliceStrike(map.police_strike_day) : false;
@@ -56,6 +57,7 @@ export function AttackModal({
         map_id: mapId,
         x,
         y,
+        message: message.trim() || undefined,
       });
 
       if (response.data.success) {
@@ -227,9 +229,30 @@ export function AttackModal({
               </div>
             </div>
 
+            {/* Optional message to leave on the building */}
+            <div className="space-y-2">
+              <label className="block text-sm text-gray-400">
+                Leave a message on the building (optional)
+              </label>
+              <input
+                type="text"
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                maxLength={100}
+                placeholder="Tag your territory..."
+                className="w-full p-3 bg-gray-700 border border-gray-600 rounded-lg text-white placeholder-gray-500 focus:border-red-500 focus:outline-none"
+              />
+              <p className="text-xs text-gray-500">
+                {message.length}/100 characters. Messages require moderation before appearing.
+              </p>
+            </div>
+
             <div className="flex gap-4">
               <button
-                onClick={() => setSelectedTrick(null)}
+                onClick={() => {
+                  setSelectedTrick(null);
+                  setMessage('');
+                }}
                 className="flex-1 py-2 bg-gray-600 text-white rounded hover:bg-gray-500 transition-colors"
                 disabled={loading}
               >

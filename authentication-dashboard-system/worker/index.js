@@ -16,6 +16,7 @@ import {
   cancelListing,
   buyProperty,
   demolishBuilding,
+  takeoverBuilding,
   getMarketListings
 } from './src/routes/game/market.js';
 import {
@@ -47,6 +48,9 @@ import {
   handleUpdateModerationSettings,
   handleTestModeration,
   handleGetModerationLog,
+  handleGetAttackMessages,
+  handleApproveAttackMessage,
+  handleRejectAttackMessage,
   moderateName
 } from './src/routes/game/moderation.js';
 import {
@@ -441,6 +445,15 @@ export default {
         case path === '/api/game/moderation/log' && method === 'GET':
           return handleGetModerationLog(request, authService, env, corsHeaders);
 
+        case path === '/api/game/moderation/attack-messages' && method === 'GET':
+          return handleGetAttackMessages(request, authService, env, corsHeaders);
+
+        case path === '/api/game/moderation/attack-messages/approve' && method === 'POST':
+          return handleApproveAttackMessage(request, authService, env, corsHeaders);
+
+        case path === '/api/game/moderation/attack-messages/reject' && method === 'POST':
+          return handleRejectAttackMessage(request, authService, env, corsHeaders);
+
         // ==================== GAME COMPANY ENDPOINTS ====================
         case path.startsWith('/api/game/companies'):
           return handleGameCompanyRoutes(request, authService, env, corsHeaders);
@@ -485,6 +498,9 @@ export default {
 
         case path === '/api/game/market/demolish' && method === 'POST':
           return handleMarketAction(request, authService, env, corsHeaders, demolishBuilding);
+
+        case path === '/api/game/market/takeover' && method === 'POST':
+          return handleMarketAction(request, authService, env, corsHeaders, takeoverBuilding);
 
         case path === '/api/game/market/listings' && method === 'GET':
           return handleMarketListings(request, env, corsHeaders);
@@ -6557,9 +6573,24 @@ async function handleGetTileDetail(request, authService, env, corsHeaders) {
       `).bind(building.id).first();
     }
 
+    // 5. Get approved attack messages (if building exists)
+    let attackMessages = [];
+    if (building) {
+      const messagesResult = await env.DB.prepare(`
+        SELECT a.id, a.message, a.trick_type, a.created_at,
+               gc.name as attacker_company_name, gc.boss_name as attacker_boss_name
+        FROM attacks a
+        JOIN game_companies gc ON a.attacker_company_id = gc.id
+        WHERE a.target_building_id = ? AND a.message_status = 'approved'
+        ORDER BY a.created_at DESC
+        LIMIT 5
+      `).bind(building.id).all();
+      attackMessages = messagesResult.results || [];
+    }
+
     return new Response(JSON.stringify({
       success: true,
-      data: { tile, building, owner, security }
+      data: { tile, building, owner, security, attackMessages }
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });

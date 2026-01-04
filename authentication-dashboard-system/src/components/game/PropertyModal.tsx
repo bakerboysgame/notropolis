@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Building2, DollarSign, Shield, Flame, ShoppingCart, Hammer, Trash2, AlertCircle } from 'lucide-react';
+import { X, Building2, DollarSign, Shield, Flame, ShoppingCart, Hammer, Trash2, AlertCircle, MessageSquare } from 'lucide-react';
 import { useTileDetail } from '../../hooks/useTileDetail';
 import { useActiveCompany } from '../../contexts/CompanyContext';
 import { BuyLandModal } from './BuyLandModal';
@@ -123,7 +123,7 @@ export function PropertyModal({
     );
   }
 
-  const { tile, building, owner, security } = data;
+  const { tile, building, owner, security, attackMessages } = data;
 
   // Prison state - show pay fine UI instead of property actions
   if (activeCompany?.is_in_prison) {
@@ -366,6 +366,24 @@ export function PropertyModal({
               </div>
             )}
 
+            {/* Attack Messages (graffiti tags) */}
+            {attackMessages && attackMessages.length > 0 && (
+              <div className="p-3 bg-red-900/20 rounded border border-red-800 space-y-2">
+                <div className="flex items-center gap-2 text-red-400 text-sm font-bold">
+                  <MessageSquare className="w-4 h-4" />
+                  Tagged by attackers:
+                </div>
+                {attackMessages.map((msg) => (
+                  <div key={msg.id} className="text-sm pl-6">
+                    <p className="text-white italic">"{msg.message}"</p>
+                    <p className="text-xs text-gray-400">
+                      — {msg.attacker_boss_name} ({msg.attacker_company_name})
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+
             {/* Actions */}
             <div className="space-y-2 pt-2 border-t border-gray-700">
               {/* Extinguish Fire - Any player can do this */}
@@ -410,15 +428,41 @@ export function PropertyModal({
                 </button>
               )}
 
-              {/* Your Empty Property - Build */}
+              {/* Your Empty Property - Build or Sell */}
               {isOwned && !building && !isSpecialBuilding && (
-                <button
-                  onClick={() => setShowBuildModal(true)}
-                  className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
-                >
-                  <Hammer className="w-5 h-5" />
-                  Build...
-                </button>
+                <>
+                  <button
+                    onClick={() => setShowBuildModal(true)}
+                    className="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+                  >
+                    <Hammer className="w-5 h-5" />
+                    Build...
+                  </button>
+                  <button
+                    onClick={async () => {
+                      setActionLoading(true);
+                      setActionError(null);
+                      try {
+                        const response = await api.post<{ success: boolean; sale_value: number; levelUp?: LevelUpData }>('/api/game/market/sell-land-to-state', {
+                          company_id: activeCompany?.id,
+                          tile_id: tile.id,
+                        });
+                        if (response.data.success) {
+                          await handleActionSuccess(response.data.levelUp);
+                        }
+                      } catch (err) {
+                        setActionError(apiHelpers.handleError(err));
+                      } finally {
+                        setActionLoading(false);
+                      }
+                    }}
+                    disabled={actionLoading}
+                    className="w-full py-3 px-4 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    <DollarSign className="w-5 h-5" />
+                    {actionLoading ? 'Selling...' : 'Sell Land to State'}
+                  </button>
+                </>
               )}
 
               {/* Your Property with Building */}

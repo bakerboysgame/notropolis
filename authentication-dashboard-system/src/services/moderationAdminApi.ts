@@ -39,6 +39,23 @@ export interface TestResult {
   error?: string;
 }
 
+export interface AttackMessageEntry {
+  id: number;
+  message: string;
+  message_status: 'pending' | 'approved' | 'rejected';
+  trick_type: string;
+  created_at: string;
+  message_moderated_at: string | null;
+  message_rejection_reason: string | null;
+  attacker_company_name: string;
+  attacker_boss_name: string;
+  target_company_name: string;
+  building_name: string;
+  map_name: string;
+  x: number;
+  y: number;
+}
+
 class ModerationAdminApi {
   private baseUrl = `${config.API_BASE_URL}/api/game/moderation`;
 
@@ -80,6 +97,27 @@ class ModerationAdminApi {
     if (options?.limit) params.set('limit', options.limit.toString());
     if (options?.rejectedOnly) params.set('rejected', 'true');
     return this.fetch(`/log?${params}`);
+  }
+
+  async getAttackMessages(options?: { status?: 'pending' | 'approved' | 'rejected' | 'all'; limit?: number }): Promise<AttackMessageEntry[]> {
+    const params = new URLSearchParams();
+    if (options?.status) params.set('status', options.status);
+    if (options?.limit) params.set('limit', options.limit.toString());
+    return this.fetch(`/attack-messages?${params}`);
+  }
+
+  async approveAttackMessage(attackId: number): Promise<void> {
+    await this.fetch('/attack-messages/approve', {
+      method: 'POST',
+      body: JSON.stringify({ attack_id: attackId }),
+    });
+  }
+
+  async rejectAttackMessage(attackId: number, reason?: string): Promise<void> {
+    await this.fetch('/attack-messages/reject', {
+      method: 'POST',
+      body: JSON.stringify({ attack_id: attackId, reason }),
+    });
   }
 }
 
