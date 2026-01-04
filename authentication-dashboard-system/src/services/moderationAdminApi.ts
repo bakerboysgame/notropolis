@@ -9,7 +9,12 @@ export interface ModerationSettings {
   system_prompt: string;
   chat_user_prompt: string;
   name_user_prompt: string;
+  name_system_prompt: string;
+  name_moderation_enabled: boolean;
   enabled: boolean;
+  attack_system_prompt: string;
+  attack_user_prompt: string;
+  attack_moderation_enabled: boolean;
   updated_at: string;
   updated_by: string | null;
   available_models: Array<{
@@ -87,6 +92,13 @@ class ModerationAdminApi {
 
   async testMessage(message: string): Promise<TestResult> {
     return this.fetch('/test', {
+      method: 'POST',
+      body: JSON.stringify({ message }),
+    });
+  }
+
+  async testAttackMessage(message: string): Promise<TestResult> {
+    return this.fetch('/test-attack', {
       method: 'POST',
       body: JSON.stringify({ message }),
     });

@@ -114,35 +114,16 @@ export async function moderateMessage(env, companyId, messageContent) {
   }
 }
 
-// Moderate a name (company name or boss name) for inappropriate content
-// Uses a simpler prompt focused on name validation
-export async function moderateName(env, nameType, name) {
+// Moderate an attack message using DeepSeek with attack-specific prompts
+export async function moderateAttackMessage(env, companyId, messageContent) {
   const settings = await getModerationSettings(env);
 
-  // If moderation is disabled, allow all
-  if (!settings || !settings.enabled) {
-    return { allowed: true };
+  // If attack moderation is disabled, allow all
+  if (!settings || !settings.attack_moderation_enabled) {
+    return { allowed: true, cached: false };
   }
 
   const startTime = Date.now();
-
-  const namePrompt = `You are a content moderator for a game. Your job is to check if a ${nameType} is appropriate.
-
-REJECT names that contain:
-- Profanity, slurs, or vulgar language
-- Hate speech or discriminatory terms
-- Sexual or explicit content
-- Real-world offensive references
-- Attempts to bypass filters (e.g., "f*ck", "sh1t", letter substitutions)
-
-ALLOW names that are:
-- Creative business/character names
-- Funny but clean names
-- Puns or wordplay (as long as not offensive)
-- Normal names
-
-Respond with JSON only:
-{"allowed": true} or {"allowed": false, "reason": "brief reason"}`;
 
   try {
     const response = await fetch(DEEPSEEK_API_URL, {
@@ -154,7 +135,92 @@ Respond with JSON only:
       body: JSON.stringify({
         model: settings.model,
         messages: [
-          { role: 'system', content: namePrompt },
+          { role: 'system', content: settings.attack_system_prompt },
+          { role: 'user', content: (settings.attack_user_prompt || 'Attack message to review:\n\n{content}').replace('{content}', messageContent) },
+        ],
+        temperature: settings.temperature,
+        max_tokens: settings.max_tokens,
+      }),
+    });
+
+    if (!response.ok) {
+      console.error('DeepSeek API error:', response.status);
+      // On API error, allow message but log it
+      return { allowed: true, error: 'API error' };
+    }
+
+    const data = await response.json();
+    const content = data.choices?.[0]?.message?.content || '';
+
+    // Parse JSON response
+    let result;
+    try {
+      // Handle markdown code blocks
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      result = JSON.parse(jsonMatch ? jsonMatch[0] : content);
+    } catch {
+      console.error('Failed to parse attack moderation response:', content);
+      // On parse error, allow message
+      return { allowed: true, error: 'Parse error' };
+    }
+
+    const responseTimeMs = Date.now() - startTime;
+
+    // Log the moderation decision (skip for test calls to avoid FK constraint)
+    if (companyId !== 'test') {
+      await env.DB.prepare(`
+        INSERT INTO moderation_log (id, company_id, message_content, model_used, allowed, rejection_reason, response_time_ms)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `).bind(
+        crypto.randomUUID(),
+        companyId,
+        `[ATTACK] ${messageContent}`,
+        settings.model,
+        result.allowed ? 1 : 0,
+        result.reason || null,
+        responseTimeMs
+      ).run();
+    }
+
+    return {
+      allowed: result.allowed,
+      reason: result.reason,
+      censored: result.censored || null,
+      responseTimeMs,
+    };
+  } catch (error) {
+    console.error('Attack moderation error:', error);
+    // On error, allow message to avoid blocking users
+    return { allowed: true, error: error.message };
+  }
+}
+
+// Moderate a name (company name or boss name) for inappropriate content
+// Uses configurable prompts from moderation_settings
+export async function moderateName(env, nameType, name) {
+  const settings = await getModerationSettings(env);
+
+  // If name moderation is disabled, allow all
+  if (!settings || !settings.name_moderation_enabled) {
+    return { allowed: true };
+  }
+
+  const startTime = Date.now();
+
+  // Use configurable system prompt, with {type} placeholder for name type
+  const systemPrompt = (settings.name_system_prompt || '').replace('{type}', nameType);
+
+  try {
+    const response = await fetch(DEEPSEEK_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${env.DEEPSEEK_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: settings.model,
+        messages: [
+          { role: 'system', content: systemPrompt },
           { role: 'user', content: (settings.name_user_prompt || '{type} to review: "{content}"').replace('{type}', nameType).replace('{content}', name) },
         ],
         temperature: 0, // Use 0 for consistent moderation
@@ -257,7 +323,11 @@ export async function handleUpdateModerationSettings(request, authService, env, 
     });
   }
 
-  const { model, temperature, max_tokens, system_prompt, chat_user_prompt, name_user_prompt, enabled } = await request.json();
+  const {
+    model, temperature, max_tokens, system_prompt, chat_user_prompt, name_user_prompt, enabled,
+    attack_system_prompt, attack_user_prompt, attack_moderation_enabled,
+    name_system_prompt, name_moderation_enabled
+  } = await request.json();
 
   // Validate model
   if (model && !DEEPSEEK_MODELS.find(m => m.id === model)) {
@@ -289,6 +359,11 @@ export async function handleUpdateModerationSettings(request, authService, env, 
         chat_user_prompt = COALESCE(?, chat_user_prompt),
         name_user_prompt = COALESCE(?, name_user_prompt),
         enabled = COALESCE(?, enabled),
+        attack_system_prompt = COALESCE(?, attack_system_prompt),
+        attack_user_prompt = COALESCE(?, attack_user_prompt),
+        attack_moderation_enabled = COALESCE(?, attack_moderation_enabled),
+        name_system_prompt = COALESCE(?, name_system_prompt),
+        name_moderation_enabled = COALESCE(?, name_moderation_enabled),
         updated_at = CURRENT_TIMESTAMP,
         updated_by = ?
     WHERE id = 'global'
@@ -300,6 +375,11 @@ export async function handleUpdateModerationSettings(request, authService, env, 
     chat_user_prompt || null,
     name_user_prompt || null,
     enabled !== undefined ? (enabled ? 1 : 0) : null,
+    attack_system_prompt || null,
+    attack_user_prompt || null,
+    attack_moderation_enabled !== undefined ? (attack_moderation_enabled ? 1 : 0) : null,
+    name_system_prompt || null,
+    name_moderation_enabled !== undefined ? (name_moderation_enabled ? 1 : 0) : null,
     user.id
   ).run();
 
@@ -346,6 +426,48 @@ export async function handleTestModeration(request, authService, env, corsHeader
 
   // Use a test company ID
   const result = await moderateMessage(env, 'test', message);
+
+  return new Response(JSON.stringify({
+    success: true,
+    data: result,
+  }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+}
+
+// Admin API: Test attack message moderation with sample message (master_admin only)
+export async function handleTestAttackModeration(request, authService, env, corsHeaders) {
+  const authHeader = request.headers.get('Authorization');
+  if (!authHeader?.startsWith('Bearer ')) {
+    return new Response(JSON.stringify({ success: false, error: 'Unauthorized' }), {
+      status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+
+  let user;
+  try {
+    const result = await authService.getUserFromToken(authHeader.split(' ')[1]);
+    user = result.user;
+  } catch (error) {
+    return new Response(JSON.stringify({ success: false, error: 'Invalid or expired token' }), {
+      status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+
+  if (user.role !== 'master_admin') {
+    return new Response(JSON.stringify({ success: false, error: 'Master admin only' }), {
+      status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+
+  const { message } = await request.json();
+
+  if (!message || message.trim().length === 0) {
+    return new Response(JSON.stringify({ success: false, error: 'Message required' }), {
+      status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+
+  // Use a test company ID
+  const result = await moderateAttackMessage(env, 'test', message);
 
   return new Response(JSON.stringify({
     success: true,

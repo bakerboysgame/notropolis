@@ -5,7 +5,7 @@
 
 import { markAffectedBuildingsDirty } from '../../adjacencyCalculator.js';
 import { postActionCheck } from './levels.js';
-import { moderateMessage } from './moderation.js';
+import { moderateAttackMessage } from './moderation.js';
 
 // Dirty trick definitions (mirrors dirtyTricks.ts on frontend)
 const DIRTY_TRICKS = {
@@ -47,7 +47,7 @@ export async function performAttack(request, env, company) {
   // Run message through LLM moderation if provided (auto-approve if passes, pending if fails)
   let messageStatus = null;
   if (attackMessage) {
-    const modResult = await moderateMessage(env, company.id, attackMessage);
+    const modResult = await moderateAttackMessage(env, company.id, attackMessage);
     messageStatus = modResult.allowed ? 'approved' : 'pending';
   }
 

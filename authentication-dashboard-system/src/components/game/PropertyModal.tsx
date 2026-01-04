@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Building2, DollarSign, Shield, Flame, ShoppingCart, Hammer, Trash2, AlertCircle, MessageSquare } from 'lucide-react';
+import { X, Building2, DollarSign, Shield, Flame, ShoppingCart, Hammer, Trash2, AlertCircle, MessageSquare, Sparkles } from 'lucide-react';
 import { useTileDetail } from '../../hooks/useTileDetail';
 import { useActiveCompany } from '../../contexts/CompanyContext';
 import { BuyLandModal } from './BuyLandModal';
@@ -495,6 +495,44 @@ export function PropertyModal({
                     </button>
                   )}
 
+                  {/* Cleanup - remove graffiti and other attack effects */}
+                  {attackMessages && attackMessages.length > 0 && !building.is_collapsed && (() => {
+                    const buildingCost = (building as any).cost || 0;
+                    const cleanupCost = Math.round(buildingCost * 0.05 * attackMessages.length);
+                    const canAfford = activeCompany ? activeCompany.cash >= cleanupCost : false;
+
+                    return (
+                      <button
+                        onClick={async () => {
+                          if (!canAfford) {
+                            setActionError('Insufficient funds');
+                            return;
+                          }
+                          setActionLoading(true);
+                          setActionError(null);
+                          try {
+                            const response = await api.post('/api/game/buildings/cleanup', {
+                              company_id: activeCompany?.id,
+                              building_id: building.id,
+                            });
+                            if (response.data.success) {
+                              await handleActionSuccess();
+                            }
+                          } catch (err) {
+                            setActionError(apiHelpers.handleError(err));
+                          } finally {
+                            setActionLoading(false);
+                          }
+                        }}
+                        disabled={actionLoading || !canAfford}
+                        className="w-full py-3 px-4 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                      >
+                        <Sparkles className="w-5 h-5" />
+                        {actionLoading ? 'Cleaning...' : `Cleanup Graffiti ($${cleanupCost.toLocaleString()})`}
+                      </button>
+                    );
+                  })()}
+
                   {/* Security */}
                   {!building.is_collapsed && (
                     <button
@@ -616,6 +654,52 @@ export function PropertyModal({
                   {actionLoading ? 'Purchasing...' : `Buy for $${building.sale_price.toLocaleString()}`}
                 </button>
               )}
+
+              {/* Takeover enemy building */}
+              {building && isEnemyOwned && activeCompany && (() => {
+                const buildingCost = (building as any).cost || 0;
+                const healthPercent = 100 - (building.damage_percent || 0);
+                const takeoverCost = building.is_collapsed
+                  ? 100
+                  : Math.round(buildingCost * 10 * (0.10 + 0.90 * (healthPercent / 100)));
+                const canAfford = activeCompany.cash >= takeoverCost;
+
+                return (
+                  <button
+                    onClick={async () => {
+                      if (!canAfford) {
+                        setActionError('Insufficient funds');
+                        return;
+                      }
+                      setActionLoading(true);
+                      setActionError(null);
+                      try {
+                        const response = await api.post<{
+                          success: boolean;
+                          takeover_cost: number;
+                          levelUp?: LevelUpData;
+                        }>('/api/game/market/takeover', {
+                          company_id: activeCompany.id,
+                          building_id: building.id,
+                          map_id: mapId,
+                          x,
+                          y,
+                        });
+                        await handleActionSuccess(response.data.levelUp);
+                      } catch (err) {
+                        setActionError(apiHelpers.handleError(err));
+                      } finally {
+                        setActionLoading(false);
+                      }
+                    }}
+                    disabled={actionLoading || !canAfford}
+                    className="w-full py-3 px-4 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    <Building2 className="w-5 h-5" />
+                    {actionLoading ? 'Taking over...' : `Takeover for $${takeoverCost.toLocaleString()}`}
+                  </button>
+                );
+              })()}
 
               {/* Special Buildings Info */}
               {tile.special_building === 'bank' && (

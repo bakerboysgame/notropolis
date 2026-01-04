@@ -44,13 +44,27 @@ export default function ModerationAdminPage() {
   const [nameUserPrompt, setNameUserPrompt] = useState('');
   const [enabled, setEnabled] = useState(true);
 
+  // Attack moderation form state
+  const [attackSystemPrompt, setAttackSystemPrompt] = useState('');
+  const [attackUserPrompt, setAttackUserPrompt] = useState('');
+  const [attackModerationEnabled, setAttackModerationEnabled] = useState(true);
+
+  // Name moderation form state
+  const [nameSystemPrompt, setNameSystemPrompt] = useState('');
+  const [nameModerationEnabled, setNameModerationEnabled] = useState(true);
+
   // Test state
   const [testMessage, setTestMessage] = useState('');
   const [testResult, setTestResult] = useState<TestResult | null>(null);
   const [testing, setTesting] = useState(false);
 
+  // Attack test state
+  const [attackTestMessage, setAttackTestMessage] = useState('');
+  const [attackTestResult, setAttackTestResult] = useState<TestResult | null>(null);
+  const [attackTesting, setAttackTesting] = useState(false);
+
   // Tab state
-  const [activeTab, setActiveTab] = useState<'settings' | 'log' | 'attacks'>('settings');
+  const [activeTab, setActiveTab] = useState<'settings' | 'attack_settings' | 'name_settings' | 'log' | 'attacks'>('settings');
   const [showRejectedOnly, setShowRejectedOnly] = useState(false);
 
   // Attack messages state
@@ -83,6 +97,15 @@ export default function ModerationAdminPage() {
       setChatUserPrompt(settingsData.chat_user_prompt || '');
       setNameUserPrompt(settingsData.name_user_prompt || '');
       setEnabled(!!settingsData.enabled);
+
+      // Populate attack settings
+      setAttackSystemPrompt(settingsData.attack_system_prompt || '');
+      setAttackUserPrompt(settingsData.attack_user_prompt || '');
+      setAttackModerationEnabled(!!settingsData.attack_moderation_enabled);
+
+      // Populate name settings
+      setNameSystemPrompt(settingsData.name_system_prompt || '');
+      setNameModerationEnabled(!!settingsData.name_moderation_enabled);
     } catch (err) {
       showToast('Failed to load settings', 'error');
     } finally {
@@ -101,6 +124,11 @@ export default function ModerationAdminPage() {
         chat_user_prompt: chatUserPrompt,
         name_user_prompt: nameUserPrompt,
         enabled,
+        attack_system_prompt: attackSystemPrompt,
+        attack_user_prompt: attackUserPrompt,
+        attack_moderation_enabled: attackModerationEnabled,
+        name_system_prompt: nameSystemPrompt,
+        name_moderation_enabled: nameModerationEnabled,
       });
       showToast('Settings saved - changes apply immediately', 'success');
       loadData();
@@ -122,6 +150,20 @@ export default function ModerationAdminPage() {
       showToast('Test failed', 'error');
     } finally {
       setTesting(false);
+    }
+  };
+
+  const handleTestAttack = async () => {
+    if (!attackTestMessage.trim()) return;
+    setAttackTesting(true);
+    setAttackTestResult(null);
+    try {
+      const result = await moderationAdminApi.testAttackMessage(attackTestMessage);
+      setAttackTestResult(result);
+    } catch (err) {
+      showToast('Attack test failed', 'error');
+    } finally {
+      setAttackTesting(false);
     }
   };
 
@@ -257,7 +299,27 @@ export default function ModerationAdminPage() {
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
             }`}
           >
-            Settings
+            Chat Settings
+          </button>
+          <button
+            onClick={() => setActiveTab('attack_settings')}
+            className={`py-4 px-1 border-b-2 font-medium text-sm ${
+              activeTab === 'attack_settings'
+                ? 'border-orange-500 text-orange-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            Attack Settings
+          </button>
+          <button
+            onClick={() => setActiveTab('name_settings')}
+            className={`py-4 px-1 border-b-2 font-medium text-sm ${
+              activeTab === 'name_settings'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            Name Settings
           </button>
           <button
             onClick={() => setActiveTab('log')}
@@ -504,6 +566,260 @@ export default function ModerationAdminPage() {
                     {example}
                   </button>
                 ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Attack Settings Tab */}
+      {activeTab === 'attack_settings' && (
+        <div className="grid grid-cols-3 gap-6">
+          {/* Left: Attack Configuration */}
+          <div className="col-span-2 space-y-6">
+            <div className="bg-white dark:bg-gray-800 shadow-sm rounded-lg p-6">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+                Attack Message Moderation
+              </h2>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
+                Configure AI moderation for messages left by players when attacking buildings. These prompts are more lenient to allow competitive banter.
+              </p>
+
+              {/* Enable toggle */}
+              <div className="flex items-center gap-3 mb-6 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
+                <input
+                  type="checkbox"
+                  id="attack_enabled"
+                  checked={attackModerationEnabled}
+                  onChange={(e) => setAttackModerationEnabled(e.target.checked)}
+                  className="h-5 w-5 text-orange-600 rounded"
+                />
+                <label htmlFor="attack_enabled" className="text-gray-700 dark:text-gray-300">
+                  Enable AI moderation for attack messages
+                </label>
+              </div>
+
+              {/* Attack system prompt */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Attack System Prompt
+                </label>
+                <textarea
+                  value={attackSystemPrompt}
+                  onChange={(e) => setAttackSystemPrompt(e.target.value)}
+                  rows={14}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 font-mono text-xs"
+                />
+              </div>
+
+              {/* Attack user prompt */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Attack User Prompt
+                </label>
+                <textarea
+                  value={attackUserPrompt}
+                  onChange={(e) => setAttackUserPrompt(e.target.value)}
+                  rows={3}
+                  placeholder="Attack message to review:\n\n{content}"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 font-mono text-xs"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Use <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded">{'{content}'}</code> as placeholder for the message
+                </p>
+              </div>
+
+              {/* Save button */}
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="flex items-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50"
+              >
+                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                Save Settings
+              </button>
+            </div>
+          </div>
+
+          {/* Right: Test panel */}
+          <div className="space-y-6">
+            <div className="bg-white dark:bg-gray-800 shadow-sm rounded-lg p-6">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+                Test Attack Moderation
+              </h2>
+
+              <textarea
+                value={attackTestMessage}
+                onChange={(e) => setAttackTestMessage(e.target.value)}
+                rows={4}
+                placeholder="Enter a test attack message..."
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 mb-4"
+              />
+
+              <button
+                onClick={handleTestAttack}
+                disabled={attackTesting || !attackTestMessage.trim()}
+                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50"
+              >
+                {attackTesting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
+                Test Message
+              </button>
+
+              {/* Test result */}
+              {attackTestResult && (
+                <div className={`mt-4 p-4 rounded-lg ${
+                  attackTestResult.allowed
+                    ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800'
+                    : 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800'
+                }`}>
+                  <div className="flex items-center gap-2 mb-2">
+                    {attackTestResult.allowed ? (
+                      <CheckCircle className="w-5 h-5 text-green-600" />
+                    ) : (
+                      <X className="w-5 h-5 text-red-600" />
+                    )}
+                    <span className={`font-medium ${attackTestResult.allowed ? 'text-green-700 dark:text-green-300' : 'text-red-700 dark:text-red-300'}`}>
+                      {attackTestResult.allowed ? 'ALLOWED' : 'REJECTED'}
+                    </span>
+                  </div>
+                  {attackTestResult.reason && (
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      Reason: {attackTestResult.reason}
+                    </p>
+                  )}
+                  <p className="text-xs text-gray-500 mt-2">
+                    Response time: {attackTestResult.responseTimeMs}ms
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Quick examples */}
+            <div className="bg-white dark:bg-gray-800 shadow-sm rounded-lg p-6">
+              <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">
+                Test Examples
+              </h3>
+              <div className="space-y-2">
+                {[
+                  'Your building is mine now, sucker!',
+                  'GG easy, come at me bro',
+                  'I will burn down your whole empire!',
+                  'This town belongs to the Malone family now',
+                ].map((example, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setAttackTestMessage(example)}
+                    className="w-full text-left text-xs p-2 bg-gray-50 dark:bg-gray-900 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400"
+                  >
+                    {example}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Name Settings Tab */}
+      {activeTab === 'name_settings' && (
+        <div className="grid grid-cols-3 gap-6">
+          {/* Left: Name Configuration */}
+          <div className="col-span-2 space-y-6">
+            <div className="bg-white dark:bg-gray-800 shadow-sm rounded-lg p-6">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+                Name Moderation (Boss & Company)
+              </h2>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
+                Configure AI moderation for boss names and company names when players create or update them.
+              </p>
+
+              {/* Enable toggle */}
+              <div className="flex items-center gap-3 mb-6 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
+                <input
+                  type="checkbox"
+                  id="name_enabled"
+                  checked={nameModerationEnabled}
+                  onChange={(e) => setNameModerationEnabled(e.target.checked)}
+                  className="h-5 w-5 text-blue-600 rounded"
+                />
+                <label htmlFor="name_enabled" className="text-gray-700 dark:text-gray-300">
+                  Enable AI moderation for boss/company names
+                </label>
+              </div>
+
+              {/* Name system prompt */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Name System Prompt
+                </label>
+                <textarea
+                  value={nameSystemPrompt}
+                  onChange={(e) => setNameSystemPrompt(e.target.value)}
+                  rows={14}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 font-mono text-xs"
+                />
+              </div>
+
+              {/* Name user prompt */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Name User Prompt
+                </label>
+                <textarea
+                  value={nameUserPrompt}
+                  onChange={(e) => setNameUserPrompt(e.target.value)}
+                  rows={3}
+                  placeholder='{type} to review: "{content}"'
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 font-mono text-xs"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Use <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded">{'{type}'}</code> for "boss name" or "company name" and <code className="bg-gray-100 dark:bg-gray-800 px-1 rounded">{'{content}'}</code> for the actual name
+                </p>
+              </div>
+
+              {/* Save button */}
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+              >
+                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                Save Settings
+              </button>
+            </div>
+          </div>
+
+          {/* Right: Info panel */}
+          <div className="space-y-6">
+            <div className="bg-white dark:bg-gray-800 shadow-sm rounded-lg p-6">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+                Name Moderation Info
+              </h2>
+              <div className="text-sm text-gray-600 dark:text-gray-400 space-y-3">
+                <p>
+                  Name moderation runs when players:
+                </p>
+                <ul className="list-disc list-inside space-y-1 ml-2">
+                  <li>Create a new company</li>
+                  <li>Change their boss name</li>
+                  <li>Rename their company</li>
+                </ul>
+                <p className="mt-4">
+                  Rejected names prevent the action and show an error to the player.
+                </p>
+              </div>
+            </div>
+
+            {/* Example names */}
+            <div className="bg-white dark:bg-gray-800 shadow-sm rounded-lg p-6">
+              <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">
+                Example Names to Allow
+              </h3>
+              <div className="space-y-2 text-xs text-gray-600 dark:text-gray-400">
+                <p>The Corleone Family</p>
+                <p>Big Tony's Enterprises</p>
+                <p>Shady Deals Inc.</p>
+                <p>Don Vito</p>
               </div>
             </div>
           </div>

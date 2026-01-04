@@ -196,7 +196,7 @@ export default function Sidebar() {
       }
       // Master admin gets map builder and other admin tools
       items.push({ name: 'Map Builder', href: '/admin/maps', icon: Map, pageKey: 'admin_maps', requiresMasterAdmin: true })
-      items.push({ name: 'Chat Moderation', href: '/admin/moderation', icon: Shield, pageKey: 'admin_moderation', requiresMasterAdmin: true })
+      items.push({ name: 'Moderation', href: '/admin/moderation', icon: Shield, pageKey: 'admin_moderation', requiresMasterAdmin: true })
       items.push({ name: 'Assets', href: '/admin/assets', icon: Image, pageKey: 'admin_assets', requiresMasterAdmin: true })
     }
 

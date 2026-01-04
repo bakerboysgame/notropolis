@@ -47,6 +47,7 @@ import {
   handleGetModerationSettings,
   handleUpdateModerationSettings,
   handleTestModeration,
+  handleTestAttackModeration,
   handleGetModerationLog,
   handleGetAttackMessages,
   handleApproveAttackMessage,
@@ -441,6 +442,9 @@ export default {
 
         case path === '/api/game/moderation/test' && method === 'POST':
           return handleTestModeration(request, authService, env, corsHeaders);
+
+        case path === '/api/game/moderation/test-attack' && method === 'POST':
+          return handleTestAttackModeration(request, authService, env, corsHeaders);
 
         case path === '/api/game/moderation/log' && method === 'GET':
           return handleGetModerationLog(request, authService, env, corsHeaders);
