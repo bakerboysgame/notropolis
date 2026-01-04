@@ -175,8 +175,16 @@ export async function getCompanyStatistics(env, companyId) {
   let avgDamage = company.average_damage_percent;
   let buildingsOnFire = company.buildings_on_fire;
 
-  // Check if we need to calculate stats on-the-fly (no company_statistics data)
-  if (buildingCount === null || buildingCount === undefined) {
+  // Check if we need to calculate stats on-the-fly
+  // Run fallback if:
+  // 1. No company_statistics row exists (buildingCount is null/undefined)
+  // 2. OR row exists but has zero values (may be stale from join-location initialization)
+  const needsRecalculation =
+    buildingCount === null ||
+    buildingCount === undefined ||
+    (buildingCount === 0 && (damagedBuildingValue === null || damagedBuildingValue === 0));
+
+  if (needsRecalculation) {
     // Calculate from actual building_instances data
     const buildingStats = await env.DB.prepare(`
       SELECT

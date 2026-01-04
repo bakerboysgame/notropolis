@@ -599,15 +599,6 @@ export default {
           });
         }
 
-        case path.match(/^\/api\/game\/companies\/([^/]+)\/stats$/) && method === 'GET': {
-          const match = path.match(/^\/api\/game\/companies\/([^/]+)\/stats$/);
-          const companyId = match[1];
-          const result = await getCompanyStatistics(env, companyId);
-          return new Response(JSON.stringify({ success: true, data: result }), {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-          });
-        }
-
         // ==================== EVENTS ENDPOINTS ====================
         case path === '/api/game/events' && method === 'GET': {
           const company = await getActiveCompany(authService, env, request);
@@ -6731,6 +6722,31 @@ async function handleGameCompanyRoutes(request, authService, env, corsHeaders) {
           data: { company }
         }), {
           status: 201,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      // GET /api/game/companies/:id/stats - Get company statistics
+      case path.match(/^\/api\/game\/companies\/[^/]+\/stats$/) && method === 'GET': {
+        const companyId = path.split('/')[4];
+
+        // Verify user owns this company
+        const company = await env.DB.prepare(`
+          SELECT id FROM game_companies WHERE id = ? AND user_id = ?
+        `).bind(companyId, user.id).first();
+
+        if (!company) {
+          return new Response(JSON.stringify({
+            success: false,
+            error: 'Company not found'
+          }), {
+            status: 404,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        const result = await getCompanyStatistics(env, companyId);
+        return new Response(JSON.stringify({ success: true, data: result }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
       }
