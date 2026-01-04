@@ -25,6 +25,7 @@ import { usePermissions } from '../contexts/PermissionsContext'
 import { useFeatureFlags } from '../hooks/useFeatureFlags'
 import { useTheme } from '../contexts/ThemeContext'
 import { useUnreadMessages } from '../hooks/useUnreadMessages'
+import { useActiveCompany } from '../contexts/CompanyContext'
 import { CompanyHUD } from './CompanyHUD'
 
 type SidebarState = 'expanded' | 'collapsed' | 'minimized'
@@ -46,16 +47,18 @@ const useIsMobile = (breakpoint = 768) => {
 
 interface NavigationItem {
   name: string;
-  href: string;
+  href: string | ((mapId: string | null) => string);
   icon: LucideIcon;
   pageKey: string;
   requiresMasterAdmin?: boolean;
   requiresMapLocation?: boolean;
+  hideOnMapPage?: boolean;
 }
 
 const navigation: NavigationItem[] = [
-  { name: 'Home', href: '/', icon: Home, pageKey: 'dashboard' },
-  { name: 'Companies', href: '/companies', icon: Briefcase, pageKey: 'companies' },
+  { name: 'Home', href: '/', icon: Home, pageKey: 'dashboard', hideOnMapPage: true },
+  { name: 'Companies', href: '/companies', icon: Briefcase, pageKey: 'companies', hideOnMapPage: true },
+  { name: 'Map', href: (mapId) => mapId ? `/map/${mapId}` : '/companies', icon: Map, pageKey: 'map', requiresMapLocation: true },
   { name: 'Headquarters', href: '/headquarters', icon: Building2, pageKey: 'headquarters', requiresMapLocation: true },
   { name: 'Statistics', href: '/statistics', icon: BarChart3, pageKey: 'statistics', requiresMapLocation: true },
   { name: 'Events', href: '/events', icon: Calendar, pageKey: 'events', requiresMapLocation: true },
@@ -70,6 +73,7 @@ export default function Sidebar() {
   const { companyManagementEnabled, auditLoggingEnabled } = useFeatureFlags()
   const { theme, toggleTheme } = useTheme()
   const { unreadCount } = useUnreadMessages()
+  const { activeCompany } = useActiveCompany()
   const isMobile = useIsMobile()
   const sidebarRef = useRef<HTMLDivElement>(null)
   const touchStartX = useRef<number>(0)
@@ -180,10 +184,14 @@ export default function Sidebar() {
     }
 
     // Filter items based on page access permissions
-    // Note: 'companies' is always accessible to all authenticated users (game feature)
-    const alwaysAccessible = ['companies']
+    // Note: 'companies' and 'map' are always accessible to all authenticated users (game feature)
+    const alwaysAccessible = ['companies', 'map']
 
     return items.filter(item => {
+      // Hide items marked as hideOnMapPage when on a game page
+      if (item.hideOnMapPage && isOnMapPage) {
+        return false
+      }
       // Filter out items that require map location if not currently on a map page
       if (item.requiresMapLocation && !isOnMapPage) {
         return false
@@ -278,14 +286,20 @@ export default function Sidebar() {
       <nav className={clsx('flex-1 px-4 pb-4 overflow-y-auto', isCollapsed && 'px-2')}>
         <ul className="space-y-2">
           {allNavigation.map((item) => {
-            const isActive = location.pathname === item.href
+            // Resolve href if it's a function (for dynamic routes like Map)
+            const resolvedHref = typeof item.href === 'function'
+              ? item.href(activeCompany?.current_map_id || null)
+              : item.href
+            const isActive = item.pageKey === 'map'
+              ? location.pathname.startsWith('/map/')
+              : location.pathname === resolvedHref
             const isMasterAdminItem = item.requiresMasterAdmin === true
             const ItemIcon = item.icon
 
             return (
               <li key={item.name}>
                 <Link
-                  to={item.href}
+                  to={resolvedHref}
                   className={clsx(
                     'flex items-center rounded-lg font-medium transition-all',
                     // Mobile: larger touch targets (min 44px)
@@ -332,6 +346,28 @@ export default function Sidebar() {
 
       {/* Bottom Section - Settings, Dark Mode, and Transparency */}
       <div className={clsx('flex-shrink-0 border-t border-neutral-200/50 dark:border-neutral-800/50 p-4', isCollapsed && !isMobile && 'px-2')}>
+        {/* Companies Button - only shows on game pages */}
+        {isOnMapPage && (
+          <Link
+            to="/companies"
+            className={clsx(
+              'flex items-center rounded-lg font-medium transition-all mb-3 w-full',
+              isMobile
+                ? 'space-x-4 px-4 py-3.5 text-base'
+                : isCollapsed
+                  ? 'justify-center px-3 py-3 text-sm'
+                  : 'space-x-3 px-3 py-2 text-sm',
+              location.pathname === '/companies'
+                ? 'bg-primary-500/10 dark:bg-primary-500/20 text-primary-600 dark:text-primary-400 shadow-sm border border-primary-500/20 dark:border-primary-500/30'
+                : 'text-neutral-600 dark:text-neutral-400 hover:bg-neutral-100 dark:hover:bg-neutral-800 hover:text-neutral-900 dark:hover:text-neutral-100 active:bg-neutral-200 dark:active:bg-neutral-700'
+            )}
+            title={isCollapsed && !isMobile ? 'Companies' : undefined}
+          >
+            <Briefcase className={clsx('flex-shrink-0', isMobile ? 'w-6 h-6' : isCollapsed ? 'w-6 h-6' : 'w-5 h-5')} />
+            {(!isCollapsed || isMobile) && <span>Companies</span>}
+          </Link>
+        )}
+
         {/* Settings and Dark Mode Row */}
         <div className={clsx('flex items-center', isCollapsed && !isMobile ? 'flex-col space-y-3' : 'justify-between')}>
           {/* Settings Button */}
