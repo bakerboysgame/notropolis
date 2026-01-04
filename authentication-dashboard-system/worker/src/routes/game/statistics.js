@@ -20,26 +20,25 @@ export async function getMapStatistics(env, mapId) {
   }
 
   // Get all companies on this map with their monthly profit/loss
-  // Monthly profit = sum of tick_income transactions in the last 30 days
-  // Note: We're looking at the last 30 days of transactions
-  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-
+  // Monthly profit = most recent tick_income (each tick = 1 in-game month)
   const profitResult = await env.DB.prepare(`
     SELECT
       gc.id,
       gc.name,
       gc.cash,
-      COALESCE(SUM(
-        CASE WHEN gt.action_type = 'tick_income' THEN gt.amount ELSE 0 END
+      COALESCE((
+        SELECT gt.amount
+        FROM game_transactions gt
+        WHERE gt.company_id = gc.id
+          AND gt.map_id = ?
+          AND gt.action_type = 'tick_income'
+        ORDER BY gt.created_at DESC
+        LIMIT 1
       ), 0) as monthly_profit
     FROM game_companies gc
-    LEFT JOIN game_transactions gt ON gt.company_id = gc.id
-      AND gt.map_id = ?
-      AND gt.created_at >= ?
     WHERE gc.current_map_id = ?
-    GROUP BY gc.id
     ORDER BY monthly_profit DESC
-  `).bind(mapId, thirtyDaysAgo, mapId).all();
+  `).bind(mapId, mapId).all();
 
   // Get net worth for all companies on this map
   // Net worth = cash + sum of (building_cost * health_factor)
@@ -135,16 +134,16 @@ export async function getCompanyStatistics(env, companyId) {
       AND bi.is_collapsed = 0
   `).bind(companyId, company.current_map_id).first();
 
-  // Get monthly profit (tick_income transactions in last 30 days)
-  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+  // Get monthly profit (most recent tick_income - each tick = 1 in-game month)
   const profitResult = await env.DB.prepare(`
-    SELECT COALESCE(SUM(amount), 0) as monthly_profit
+    SELECT COALESCE(amount, 0) as monthly_profit
     FROM game_transactions
     WHERE company_id = ?
       AND map_id = ?
       AND action_type = 'tick_income'
-      AND created_at >= ?
-  `).bind(companyId, company.current_map_id, thirtyDaysAgo).first();
+    ORDER BY created_at DESC
+    LIMIT 1
+  `).bind(companyId, company.current_map_id).first();
 
   // Get buildings value (cost * health factor)
   const buildingsValue = await env.DB.prepare(`
