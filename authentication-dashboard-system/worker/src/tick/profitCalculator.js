@@ -99,6 +99,22 @@ export async function processMapProfits(env, mapId) {
         WHERE id = ?
       `).bind(newCash, company.id)
     );
+
+    // Record tick_income transaction for statistics tracking (only if there's actual profit/loss)
+    if (netProfit !== 0) {
+      statements.push(
+        env.DB.prepare(`
+          INSERT INTO game_transactions (id, company_id, map_id, action_type, amount, description)
+          VALUES (?, ?, ?, 'tick_income', ?, ?)
+        `).bind(
+          crypto.randomUUID(),
+          company.id,
+          mapId,
+          netProfit,
+          `Tick income: £${grossProfit} gross - £${taxAmount} tax - £${securityCost} security = £${netProfit} net`
+        )
+      );
+    }
   }
 
   // Step 5: Execute all updates in a single batch
