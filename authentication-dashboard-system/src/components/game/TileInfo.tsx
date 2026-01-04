@@ -211,12 +211,36 @@ export function TileInfo({ mapId, x, y, map, onClose, onRefresh }: TileInfoProps
         )}
 
         {tile.owner_company_id === activeCompany?.id && !building && (
-          <button
-            onClick={() => setShowBuildModal(true)}
-            className="w-full py-2 bg-blue-600 text-white rounded hover:bg-blue-500 transition-colors"
-          >
-            Build
-          </button>
+          <>
+            <button
+              onClick={() => setShowBuildModal(true)}
+              className="w-full py-2 bg-blue-600 text-white rounded hover:bg-blue-500 transition-colors"
+            >
+              Build
+            </button>
+            <button
+              onClick={async () => {
+                setActionLoading(true);
+                setActionError(null);
+                try {
+                  const response = await api.post<{ success: boolean; sale_value: number; levelUp?: LevelUpData }>('/api/game/market/sell-land-to-state', {
+                    company_id: activeCompany.id,
+                    tile_id: tile.id,
+                  });
+                  if (response.data.success) {
+                    await handleActionSuccess(response.data.levelUp);
+                  }
+                } catch (err) {
+                  setActionError(apiHelpers.handleError(err));
+                }
+                setActionLoading(false);
+              }}
+              disabled={actionLoading}
+              className="w-full py-2 bg-yellow-600 text-white rounded hover:bg-yellow-500 transition-colors disabled:opacity-50"
+            >
+              {actionLoading ? 'Selling...' : 'Sell Land to State'}
+            </button>
+          </>
         )}
 
         {/* Sell button - for buildings owned by active company */}

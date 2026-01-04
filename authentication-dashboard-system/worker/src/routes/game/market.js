@@ -4,7 +4,7 @@
  */
 
 import { calculateSellToStateValue, calculateMinListingPrice } from '../../utils/marketPricing.js';
-import { markAffectedBuildingsDirty } from '../../adjacencyCalculator.js';
+import { markAffectedBuildingsDirty, calculateLandCost } from '../../adjacencyCalculator.js';
 import { postActionCheck } from './levels.js';
 
 /**
@@ -79,6 +79,66 @@ export async function sellToState(request, env, company) {
   const levelUp = await postActionCheck(env, company.id, company.level, building.map_id);
 
   return { success: true, sale_value: saleValue, levelUp };
+}
+
+/**
+ * POST /api/game/market/sell-land-to-state
+ * Sell empty land (no building) back to state for land value
+ */
+export async function sellLandToState(request, env, company) {
+  // Check prison status
+  if (company.is_in_prison) {
+    throw new Error(`You are in prison! Pay your fine of $${company.prison_fine?.toLocaleString()} to continue.`);
+  }
+
+  const { tile_id } = await request.json();
+
+  // Get tile info - must be owned by company and have no building
+  const tile = await env.DB.prepare(`
+    SELECT t.*, m.location_type
+    FROM tiles t
+    JOIN maps m ON t.map_id = m.id
+    WHERE t.id = ? AND t.owner_company_id = ?
+  `).bind(tile_id, company.id).first();
+
+  if (!tile) {
+    throw new Error('Tile not found or not owned by you');
+  }
+
+  // Check if there's a building on this tile
+  const building = await env.DB.prepare(
+    'SELECT id FROM building_instances WHERE tile_id = ?'
+  ).bind(tile_id).first();
+
+  if (building) {
+    throw new Error('Cannot sell land with a building - use Sell Property instead');
+  }
+
+  // Calculate land value
+  const landValue = calculateLandCost(tile, { location_type: tile.location_type });
+
+  await env.DB.batch([
+    // Clear tile ownership
+    env.DB.prepare(
+      'UPDATE tiles SET owner_company_id = NULL, purchased_at = NULL WHERE id = ?'
+    ).bind(tile_id),
+
+    // Add cash to company and reset tick counter
+    env.DB.prepare(
+      'UPDATE game_companies SET cash = cash + ?, total_actions = total_actions + 1, last_action_at = ?, ticks_since_action = 0 WHERE id = ?'
+    ).bind(landValue, new Date().toISOString(), company.id),
+
+    // Log transaction
+    env.DB.prepare(`
+      INSERT INTO game_transactions (id, company_id, map_id, action_type, amount)
+      VALUES (?, ?, ?, 'sell_land_to_state', ?)
+    `).bind(crypto.randomUUID(), company.id, tile.map_id, landValue),
+  ]);
+
+  // Check for level-up
+  const levelUp = await postActionCheck(env, company.id, company.level, tile.map_id);
+
+  return { success: true, sale_value: landValue, levelUp };
 }
 
 /**

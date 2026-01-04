@@ -11,6 +11,7 @@ import { calculateProfit, markAffectedBuildingsDirty, calculateLandCost } from '
 import { processTick } from './src/tick/processor.js';
 import {
   sellToState,
+  sellLandToState,
   listForSale,
   cancelListing,
   buyProperty,
@@ -67,6 +68,7 @@ import {
 } from './src/routes/game/achievements.js';
 import { getMapStatistics, getCompanyStatistics } from './src/routes/game/statistics.js';
 import { getMapEvents, getMapCompanies } from './src/routes/game/events.js';
+import { handleHeartbeat } from './src/routes/game/heartbeat.js';
 import { handleAssetRoutes } from './src/routes/admin/assets.js';
 
 // Helper to get active company from request (used by social endpoints)
@@ -466,6 +468,9 @@ export default {
         case path === '/api/game/market/sell-to-state' && method === 'POST':
           return handleMarketAction(request, authService, env, corsHeaders, sellToState);
 
+        case path === '/api/game/market/sell-land-to-state' && method === 'POST':
+          return handleMarketAction(request, authService, env, corsHeaders, sellLandToState);
+
         case path === '/api/game/market/list-for-sale' && method === 'POST':
           return handleMarketAction(request, authService, env, corsHeaders, listForSale);
 
@@ -490,6 +495,10 @@ export default {
 
         case path === '/api/game/attacks/history' && method === 'GET':
           return handleAttackHistory(request, authService, env, corsHeaders);
+
+        // ==================== GAME HEARTBEAT ENDPOINT ====================
+        case path === '/api/game/heartbeat' && method === 'POST':
+          return handleMarketAction(request, authService, env, corsHeaders, handleHeartbeat);
 
         // ==================== GAME SECURITY ENDPOINTS ====================
         case path === '/api/game/security/purchase' && method === 'POST':
