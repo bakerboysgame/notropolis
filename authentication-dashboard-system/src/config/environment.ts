@@ -2,8 +2,8 @@
 // Update these values for your specific application
 
 // Warn if API URL is not configured in production
-const apiBaseUrl = (import.meta as any).env?.VITE_API_BASE_URL;
-if (!apiBaseUrl && (import.meta as any).env?.PROD) {
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL;
+if (!apiBaseUrl && import.meta.env.PROD) {
   console.warn('[Config] VITE_API_BASE_URL not set. Using fallback. Set this in your environment for production.');
 }
 
@@ -14,12 +14,12 @@ export const config = {
 
   // Application Configuration
   // Customize these for your application
-  APP_NAME: (import.meta as any).env?.VITE_APP_NAME || 'Notropolis',
-  APP_VERSION: (import.meta as any).env?.VITE_APP_VERSION || '1.0.0',
-  APP_DESCRIPTION: (import.meta as any).env?.VITE_APP_DESCRIPTION || 'Notropolis Game Dashboard',
+  APP_NAME: import.meta.env.VITE_APP_NAME || 'Notropolis',
+  APP_VERSION: import.meta.env.VITE_APP_VERSION || '1.0.0',
+  APP_DESCRIPTION: import.meta.env.VITE_APP_DESCRIPTION || 'Notropolis Game Dashboard',
 
   // Environment
-  ENVIRONMENT: (import.meta as any).env?.VITE_ENVIRONMENT || 'development',
+  ENVIRONMENT: import.meta.env.VITE_ENVIRONMENT || 'development',
 
   // Feature flags - Enable/disable features for your deployment
   FEATURES: {

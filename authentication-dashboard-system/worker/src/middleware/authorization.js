@@ -69,6 +69,14 @@ const ENDPOINT_AUTHORIZATION = [
   { pattern: '/api/game/attacks', roles: [], companyIsolation: false },
   { pattern: '/api/game/attacks/*', roles: [], companyIsolation: false },
 
+  // ==================== GAME HEARTBEAT ENDPOINT ====================
+  { pattern: '/api/game/heartbeat', roles: [], companyIsolation: false },
+
+  // ==================== GAME SOCIAL/MESSAGES ENDPOINTS ====================
+  // Public message boards per map - any user can post to their current location
+  { pattern: '/api/game/messages', roles: [], companyIsolation: false },
+  { pattern: '/api/game/messages/*', roles: [], companyIsolation: false },
+
   // ==================== GAME MODERATION ADMIN ENDPOINTS ====================
   { pattern: '/api/game/moderation/*', roles: ['master_admin'], companyIsolation: false },
 ];
@@ -123,7 +131,7 @@ function findAuthConfig(path, method) {
 // Built-in pages that are always available to specific roles (cannot be restricted)
 const ROLE_BUILTIN_PAGES = {
   master_admin: ['dashboard', 'analytics', 'reports', 'settings', 'user_management', 'audit_logs', 'company_users', 'admin_maps', 'admin_moderation'],
-  admin: ['company_users', 'audit_logs']
+  admin: ['company_users', 'audit_logs', 'chat', 'events', 'statistics', 'headquarters']
 };
 
 // Check if a user's role can access a specific page

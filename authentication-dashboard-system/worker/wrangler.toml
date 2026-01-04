@@ -23,6 +23,7 @@ main = "index.js"
 binding = "DB"
 database_name = "notropolis-database"
 database_id = "9bbea853-8bb6-4e13-8713-e8086fef0528"
+migrations_dir = "../migrations"
 
 # ==================== KV NAMESPACE (Rate Limiting) ====================
 # Create: wrangler kv:namespace create RATE_LIMIT_KV
@@ -97,6 +98,7 @@ SESSION_IDLE_TIMEOUT = "2592000000"
 binding = "DB"
 database_name = "notropolis-database"
 database_id = "9bbea853-8bb6-4e13-8713-e8086fef0528"
+migrations_dir = "../migrations"
 
 # KV Namespace for production
 [[env.production.kv_namespaces]]
@@ -129,6 +131,7 @@ ENVIRONMENT = "preview"
 binding = "DB"
 database_name = "notropolis-database"
 database_id = "9bbea853-8bb6-4e13-8713-e8086fef0528"
+migrations_dir = "../migrations"
 
 # KV Namespace for preview
 [[env.preview.kv_namespaces]]

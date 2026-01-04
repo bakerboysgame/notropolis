@@ -155,8 +155,9 @@ export default function Sidebar() {
   const glassOpacity = transparency / 100
   const blurAmount = Math.max(0, (100 - transparency) / 25) // 0-3px blur (very subtle)
 
-  // Check if currently on a map page
-  const isOnMapPage = location.pathname.startsWith('/map/')
+  // Check if currently on a game page (map or game-related pages like HQ, chat, etc.)
+  const gamePages = ['/map/', '/headquarters', '/statistics', '/events', '/chat', '/enemy-hq/']
+  const isOnMapPage = gamePages.some(page => location.pathname.startsWith(page))
 
   // Combine navigation items based on user role, feature flags, and page access permissions
   const allNavigation: NavigationItem[] = useMemo(() => {

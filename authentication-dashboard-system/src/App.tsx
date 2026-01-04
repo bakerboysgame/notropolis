@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { PermissionsProvider } from './contexts/PermissionsContext';
 import { ThemeProvider } from './contexts/ThemeContext';
 import { CompanyProvider } from './contexts/CompanyContext';
+import { HeartbeatProvider } from './contexts/HeartbeatContext';
 import { HighlightProvider } from './contexts/HighlightContext';
 import { ToastProvider } from './components/ui/Toast';
 import { LoginPage } from './pages/LoginPage';
@@ -114,6 +115,7 @@ function App() {
       <AuthProvider>
         <PermissionsProvider>
           <CompanyProvider>
+          <HeartbeatProvider>
           <HighlightProvider>
           <ToastProvider>
             <Router>
@@ -348,6 +350,7 @@ function App() {
             </Router>
           </ToastProvider>
           </HighlightProvider>
+          </HeartbeatProvider>
           </CompanyProvider>
         </PermissionsProvider>
       </AuthProvider>
