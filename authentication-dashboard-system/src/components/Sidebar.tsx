@@ -187,6 +187,10 @@ export default function Sidebar() {
       if (item.requiresMapLocation && !isOnMapPage) {
         return false
       }
+      // Map-required items are always accessible when on a map page
+      if (item.requiresMapLocation && isOnMapPage) {
+        return true
+      }
       return alwaysAccessible.includes(item.pageKey) || hasPageAccess(item.pageKey)
     })
   }, [user?.role, companyManagementEnabled, auditLoggingEnabled, hasPageAccess, isOnMapPage])
@@ -200,22 +204,22 @@ export default function Sidebar() {
     WebkitBackdropFilter: blurAmount > 0 ? `blur(${blurAmount}px) saturate(180%)` : 'none',
   }
 
-  // Minimized state: just show a small floating tab with arrow
+  // Minimized state: show a floating tab with arrow to expand
   if (isMinimized) {
     return (
       <button
         onClick={expandFromMinimized}
         className={clsx(
-          'fixed left-0 bg-neutral-900/90 backdrop-blur-sm border border-neutral-700 border-l-0 shadow-md transition-all duration-200 z-50 rounded-r-sm',
-          // Position below header area on both mobile and desktop
+          'fixed left-0 bg-neutral-900/90 backdrop-blur-sm border border-neutral-700 border-l-0 shadow-lg transition-all duration-200 z-50 rounded-r-md',
+          // Mobile: larger touch target (min 44px), positioned for easy thumb access
           // Desktop: taller button for easier access
           isMobile
-            ? 'top-20 px-0.5 py-1 active:bg-neutral-700'
+            ? 'top-4 px-2 py-6 active:bg-neutral-700'
             : 'top-16 px-1 py-8 hover:bg-neutral-700'
         )}
         aria-label="Open menu"
       >
-        <ChevronRight className={clsx('text-neutral-400', isMobile ? 'w-3 h-3' : 'w-4 h-4')} />
+        <ChevronRight className={clsx('text-neutral-300', isMobile ? 'w-5 h-5' : 'w-4 h-4')} />
       </button>
     )
   }
@@ -266,8 +270,8 @@ export default function Sidebar() {
         </div>
       </div>
 
-      {/* Company HUD */}
-      <CompanyHUD isCollapsed={isCollapsed} isMobile={isMobile} />
+      {/* Company HUD - only shows on map pages */}
+      <CompanyHUD isCollapsed={isCollapsed} isMobile={isMobile} isOnMapPage={isOnMapPage} />
 
       {/* Navigation - grows to fill space */}
       <nav className={clsx('flex-1 px-4 pb-4 overflow-y-auto', isCollapsed && 'px-2')}>

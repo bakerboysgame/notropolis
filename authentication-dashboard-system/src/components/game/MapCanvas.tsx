@@ -149,15 +149,67 @@ export function MapCanvas({
     onZoom(newZoom);
   };
 
+  // Touch handlers for mobile
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 1) {
+      const touch = e.touches[0];
+      setIsDragging(true);
+      setLastMouse({ x: touch.clientX, y: touch.clientY });
+      setClickStart({ x: touch.clientX, y: touch.clientY });
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isDragging || e.touches.length !== 1) return;
+    e.preventDefault(); // Prevent page scroll
+
+    const touch = e.touches[0];
+    const dx = touch.clientX - lastMouse.x;
+    const dy = touch.clientY - lastMouse.y;
+    onPan({ x: offset.x + dx, y: offset.y + dy });
+    setLastMouse({ x: touch.clientX, y: touch.clientY });
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (!isDragging) return;
+    setIsDragging(false);
+
+    if (e.changedTouches.length === 1) {
+      const touch = e.changedTouches[0];
+      const dx = Math.abs(touch.clientX - clickStart.x);
+      const dy = Math.abs(touch.clientY - clickStart.y);
+
+      // Only trigger click if finger didn't move much (not a drag)
+      if (dx < 10 && dy < 10) {
+        const rect = canvasRef.current?.getBoundingClientRect();
+        if (!rect) return;
+
+        const screenX = touch.clientX - rect.left;
+        const screenY = touch.clientY - rect.top;
+        const tileCoords = screenToTile(screenX, screenY, zoom, offset);
+
+        if (
+          tileCoords.x >= 0 && tileCoords.x < map.width &&
+          tileCoords.y >= 0 && tileCoords.y < map.height
+        ) {
+          onTileClick(tileCoords);
+        }
+      }
+    }
+  };
+
   return (
     <canvas
       ref={canvasRef}
-      className={isDragging ? 'cursor-grabbing' : 'cursor-grab'}
+      className={`${isDragging ? 'cursor-grabbing' : 'cursor-grab'} touch-none`}
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseLeave}
       onWheel={handleWheel}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
     />
   );
 }

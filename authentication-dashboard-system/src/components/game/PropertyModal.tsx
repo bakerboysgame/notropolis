@@ -518,6 +518,9 @@ export function PropertyModal({
                 building={{ ...building, owner_name: owner?.name }}
                 buildingType={{ name: (building as any).name }}
                 map={map}
+                mapId={mapId}
+                x={x}
+                y={y}
                 activeCompanyId={activeCompany.id}
                 companyLevel={activeCompany.level}
                 companyCash={activeCompany.cash}

@@ -3,6 +3,7 @@ import { useActiveCompany } from '../contexts/CompanyContext'
 interface CompanyHUDProps {
   isCollapsed: boolean
   isMobile: boolean
+  isOnMapPage: boolean
 }
 
 // Format cash to 2 decimal places with £ symbol
@@ -13,10 +14,11 @@ const formatCash = (amount: number): string => {
   })}`
 }
 
-export function CompanyHUD({ isCollapsed, isMobile }: CompanyHUDProps) {
+export function CompanyHUD({ isCollapsed, isMobile, isOnMapPage }: CompanyHUDProps) {
   const { activeCompany } = useActiveCompany()
 
-  if (!activeCompany) return null
+  // Only show HUD when on a map page with an active company
+  if (!activeCompany || !isOnMapPage) return null
 
   // Collapsed: show cash only
   if (isCollapsed && !isMobile) {

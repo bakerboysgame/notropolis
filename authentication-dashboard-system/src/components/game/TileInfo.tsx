@@ -376,6 +376,9 @@ export function TileInfo({ mapId, x, y, map, onClose, onRefresh }: TileInfoProps
                 building={{ ...building, owner_name: owner?.name }}
                 buildingType={{ name: building.name }}
                 map={map}
+                mapId={mapId}
+                x={x}
+                y={y}
                 activeCompanyId={activeCompany.id}
                 companyLevel={activeCompany.level}
                 companyCash={activeCompany.cash}

@@ -10,6 +10,9 @@ interface AttackModalProps {
   building: any;
   buildingType: any;
   map: any;
+  mapId: string;
+  x: number;
+  y: number;
   activeCompanyId: string;
   companyLevel: number;
   companyCash: number;
@@ -22,6 +25,9 @@ export function AttackModal({
   building,
   buildingType,
   map,
+  mapId,
+  x,
+  y,
   activeCompanyId,
   companyLevel,
   companyCash,
@@ -47,6 +53,9 @@ export function AttackModal({
         company_id: activeCompanyId,
         building_id: building.id,
         trick_type: selectedTrick,
+        map_id: mapId,
+        x,
+        y,
       });
 
       if (response.data.success) {
