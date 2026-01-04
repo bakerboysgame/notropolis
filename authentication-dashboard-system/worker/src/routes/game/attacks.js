@@ -360,3 +360,100 @@ export async function getAttackHistory(request, env, company) {
     attacks_received: attacksReceived.results,
   };
 }
+
+/**
+ * POST /api/game/buildings/cleanup
+ * Clean up all trick effects on a building (owner only)
+ * - Marks all uncleaned attacks as cleaned
+ * - Removes visual effects (graffiti, smoke, stink)
+ * - Does NOT reduce damage_percent (use repair for that)
+ * - Does NOT extinguish fire (use extinguish for that)
+ */
+export async function cleanupTrick(request, env, company) {
+  const { building_id } = await request.json();
+
+  if (!building_id) {
+    throw new Error('Missing required field: building_id');
+  }
+
+  // Validate prison status
+  if (company.is_in_prison) {
+    throw new Error(`You are in prison! Pay your fine of $${company.prison_fine?.toLocaleString()} to continue.`);
+  }
+
+  // Get building with type info
+  const building = await env.DB.prepare(`
+    SELECT bi.*, bt.cost as type_cost, bt.name as type_name,
+           t.x, t.y, t.map_id
+    FROM building_instances bi
+    JOIN building_types bt ON bi.building_type_id = bt.id
+    JOIN tiles t ON bi.tile_id = t.id
+    WHERE bi.id = ? AND bi.company_id = ?
+  `).bind(building_id, company.id).first();
+
+  if (!building) {
+    throw new Error('Building not found or not owned by you');
+  }
+
+  if (building.is_collapsed) {
+    throw new Error('Cannot cleanup collapsed buildings');
+  }
+
+  // Get uncleaned attacks on this building (excluding fire_bomb - handled separately)
+  const uncleanedAttacks = await env.DB.prepare(`
+    SELECT id, trick_type FROM attacks
+    WHERE target_building_id = ? AND is_cleaned = 0
+    AND trick_type != 'fire_bomb'
+  `).bind(building_id).all();
+
+  if (uncleanedAttacks.results.length === 0) {
+    throw new Error('No trick effects to clean up');
+  }
+
+  // Calculate cleanup cost: 5% of building base cost per uncleaned attack
+  const CLEANUP_COST_PERCENT = 0.05;
+  const cleanupCost = Math.round(building.type_cost * CLEANUP_COST_PERCENT * uncleanedAttacks.results.length);
+
+  if (company.cash < cleanupCost) {
+    throw new Error(`Insufficient funds. Cleanup costs $${cleanupCost.toLocaleString()}`);
+  }
+
+  // Execute cleanup
+  await env.DB.batch([
+    // Mark attacks as cleaned
+    env.DB.prepare(`
+      UPDATE attacks SET is_cleaned = 1
+      WHERE target_building_id = ? AND is_cleaned = 0 AND trick_type != 'fire_bomb'
+    `).bind(building_id),
+
+    // Deduct cost from company
+    env.DB.prepare(`
+      UPDATE game_companies
+      SET cash = cash - ?, total_actions = total_actions + 1,
+          last_action_at = ?, ticks_since_action = 0
+      WHERE id = ?
+    `).bind(cleanupCost, new Date().toISOString(), company.id),
+
+    // Log transaction
+    env.DB.prepare(`
+      INSERT INTO game_transactions (id, company_id, map_id, action_type, target_building_id, amount, details)
+      VALUES (?, ?, ?, 'cleanup', ?, ?, ?)
+    `).bind(
+      crypto.randomUUID(),
+      company.id,
+      building.map_id,
+      building_id,
+      -cleanupCost,
+      JSON.stringify({ attacks_cleaned: uncleanedAttacks.results.length })
+    ),
+  ]);
+
+  // Mark adjacent buildings dirty for profit recalculation
+  await markAffectedBuildingsDirty(env, building.x, building.y, building.map_id);
+
+  return {
+    success: true,
+    attacks_cleaned: uncleanedAttacks.results.length,
+    cleanup_cost: cleanupCost
+  };
+}

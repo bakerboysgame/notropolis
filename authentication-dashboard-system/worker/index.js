@@ -21,7 +21,8 @@ import {
 import {
   performAttack,
   payFine,
-  getAttackHistory
+  getAttackHistory,
+  cleanupTrick
 } from './src/routes/game/attacks.js';
 import {
   purchaseSecurity,
@@ -495,6 +496,9 @@ export default {
 
         case path === '/api/game/attacks/history' && method === 'GET':
           return handleAttackHistory(request, authService, env, corsHeaders);
+
+        case path === '/api/game/buildings/cleanup' && method === 'POST':
+          return handleMarketAction(request, authService, env, corsHeaders, cleanupTrick);
 
         // ==================== GAME HEARTBEAT ENDPOINT ====================
         case path === '/api/game/heartbeat' && method === 'POST':
