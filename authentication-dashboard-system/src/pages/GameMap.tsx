@@ -173,8 +173,8 @@ export function GameMap(): JSX.Element {
             </div>
           </div>
 
-          {/* Side panel */}
-          <div className="w-80 bg-gray-800 border-l border-gray-700 overflow-y-auto">
+          {/* Side panel - hidden on mobile */}
+          <div className="hidden md:block w-80 bg-gray-800 border-l border-gray-700 overflow-y-auto">
             {selectedTile ? (
               <TileInfo
                 mapId={map.id}
