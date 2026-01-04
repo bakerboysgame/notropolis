@@ -74,7 +74,7 @@ import {
   checkAchievements,
   getUserBadges,
 } from './src/routes/game/achievements.js';
-import { getMapStatistics, getCompanyStatistics } from './src/routes/game/statistics.js';
+import { getMapStatistics, getCompanyStatistics, getCompanyProperties } from './src/routes/game/statistics.js';
 import { getMapEvents, getMapCompanies } from './src/routes/game/events.js';
 import { handleHeartbeat } from './src/routes/game/heartbeat.js';
 import { handleAssetRoutes } from './src/routes/admin/assets.js';
@@ -614,6 +614,17 @@ export default {
             throw new Error('Company must be in a location to view statistics');
           }
           const result = await getMapStatistics(env, company.current_map_id);
+          return new Response(JSON.stringify({ success: true, data: result }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        case path === '/api/game/statistics/properties' && method === 'GET': {
+          const company = await getActiveCompany(authService, env, request);
+          if (!company.current_map_id) {
+            throw new Error('Company must be in a location to view properties');
+          }
+          const result = await getCompanyProperties(env, company.id);
           return new Response(JSON.stringify({ success: true, data: result }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }
           });

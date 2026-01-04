@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
-import { ArrowLeft, BarChart3, TrendingUp, TrendingDown, Wallet, Building2 } from 'lucide-react';
+import { ArrowLeft, BarChart3, TrendingUp, TrendingDown, Wallet, Building2, DollarSign, Heart, Flame, MapPin, ExternalLink, AlertTriangle } from 'lucide-react';
 import { useActiveCompany } from '../contexts/CompanyContext';
 import { api, apiHelpers } from '../services/api';
 
@@ -28,11 +28,71 @@ interface StatisticsData {
   netWorthLeaderboard: NetWorthEntry[];
 }
 
+interface PropertyAttack {
+  id: string;
+  trickType: string;
+  damageDealt: number;
+  isCleaned: boolean;
+  attackerName: string;
+  createdAt: string;
+}
+
+interface Property {
+  id: string;
+  tileId: string;
+  buildingType: string;
+  buildingTypeId: string;
+  location: {
+    mapId: string;
+    mapName: string;
+    x: number;
+    y: number;
+  };
+  health: number;
+  isOnFire: boolean;
+  isCollapsed: boolean;
+  isForSale: boolean;
+  salePrice: number | null;
+  value: number;
+  baseCost: number;
+  profitPerTick: number;
+  baseProfit: number;
+  security: {
+    hasCameras: boolean;
+    hasGuardDogs: boolean;
+    hasSecurityGuards: boolean;
+    hasSprinklers: boolean;
+    monthlyCost: number;
+  };
+  recentAttacks: PropertyAttack[];
+  builtAt: string;
+}
+
+interface PropertiesData {
+  properties: Property[];
+  totals: {
+    totalValue: number;
+    totalProfit: number;
+    propertyCount: number;
+    collapsedCount: number;
+    onFireCount: number;
+    attackedCount: number;
+  };
+  mapName: string;
+  locationType: string;
+  taxRate: number;
+}
+
+type TabType = 'leaderboards' | 'profit-loss';
+
 export function Statistics(): JSX.Element {
   const { activeCompany } = useActiveCompany();
   const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState<TabType>('leaderboards');
   const [data, setData] = useState<StatisticsData | null>(null);
+  const [propertiesData, setPropertiesData] = useState<PropertiesData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [propertiesLoading, setPropertiesLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const fetchStatistics = useCallback(async () => {
@@ -58,6 +118,29 @@ export function Statistics(): JSX.Element {
     }
   }, [activeCompany]);
 
+  const fetchProperties = useCallback(async () => {
+    if (!activeCompany || !activeCompany.current_map_id) return;
+
+    setPropertiesLoading(true);
+    setError(null);
+
+    try {
+      const response = await api.get('/api/game/statistics/properties', {
+        params: { company_id: activeCompany.id },
+      });
+
+      if (response.data.success) {
+        setPropertiesData(response.data.data);
+      } else {
+        setError('Failed to load properties');
+      }
+    } catch (err) {
+      setError(apiHelpers.handleError(err));
+    } finally {
+      setPropertiesLoading(false);
+    }
+  }, [activeCompany]);
+
   useEffect(() => {
     fetchStatistics();
 
@@ -65,6 +148,12 @@ export function Statistics(): JSX.Element {
     const interval = setInterval(fetchStatistics, 30000);
     return () => clearInterval(interval);
   }, [fetchStatistics]);
+
+  useEffect(() => {
+    if (activeTab === 'profit-loss' && !propertiesData) {
+      fetchProperties();
+    }
+  }, [activeTab, propertiesData, fetchProperties]);
 
   // Redirect if no active company
   if (!activeCompany) {
@@ -83,6 +172,24 @@ export function Statistics(): JSX.Element {
 
   const formatNetWorth = (amount: number) => {
     return `$${amount.toLocaleString()}`;
+  };
+
+  const formatTrickType = (trickType: string) => {
+    return trickType.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+  };
+
+  const getHealthColor = (health: number) => {
+    if (health >= 80) return 'text-green-400';
+    if (health >= 50) return 'text-yellow-400';
+    if (health >= 25) return 'text-orange-400';
+    return 'text-red-400';
+  };
+
+  const getHealthBg = (health: number) => {
+    if (health >= 80) return 'bg-green-500';
+    if (health >= 50) return 'bg-yellow-500';
+    if (health >= 25) return 'bg-orange-500';
+    return 'bg-red-500';
   };
 
   return (
@@ -106,6 +213,32 @@ export function Statistics(): JSX.Element {
           </p>
         </div>
 
+        {/* Tab Buttons */}
+        <div className="flex gap-2 mb-6">
+          <button
+            onClick={() => setActiveTab('leaderboards')}
+            className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${
+              activeTab === 'leaderboards'
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white'
+            }`}
+          >
+            <TrendingUp className="w-4 h-4" />
+            Leaderboards
+          </button>
+          <button
+            onClick={() => setActiveTab('profit-loss')}
+            className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${
+              activeTab === 'profit-loss'
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white'
+            }`}
+          >
+            <DollarSign className="w-4 h-4" />
+            Profit / Loss
+          </button>
+        </div>
+
         {/* Loading State */}
         {loading && !data && (
           <div className="flex items-center justify-center py-12">
@@ -123,8 +256,8 @@ export function Statistics(): JSX.Element {
           </div>
         )}
 
-        {/* Statistics Tables */}
-        {data && (
+        {/* Leaderboards Tab */}
+        {activeTab === 'leaderboards' && data && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Monthly Profit/Loss Column */}
             <div className="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
@@ -247,6 +380,193 @@ export function Statistics(): JSX.Element {
               </div>
             </div>
           </div>
+        )}
+
+        {/* Profit / Loss Tab */}
+        {activeTab === 'profit-loss' && (
+          <>
+            {propertiesLoading && !propertiesData && (
+              <div className="flex items-center justify-center py-12">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+                  <p className="text-gray-400">Loading properties...</p>
+                </div>
+              </div>
+            )}
+
+            {propertiesData && (
+              <>
+                {/* Summary Cards */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                  <div className="bg-gray-800 rounded-lg border border-gray-700 p-4">
+                    <div className="flex items-center gap-2 text-gray-400 text-sm mb-1">
+                      <Building2 className="w-4 h-4" />
+                      Properties
+                    </div>
+                    <div className="text-2xl font-bold text-white">
+                      {propertiesData.totals.propertyCount}
+                    </div>
+                  </div>
+                  <div className="bg-gray-800 rounded-lg border border-gray-700 p-4">
+                    <div className="flex items-center gap-2 text-gray-400 text-sm mb-1">
+                      <DollarSign className="w-4 h-4" />
+                      Total Value
+                    </div>
+                    <div className="text-2xl font-bold text-purple-400">
+                      ${propertiesData.totals.totalValue.toLocaleString()}
+                    </div>
+                  </div>
+                  <div className="bg-gray-800 rounded-lg border border-gray-700 p-4">
+                    <div className="flex items-center gap-2 text-gray-400 text-sm mb-1">
+                      <TrendingUp className="w-4 h-4" />
+                      Profit/Tick
+                    </div>
+                    <div className={`text-2xl font-bold ${propertiesData.totals.totalProfit >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                      {formatMoney(propertiesData.totals.totalProfit)}
+                    </div>
+                  </div>
+                  <div className="bg-gray-800 rounded-lg border border-gray-700 p-4">
+                    <div className="flex items-center gap-2 text-gray-400 text-sm mb-1">
+                      <AlertTriangle className="w-4 h-4" />
+                      Under Attack
+                    </div>
+                    <div className="text-2xl font-bold text-orange-400">
+                      {propertiesData.totals.attackedCount}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Properties Table */}
+                <div className="bg-gray-800 rounded-lg border border-gray-700 overflow-hidden">
+                  <div className="p-4 border-b border-gray-700 flex items-center gap-3">
+                    <DollarSign className="w-5 h-5 text-green-400" />
+                    <h2 className="text-lg font-bold text-white">Your Properties</h2>
+                    <span className="text-sm text-gray-400 ml-auto">
+                      Tax Rate: {Math.round(propertiesData.taxRate * 100)}%
+                    </span>
+                  </div>
+
+                  {propertiesData.properties.length === 0 ? (
+                    <div className="p-8 text-center text-gray-500">
+                      You don't own any properties yet
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full">
+                        <thead className="bg-gray-900/50">
+                          <tr className="text-left text-xs text-gray-400 uppercase">
+                            <th className="px-4 py-3">Property</th>
+                            <th className="px-4 py-3">Location</th>
+                            <th className="px-4 py-3">Health</th>
+                            <th className="px-4 py-3">Attacks</th>
+                            <th className="px-4 py-3 text-right">Value</th>
+                            <th className="px-4 py-3 text-right">Profit/Tick</th>
+                            <th className="px-4 py-3"></th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-700">
+                          {propertiesData.properties.map((property) => (
+                            <tr
+                              key={property.id}
+                              className={`hover:bg-gray-700/50 ${
+                                property.isCollapsed ? 'opacity-50' : ''
+                              }`}
+                            >
+                              <td className="px-4 py-3">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-medium text-white">
+                                    {property.buildingType}
+                                  </span>
+                                  {property.isOnFire && (
+                                    <Flame className="w-4 h-4 text-orange-500" title="On Fire!" />
+                                  )}
+                                  {property.isCollapsed && (
+                                    <span className="text-xs bg-red-900/50 text-red-400 px-2 py-0.5 rounded">
+                                      Collapsed
+                                    </span>
+                                  )}
+                                  {property.isForSale && (
+                                    <span className="text-xs bg-blue-900/50 text-blue-400 px-2 py-0.5 rounded">
+                                      For Sale
+                                    </span>
+                                  )}
+                                </div>
+                              </td>
+                              <td className="px-4 py-3">
+                                <div className="flex items-center gap-1 text-gray-300">
+                                  <MapPin className="w-3 h-3 text-gray-500" />
+                                  ({property.location.x}, {property.location.y})
+                                </div>
+                              </td>
+                              <td className="px-4 py-3">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-16 h-2 bg-gray-700 rounded-full overflow-hidden">
+                                    <div
+                                      className={`h-full ${getHealthBg(property.health)}`}
+                                      style={{ width: `${property.health}%` }}
+                                    />
+                                  </div>
+                                  <span className={`text-sm font-medium ${getHealthColor(property.health)}`}>
+                                    {property.health}%
+                                  </span>
+                                </div>
+                              </td>
+                              <td className="px-4 py-3">
+                                {property.recentAttacks.length > 0 ? (
+                                  <div className="flex flex-col gap-1">
+                                    {property.recentAttacks.slice(0, 2).map((attack) => (
+                                      <div
+                                        key={attack.id}
+                                        className={`text-xs px-2 py-0.5 rounded ${
+                                          attack.isCleaned
+                                            ? 'bg-gray-700 text-gray-400'
+                                            : 'bg-red-900/50 text-red-400'
+                                        }`}
+                                      >
+                                        {formatTrickType(attack.trickType)} (-{attack.damageDealt}%)
+                                      </div>
+                                    ))}
+                                    {property.recentAttacks.length > 2 && (
+                                      <span className="text-xs text-gray-500">
+                                        +{property.recentAttacks.length - 2} more
+                                      </span>
+                                    )}
+                                  </div>
+                                ) : (
+                                  <span className="text-gray-500 text-sm">None</span>
+                                )}
+                              </td>
+                              <td className="px-4 py-3 text-right">
+                                <span className="font-mono text-purple-400">
+                                  ${property.value.toLocaleString()}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3 text-right">
+                                <span className={`font-mono font-medium ${
+                                  property.profitPerTick >= 0 ? 'text-green-400' : 'text-red-400'
+                                }`}>
+                                  {formatMoney(property.profitPerTick)}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3">
+                                <button
+                                  onClick={() => navigate(`/companies/${activeCompany.id}?x=${property.location.x}&y=${property.location.y}`)}
+                                  className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-700 rounded transition-colors"
+                                  title="View on map"
+                                >
+                                  <ExternalLink className="w-4 h-4" />
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </>
         )}
       </div>
     </div>

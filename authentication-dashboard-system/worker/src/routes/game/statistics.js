@@ -256,3 +256,173 @@ export async function getCompanyStatistics(env, companyId) {
     joinedLocationAt: joinedAt?.joined_at || null
   };
 }
+
+/**
+ * Get all properties for a company with their details, attacks, and profit/loss
+ * @param {Object} env - Worker environment with DB binding
+ * @param {string} companyId - Company ID to get properties for
+ * @returns {Object} { properties: [...], totals: {...} }
+ */
+export async function getCompanyProperties(env, companyId) {
+  // Get company info
+  const company = await env.DB.prepare(`
+    SELECT gc.*, m.name as map_name, m.location_type
+    FROM game_companies gc
+    LEFT JOIN maps m ON gc.current_map_id = m.id
+    WHERE gc.id = ?
+  `).bind(companyId).first();
+
+  if (!company) {
+    throw new Error('Company not found');
+  }
+
+  if (!company.current_map_id) {
+    return { properties: [], totals: { totalValue: 0, totalProfit: 0, propertyCount: 0 } };
+  }
+
+  // Calculate tax rate based on location type
+  const taxRate = company.location_type === 'capital' ? 0.20 :
+                  company.location_type === 'city' ? 0.15 : 0.10;
+
+  // Get all buildings for this company with their details
+  const buildingsResult = await env.DB.prepare(`
+    SELECT
+      bi.id,
+      bi.tile_id,
+      bi.damage_percent,
+      bi.is_on_fire,
+      bi.is_collapsed,
+      bi.is_for_sale,
+      bi.sale_price,
+      bi.calculated_profit,
+      bi.built_at,
+      bt.id as building_type_id,
+      bt.name as building_type_name,
+      bt.cost as building_cost,
+      t.x,
+      t.y,
+      m.name as map_name,
+      m.id as map_id,
+      bs.has_cameras,
+      bs.has_guard_dogs,
+      bs.has_security_guards,
+      bs.has_sprinklers,
+      COALESCE(bs.monthly_cost, 0) as security_monthly_cost
+    FROM building_instances bi
+    JOIN building_types bt ON bi.building_type_id = bt.id
+    JOIN tiles t ON bi.tile_id = t.id
+    JOIN maps m ON t.map_id = m.id
+    LEFT JOIN building_security bs ON bi.id = bs.building_id
+    WHERE bi.company_id = ? AND t.map_id = ?
+    ORDER BY bi.built_at DESC
+  `).bind(companyId, company.current_map_id).all();
+
+  // Get recent attacks on this company's buildings (last 7 days)
+  const attacksResult = await env.DB.prepare(`
+    SELECT
+      a.id,
+      a.target_building_id,
+      a.trick_type,
+      a.damage_dealt,
+      a.is_cleaned,
+      a.created_at,
+      gc.name as attacker_name
+    FROM attacks a
+    JOIN building_instances bi ON a.target_building_id = bi.id
+    JOIN game_companies gc ON a.attacker_company_id = gc.id
+    WHERE bi.company_id = ?
+      AND a.created_at > datetime('now', '-7 days')
+    ORDER BY a.created_at DESC
+  `).bind(companyId).all();
+
+  // Group attacks by building
+  const attacksByBuilding = {};
+  for (const attack of attacksResult.results) {
+    if (!attacksByBuilding[attack.target_building_id]) {
+      attacksByBuilding[attack.target_building_id] = [];
+    }
+    attacksByBuilding[attack.target_building_id].push({
+      id: attack.id,
+      trickType: attack.trick_type,
+      damageDealt: attack.damage_dealt,
+      isCleaned: attack.is_cleaned === 1,
+      attackerName: attack.attacker_name,
+      createdAt: attack.created_at
+    });
+  }
+
+  // Calculate totals
+  let totalValue = 0;
+  let totalProfit = 0;
+
+  // Map buildings to response format
+  const properties = buildingsResult.results.map(building => {
+    const health = 100 - (building.damage_percent || 0);
+    const isActive = !building.is_collapsed;
+
+    // Calculate value (damaged value)
+    const value = isActive
+      ? Math.round(building.building_cost * (health / 100))
+      : 0;
+
+    // Calculate profit per tick (after damage, tax, and security)
+    let profitPerTick = 0;
+    if (isActive && building.calculated_profit > 0) {
+      // Apply damage reduction (same formula as tick processing)
+      const damageMultiplier = (100 - building.damage_percent * 1.176) / 100;
+      const grossProfit = building.calculated_profit * damageMultiplier;
+      const taxAmount = grossProfit * taxRate;
+      const securityCost = (building.security_monthly_cost || 0) / 144; // Per tick
+      profitPerTick = Math.round(grossProfit - taxAmount - securityCost);
+    }
+
+    totalValue += value;
+    totalProfit += profitPerTick;
+
+    return {
+      id: building.id,
+      tileId: building.tile_id,
+      buildingType: building.building_type_name,
+      buildingTypeId: building.building_type_id,
+      location: {
+        mapId: building.map_id,
+        mapName: building.map_name,
+        x: building.x,
+        y: building.y
+      },
+      health,
+      isOnFire: building.is_on_fire === 1,
+      isCollapsed: building.is_collapsed === 1,
+      isForSale: building.is_for_sale === 1,
+      salePrice: building.sale_price,
+      value,
+      baseCost: building.building_cost,
+      profitPerTick,
+      baseProfit: building.calculated_profit || 0,
+      security: {
+        hasCameras: building.has_cameras === 1,
+        hasGuardDogs: building.has_guard_dogs === 1,
+        hasSecurityGuards: building.has_security_guards === 1,
+        hasSprinklers: building.has_sprinklers === 1,
+        monthlyCost: building.security_monthly_cost || 0
+      },
+      recentAttacks: attacksByBuilding[building.id] || [],
+      builtAt: building.built_at
+    };
+  });
+
+  return {
+    properties,
+    totals: {
+      totalValue,
+      totalProfit,
+      propertyCount: properties.length,
+      collapsedCount: properties.filter(p => p.isCollapsed).length,
+      onFireCount: properties.filter(p => p.isOnFire).length,
+      attackedCount: properties.filter(p => p.recentAttacks.length > 0).length
+    },
+    mapName: company.map_name,
+    locationType: company.location_type,
+    taxRate
+  };
+}
