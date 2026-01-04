@@ -212,7 +212,8 @@ export function SellModal({
                 <input
                   type="number"
                   value={listPrice}
-                  onChange={(e) => setListPrice(Math.max(minListPrice, Number(e.target.value)))}
+                  onChange={(e) => setListPrice(e.target.value === '' ? 0 : Number(e.target.value))}
+                  onBlur={() => setListPrice(Math.max(minListPrice, listPrice))}
                   min={minListPrice}
                   className="w-full pl-10 pr-4 py-3 rounded bg-gray-700 text-white border border-gray-600 focus:border-blue-500 focus:outline-none"
                   disabled={loading}

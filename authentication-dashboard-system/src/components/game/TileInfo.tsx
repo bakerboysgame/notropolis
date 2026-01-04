@@ -327,6 +327,36 @@ export function TileInfo({ mapId, x, y, map, onClose, onRefresh }: TileInfoProps
           </button>
         )}
 
+        {/* Extinguish fire button - any player can extinguish fire on any building (community action) */}
+        {building && building.is_on_fire && !building.is_collapsed && activeCompany && (
+          <button
+            onClick={async () => {
+              setActionLoading(true);
+              setActionError(null);
+              try {
+                const response = await api.post<{ success: boolean; message: string }>('/api/game/buildings/extinguish', {
+                  company_id: activeCompany.id,
+                  building_id: building.id,
+                  map_id: mapId,
+                  x,
+                  y,
+                });
+                if (response.data.success) {
+                  await handleActionSuccess();
+                }
+              } catch (err) {
+                setActionError(apiHelpers.handleError(err));
+              } finally {
+                setActionLoading(false);
+              }
+            }}
+            disabled={actionLoading}
+            className="w-full py-2 bg-blue-600 text-white rounded hover:bg-blue-500 transition-colors disabled:opacity-50"
+          >
+            {actionLoading ? 'Extinguishing...' : '🧯 Extinguish Fire (Free)'}
+          </button>
+        )}
+
         {/* Demolish button - for collapsed buildings owned by active company */}
         {building && building.is_collapsed && building.company_id === activeCompany?.id && activeCompany && (
           <button

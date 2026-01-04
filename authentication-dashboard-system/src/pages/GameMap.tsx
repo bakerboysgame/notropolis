@@ -9,7 +9,6 @@ import { PropertyModal } from '../components/game/PropertyModal';
 import { MapLegend } from '../components/game/MapLegend';
 import { MapControls } from '../components/game/MapControls';
 import { MiniMap } from '../components/game/MiniMap';
-import { PrisonStatus } from '../components/game/PrisonStatus';
 
 type ViewMode = 'overview' | 'zoomed';
 
@@ -21,7 +20,7 @@ type ViewMode = 'overview' | 'zoomed';
 export function GameMap(): JSX.Element {
   const { mapId } = useParams<{ mapId: string }>();
   const [searchParams] = useSearchParams();
-  const { activeCompany, refreshCompany } = useActiveCompany();
+  const { activeCompany } = useActiveCompany();
   const { mapData, isLoading, error, refetch } = useGameMap(mapId);
 
   // Check for initial coordinates from URL (e.g., /map/123?x=5&y=10)
@@ -144,19 +143,6 @@ export function GameMap(): JSX.Element {
 
   return (
     <div className="h-screen bg-gray-900 relative">
-      {/* Prison status banner */}
-      {activeCompany.is_in_prison && (
-        <div className="absolute top-0 left-0 right-0 z-50 p-4">
-          <PrisonStatus
-            isInPrison={activeCompany.is_in_prison}
-            prisonFine={activeCompany.prison_fine || 0}
-            companyCash={activeCompany.cash}
-            activeCompanyId={activeCompany.id}
-            onPaidFine={refreshCompany}
-          />
-        </div>
-      )}
-
       {/* Full-screen map area */}
       {viewMode === 'overview' ? (
         // OVERVIEW MODE - Grid view

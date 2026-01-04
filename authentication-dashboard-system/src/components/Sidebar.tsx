@@ -17,8 +17,10 @@ import {
   Briefcase,
   Shield,
   Image,
+  AlertCircle,
   LucideIcon
 } from 'lucide-react'
+import { api, apiHelpers } from '../services/api'
 import { clsx } from 'clsx'
 import { useAuth } from '../contexts/AuthContext'
 import { usePermissions } from '../contexts/PermissionsContext'
@@ -73,8 +75,10 @@ export default function Sidebar() {
   const { companyManagementEnabled, auditLoggingEnabled } = useFeatureFlags()
   const { theme, toggleTheme } = useTheme()
   const { unreadCount } = useUnreadMessages()
-  const { activeCompany } = useActiveCompany()
+  const { activeCompany, refreshCompany } = useActiveCompany()
   const isMobile = useIsMobile()
+  const [prisonLoading, setPrisonLoading] = useState(false)
+  const [prisonError, setPrisonError] = useState<string | null>(null)
   const sidebarRef = useRef<HTMLDivElement>(null)
   const touchStartX = useRef<number>(0)
   const touchEndX = useRef<number>(0)
@@ -342,6 +346,58 @@ export default function Sidebar() {
             )
           })}
         </ul>
+
+        {/* Prison indicator - shows when on map page and in prison */}
+        {isOnMapPage && activeCompany?.is_in_prison && (
+          <div className="mt-3 pt-3 border-t border-red-700/50">
+            <button
+              onClick={async () => {
+                if (!activeCompany || prisonLoading) return
+                const canAfford = activeCompany.cash >= (activeCompany.prison_fine || 0)
+                if (!canAfford) {
+                  setPrisonError('Insufficient funds')
+                  return
+                }
+                setPrisonLoading(true)
+                setPrisonError(null)
+                try {
+                  await api.post('/api/game/attacks/pay-fine', { company_id: activeCompany.id })
+                  await refreshCompany()
+                } catch (err) {
+                  setPrisonError(apiHelpers.handleError(err))
+                } finally {
+                  setPrisonLoading(false)
+                }
+              }}
+              disabled={prisonLoading || (activeCompany?.cash || 0) < (activeCompany?.prison_fine || 0)}
+              className={clsx(
+                'w-full flex items-center rounded-lg font-medium transition-all',
+                isMobile
+                  ? 'space-x-4 px-4 py-3.5 text-base'
+                  : isCollapsed
+                    ? 'justify-center px-3 py-3 text-sm'
+                    : 'space-x-3 px-3 py-2 text-sm',
+                (activeCompany?.cash || 0) >= (activeCompany?.prison_fine || 0)
+                  ? 'bg-red-900/50 text-red-400 hover:bg-red-800/50 border border-red-700'
+                  : 'bg-red-900/30 text-red-500/70 border border-red-800/50 cursor-not-allowed'
+              )}
+              title={isCollapsed && !isMobile ? 'In Prison - Pay Fine' : undefined}
+            >
+              <AlertCircle className={clsx('flex-shrink-0', isMobile ? 'w-6 h-6' : isCollapsed ? 'w-6 h-6' : 'w-5 h-5')} />
+              {(!isCollapsed || isMobile) && (
+                <span className="flex flex-col items-start">
+                  <span className="font-bold">IN PRISON</span>
+                  <span className="text-xs opacity-75">
+                    {prisonLoading ? 'Paying...' : `Pay $${(activeCompany?.prison_fine || 0).toLocaleString()}`}
+                  </span>
+                </span>
+              )}
+            </button>
+            {prisonError && (!isCollapsed || isMobile) && (
+              <p className="text-xs text-red-400 mt-1 px-3">{prisonError}</p>
+            )}
+          </div>
+        )}
       </nav>
 
       {/* Bottom Section - Settings, Dark Mode, and Transparency */}

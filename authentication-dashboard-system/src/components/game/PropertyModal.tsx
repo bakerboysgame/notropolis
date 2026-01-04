@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Building2, DollarSign, Shield, Flame, ShoppingCart, Hammer, Trash2 } from 'lucide-react';
+import { X, Building2, DollarSign, Shield, Flame, ShoppingCart, Hammer, Trash2, AlertCircle } from 'lucide-react';
 import { useTileDetail } from '../../hooks/useTileDetail';
 import { useActiveCompany } from '../../contexts/CompanyContext';
 import { BuyLandModal } from './BuyLandModal';
@@ -124,6 +124,102 @@ export function PropertyModal({
   }
 
   const { tile, building, owner, security } = data;
+
+  // Prison state - show pay fine UI instead of property actions
+  if (activeCompany?.is_in_prison) {
+    const prisonFine = activeCompany.prison_fine || 0;
+    const canAffordFine = activeCompany.cash >= prisonFine;
+
+    const handlePayFine = async () => {
+      setActionLoading(true);
+      setActionError(null);
+      try {
+        const response = await api.post('/api/game/attacks/pay-fine', {
+          company_id: activeCompany.id,
+        });
+        if (response.data.success) {
+          await refreshCompany();
+          onClose();
+        }
+      } catch (err) {
+        setActionError(apiHelpers.handleError(err));
+      } finally {
+        setActionLoading(false);
+      }
+    };
+
+    return (
+      <div
+        className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+        onClick={handleBackdropClick}
+      >
+        <div className="bg-gray-800 rounded-lg shadow-xl max-w-md w-full mx-4 overflow-hidden">
+          {/* Header */}
+          <div className="flex items-center justify-between p-4 border-b border-red-700 bg-red-900/30">
+            <div className="flex items-center gap-3">
+              <AlertCircle className="w-6 h-6 text-red-400" />
+              <h2 className="text-lg font-bold text-red-400">IN PRISON</h2>
+            </div>
+            <button
+              onClick={onClose}
+              className="p-3 -mr-2 hover:bg-gray-700 rounded-full transition-colors"
+              aria-label="Close modal"
+            >
+              <X className="w-6 h-6 text-white" />
+            </button>
+          </div>
+
+          {/* Prison Content */}
+          <div className="p-4 space-y-4">
+            <p className="text-gray-300 text-sm">
+              You were caught during an attack. All actions are blocked until you pay your fine.
+            </p>
+
+            {/* Fine and Cash display */}
+            <div className="flex gap-3">
+              <div className="flex-1 p-3 bg-gray-700 rounded">
+                <p className="text-xs text-gray-400 mb-1">Fine Amount</p>
+                <p className="text-xl text-red-400 font-mono font-bold flex items-center gap-1">
+                  <DollarSign className="w-5 h-5" />
+                  {prisonFine.toLocaleString()}
+                </p>
+              </div>
+              <div className="flex-1 p-3 bg-gray-700 rounded">
+                <p className="text-xs text-gray-400 mb-1">Your Cash</p>
+                <p className={`text-xl font-mono font-bold flex items-center gap-1 ${canAffordFine ? 'text-green-400' : 'text-red-400'}`}>
+                  <DollarSign className="w-5 h-5" />
+                  {activeCompany.cash.toLocaleString()}
+                </p>
+              </div>
+            </div>
+
+            {!canAffordFine && (
+              <p className="text-sm text-yellow-400">
+                ⚠️ Insufficient funds! Wait for tick income or sell properties.
+              </p>
+            )}
+
+            {actionError && (
+              <p className="text-red-400 text-sm">{actionError}</p>
+            )}
+
+            {/* Pay Fine Button */}
+            <button
+              onClick={handlePayFine}
+              disabled={!canAffordFine || actionLoading}
+              className={`w-full py-3 px-4 rounded-lg font-bold transition-colors ${
+                canAffordFine && !actionLoading
+                  ? 'bg-green-600 hover:bg-green-500 text-white'
+                  : 'bg-gray-600 text-gray-400 cursor-not-allowed'
+              }`}
+            >
+              {actionLoading ? 'Paying...' : `Pay Fine: $${prisonFine.toLocaleString()}`}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // Determine ownership state
   const isOwned = tile?.owner_company_id === activeCompany?.id;
@@ -272,6 +368,37 @@ export function PropertyModal({
 
             {/* Actions */}
             <div className="space-y-2 pt-2 border-t border-gray-700">
+              {/* Extinguish Fire - Any player can do this */}
+              {building && building.is_on_fire && !building.is_collapsed && activeCompany && (
+                <button
+                  onClick={async () => {
+                    setActionLoading(true);
+                    setActionError(null);
+                    try {
+                      const response = await api.post('/api/game/buildings/extinguish', {
+                        company_id: activeCompany.id,
+                        building_id: building.id,
+                        map_id: mapId,
+                        x,
+                        y,
+                      });
+                      if (response.data.success) {
+                        await handleActionSuccess();
+                      }
+                    } catch (err) {
+                      setActionError(apiHelpers.handleError(err));
+                    } finally {
+                      setActionLoading(false);
+                    }
+                  }}
+                  disabled={actionLoading}
+                  className="w-full py-3 px-4 bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  <Flame className="w-5 h-5" />
+                  {actionLoading ? 'Extinguishing...' : 'Put Out Fire'}
+                </button>
+              )}
+
               {/* Unclaimed Land - Buy */}
               {canBuyLand && activeCompany && (
                 <button
@@ -297,8 +424,8 @@ export function PropertyModal({
               {/* Your Property with Building */}
               {isOwned && building && !isSpecialBuilding && (
                 <>
-                  {/* Repair */}
-                  {building.damage_percent > 0 && !building.is_collapsed && (
+                  {/* Repair - only if damaged, not collapsed, and not on fire */}
+                  {building.damage_percent > 0 && !building.is_collapsed && !building.is_on_fire && (
                     <button
                       onClick={async () => {
                         setActionLoading(true);
