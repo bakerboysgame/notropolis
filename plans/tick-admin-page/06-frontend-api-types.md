@@ -188,6 +188,21 @@ export interface TickSettings {
   terrain_multiplier_free_land: number;
   terrain_multiplier_dirt_track: number;
   terrain_multiplier_trees: number;
+
+  // Combat settings (Dirty Tricks / Prison)
+  prison_fine_multiplier: number;
+  fine_multiplier_town: number;
+  fine_multiplier_city: number;
+  fine_multiplier_capital: number;
+  security_bonus_cameras: number;
+  security_bonus_guard_dogs: number;
+  security_bonus_security_guards: number;
+  cleanup_cost_percent: number;
+
+  // Market settings
+  sell_to_state_percent: number;
+  min_listing_price_percent: number;
+  forced_buy_multiplier: number;
 }
 
 export interface TickSettingsMetadata {
@@ -222,7 +237,7 @@ export interface SettingsLogEntry {
   user_email: string;
   changed_at: string;
   changes: Record<string, SettingChange>;
-  category: 'fire' | 'tax' | 'profit' | 'adjacency' | 'hero' | 'land' | 'multiple';
+  category: 'fire' | 'tax' | 'profit' | 'adjacency' | 'hero' | 'land' | 'combat' | 'market' | 'multiple';
   summary: string;
 }
 
@@ -235,7 +250,7 @@ export interface SettingsLogResponse {
 // SETTING METADATA (for UI)
 // ============================================
 
-export type SettingCategory = 'fire' | 'tax' | 'profit' | 'adjacency' | 'hero' | 'land';
+export type SettingCategory = 'fire' | 'tax' | 'profit' | 'adjacency' | 'hero' | 'land' | 'combat' | 'market';
 
 export interface SettingDefinition {
   key: keyof TickSettings;
@@ -294,6 +309,21 @@ export const SETTING_DEFINITIONS: SettingDefinition[] = [
   { key: 'terrain_multiplier_free_land', label: 'Free Land Multiplier', description: 'Cost multiplier for free land', category: 'land', min: 0.5, max: 2, step: 0.1, unit: 'x', format: 'decimal' },
   { key: 'terrain_multiplier_dirt_track', label: 'Dirt Track Multiplier', description: 'Cost multiplier for dirt tracks', category: 'land', min: 0.1, max: 2, step: 0.1, unit: 'x', format: 'decimal' },
   { key: 'terrain_multiplier_trees', label: 'Trees Multiplier', description: 'Cost multiplier for wooded land', category: 'land', min: 0.5, max: 3, step: 0.1, unit: 'x', format: 'decimal' },
+
+  // Combat (Dirty Tricks / Prison)
+  { key: 'prison_fine_multiplier', label: 'Prison Fine Multiplier', description: 'Fine = trick_cost × this × location_multiplier', category: 'combat', min: 1, max: 20, step: 1, unit: 'x', format: 'decimal' },
+  { key: 'fine_multiplier_town', label: 'Town Fine Multiplier', description: 'Fine multiplier for town locations', category: 'combat', min: 0.5, max: 5, step: 0.1, unit: 'x', format: 'decimal' },
+  { key: 'fine_multiplier_city', label: 'City Fine Multiplier', description: 'Fine multiplier for city locations', category: 'combat', min: 0.5, max: 5, step: 0.1, unit: 'x', format: 'decimal' },
+  { key: 'fine_multiplier_capital', label: 'Capital Fine Multiplier', description: 'Fine multiplier for capital locations', category: 'combat', min: 0.5, max: 5, step: 0.1, unit: 'x', format: 'decimal' },
+  { key: 'security_bonus_cameras', label: 'Cameras Bonus', description: 'Added catch rate for security cameras', category: 'combat', min: 0, max: 0.5, step: 0.05, unit: '%', format: 'percent' },
+  { key: 'security_bonus_guard_dogs', label: 'Guard Dogs Bonus', description: 'Added catch rate for guard dogs', category: 'combat', min: 0, max: 0.5, step: 0.05, unit: '%', format: 'percent' },
+  { key: 'security_bonus_security_guards', label: 'Security Guards Bonus', description: 'Added catch rate for security guards', category: 'combat', min: 0, max: 0.5, step: 0.05, unit: '%', format: 'percent' },
+  { key: 'cleanup_cost_percent', label: 'Cleanup Cost', description: 'Cost to cleanup as % of building cost per attack', category: 'combat', min: 0, max: 0.2, step: 0.01, unit: '%', format: 'percent' },
+
+  // Market
+  { key: 'sell_to_state_percent', label: 'Sell to State %', description: 'Percentage of building value when selling to state', category: 'market', min: 0.1, max: 1, step: 0.05, unit: '%', format: 'percent' },
+  { key: 'min_listing_price_percent', label: 'Min Listing Price %', description: 'Minimum listing price as % of building value', category: 'market', min: 0.5, max: 1.5, step: 0.05, unit: '%', format: 'percent' },
+  { key: 'forced_buy_multiplier', label: 'Forced Buy Multiplier', description: 'Forced buy price = building_value × this', category: 'market', min: 1, max: 20, step: 0.5, unit: 'x', format: 'decimal' },
 ];
 
 // Group settings by category for UI
@@ -304,6 +334,8 @@ export const SETTINGS_BY_CATEGORY: Record<SettingCategory, SettingDefinition[]> 
   adjacency: SETTING_DEFINITIONS.filter(s => s.category === 'adjacency'),
   hero: SETTING_DEFINITIONS.filter(s => s.category === 'hero'),
   land: SETTING_DEFINITIONS.filter(s => s.category === 'land'),
+  combat: SETTING_DEFINITIONS.filter(s => s.category === 'combat'),
+  market: SETTING_DEFINITIONS.filter(s => s.category === 'market'),
 };
 
 export const CATEGORY_LABELS: Record<SettingCategory, { label: string; icon: string }> = {
@@ -313,6 +345,8 @@ export const CATEGORY_LABELS: Record<SettingCategory, { label: string; icon: str
   adjacency: { label: 'Adjacency Modifiers', icon: '🏘️' },
   hero: { label: 'Hero System', icon: '👑' },
   land: { label: 'Land Costs', icon: '🗺️' },
+  combat: { label: 'Combat & Prison', icon: '⚔️' },
+  market: { label: 'Market Pricing', icon: '🏪' },
 };
 ```
 

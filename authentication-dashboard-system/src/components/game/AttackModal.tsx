@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { X, Skull, AlertTriangle } from 'lucide-react';
 import { api, apiHelpers } from '../../services/api';
-import { DIRTY_TRICKS, getAvailableTricks, isPoliceStrike, type TrickType } from '../../utils/dirtyTricks';
+import { DIRTY_TRICKS, getAvailableTricks, isPoliceStrike, calculateTrickCost, type TrickType } from '../../utils/dirtyTricks';
 
 interface AttackModalProps {
   isOpen: boolean;
@@ -42,6 +42,12 @@ export function AttackModal({
 
   // Get available tricks based on company level
   const availableTricks = getAvailableTricks(companyLevel);
+
+  // Get building value for cost calculation (use calculated_value if available, fall back to type cost)
+  const buildingValue = building?.calculated_value || buildingType?.cost || 0;
+
+  // Helper to get cost for a trick
+  const getTrickCost = (trickType: TrickType) => calculateTrickCost(trickType, buildingValue);
 
   const handleAttack = async () => {
     if (!selectedTrick) return;
@@ -126,7 +132,8 @@ export function AttackModal({
               Select a dirty trick to use. Higher damage means higher catch risk!
             </p>
             {availableTricks.map((trick) => {
-              const canAfford = companyCash >= trick.cost;
+              const trickCost = getTrickCost(trick.id);
+              const canAfford = companyCash >= trickCost;
               return (
                 <button
                   key={trick.id}
@@ -154,7 +161,10 @@ export function AttackModal({
                         <div>
                           <span className="text-gray-500">Cost:</span>{' '}
                           <span className="text-yellow-400 font-mono">
-                            ${trick.cost.toLocaleString()}
+                            ${trickCost.toLocaleString()}
+                          </span>
+                          <span className="text-gray-600 ml-1">
+                            ({Math.round(trick.costPercent * 100)}%)
                           </span>
                         </div>
                         <div>
@@ -183,51 +193,56 @@ export function AttackModal({
         {/* Confirmation View */}
         {selectedTrick && selectedTrickData && (
           <div className="space-y-4">
-            <div className="p-4 bg-gray-700 rounded-lg">
-              <div className="flex items-center gap-3 mb-3">
-                <span className="text-4xl">{selectedTrickData.icon}</span>
-                <div>
-                  <p className="text-xl font-bold text-white">{selectedTrickData.name}</p>
-                  <p className="text-sm text-gray-400">{selectedTrickData.description}</p>
-                </div>
-              </div>
+            {(() => {
+              const selectedTrickCost = getTrickCost(selectedTrick);
+              return (
+                <div className="p-4 bg-gray-700 rounded-lg">
+                  <div className="flex items-center gap-3 mb-3">
+                    <span className="text-4xl">{selectedTrickData.icon}</span>
+                    <div>
+                      <p className="text-xl font-bold text-white">{selectedTrickData.name}</p>
+                      <p className="text-sm text-gray-400">{selectedTrickData.description}</p>
+                    </div>
+                  </div>
 
-              <div className="grid grid-cols-2 gap-3 mb-3">
-                <div className="p-2 bg-gray-800 rounded">
-                  <p className="text-xs text-gray-500">Cost</p>
-                  <p className="text-lg text-yellow-400 font-mono font-bold">
-                    ${selectedTrickData.cost.toLocaleString()}
-                  </p>
-                </div>
-                <div className="p-2 bg-gray-800 rounded">
-                  <p className="text-xs text-gray-500">Damage Dealt</p>
-                  <p className="text-lg text-red-400 font-bold">{selectedTrickData.damage}%</p>
-                </div>
-                <div className="p-2 bg-gray-800 rounded">
-                  <p className="text-xs text-gray-500">
-                    {policeOnStrike ? 'Security Catch' : 'Police Catch'}
-                  </p>
-                  <p className="text-lg text-orange-400 font-bold">
-                    {policeOnStrike
-                      ? `${Math.round(selectedTrickData.securityCatchRate * 100)}%`
-                      : `${Math.round(selectedTrickData.policeCatchRate * 100)}%`}
-                  </p>
-                </div>
-                <div className="p-2 bg-gray-800 rounded">
-                  <p className="text-xs text-gray-500">Your Cash After</p>
-                  <p className="text-lg text-green-400 font-mono font-bold">
-                    ${(companyCash - selectedTrickData.cost).toLocaleString()}
-                  </p>
-                </div>
-              </div>
+                  <div className="grid grid-cols-2 gap-3 mb-3">
+                    <div className="p-2 bg-gray-800 rounded">
+                      <p className="text-xs text-gray-500">Cost ({Math.round(selectedTrickData.costPercent * 100)}% of value)</p>
+                      <p className="text-lg text-yellow-400 font-mono font-bold">
+                        ${selectedTrickCost.toLocaleString()}
+                      </p>
+                    </div>
+                    <div className="p-2 bg-gray-800 rounded">
+                      <p className="text-xs text-gray-500">Damage Dealt</p>
+                      <p className="text-lg text-red-400 font-bold">{selectedTrickData.damage}%</p>
+                    </div>
+                    <div className="p-2 bg-gray-800 rounded">
+                      <p className="text-xs text-gray-500">
+                        {policeOnStrike ? 'Security Catch' : 'Police Catch'}
+                      </p>
+                      <p className="text-lg text-orange-400 font-bold">
+                        {policeOnStrike
+                          ? `${Math.round(selectedTrickData.securityCatchRate * 100)}%`
+                          : `${Math.round(selectedTrickData.policeCatchRate * 100)}%`}
+                      </p>
+                    </div>
+                    <div className="p-2 bg-gray-800 rounded">
+                      <p className="text-xs text-gray-500">Your Cash After</p>
+                      <p className="text-lg text-green-400 font-mono font-bold">
+                        ${(companyCash - selectedTrickCost).toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
 
-              <div className="p-3 bg-red-900/20 rounded border border-red-800">
-                <p className="text-xs text-red-400 font-bold flex items-center gap-2">
-                  <AlertTriangle className="w-4 h-4" />
-                  If caught, you'll be sent to prison and fined 3x the trick cost!
-                </p>
-              </div>
-            </div>
+                  <div className="p-3 bg-red-900/20 rounded border border-red-800">
+                    <p className="text-xs text-red-400 font-bold flex items-center gap-2">
+                      <AlertTriangle className="w-4 h-4" />
+                      If caught, you'll be sent to prison and fined 8x the trick cost!
+                    </p>
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Optional message to leave on the building */}
             <div className="space-y-2">

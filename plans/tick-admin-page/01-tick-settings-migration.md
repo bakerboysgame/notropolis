@@ -129,6 +129,37 @@ CREATE TABLE tick_settings (
   terrain_multiplier_trees REAL DEFAULT 1.2,
 
   -- ============================================
+  -- COMBAT SETTINGS (Dirty Tricks / Prison)
+  -- ============================================
+  -- Prison fine multiplier (trick_cost * this * location_multiplier)
+  prison_fine_multiplier REAL DEFAULT 8.0,
+
+  -- Location multipliers for fine calculation
+  fine_multiplier_town REAL DEFAULT 1.0,
+  fine_multiplier_city REAL DEFAULT 1.5,
+  fine_multiplier_capital REAL DEFAULT 2.0,
+
+  -- Security system bonuses (additive with base catch rate)
+  security_bonus_cameras REAL DEFAULT 0.10,
+  security_bonus_guard_dogs REAL DEFAULT 0.15,
+  security_bonus_security_guards REAL DEFAULT 0.25,
+
+  -- Cleanup cost as percentage of building type cost per attack
+  cleanup_cost_percent REAL DEFAULT 0.05,
+
+  -- ============================================
+  -- MARKET SETTINGS
+  -- ============================================
+  -- Sell to state: percentage of building value
+  sell_to_state_percent REAL DEFAULT 0.50,
+
+  -- Minimum listing price as percentage of building value
+  min_listing_price_percent REAL DEFAULT 0.80,
+
+  -- Forced buy multiplier (calculated_value * this)
+  forced_buy_multiplier REAL DEFAULT 6.0,
+
+  -- ============================================
   -- METADATA
   -- ============================================
   created_at TEXT DEFAULT CURRENT_TIMESTAMP,
@@ -201,6 +232,21 @@ CREATE TABLE IF NOT EXISTS tick_settings (
   terrain_multiplier_dirt_track REAL DEFAULT 0.8,
   terrain_multiplier_trees REAL DEFAULT 1.2,
 
+  -- COMBAT SETTINGS
+  prison_fine_multiplier REAL DEFAULT 8.0,
+  fine_multiplier_town REAL DEFAULT 1.0,
+  fine_multiplier_city REAL DEFAULT 1.5,
+  fine_multiplier_capital REAL DEFAULT 2.0,
+  security_bonus_cameras REAL DEFAULT 0.10,
+  security_bonus_guard_dogs REAL DEFAULT 0.15,
+  security_bonus_security_guards REAL DEFAULT 0.25,
+  cleanup_cost_percent REAL DEFAULT 0.05,
+
+  -- MARKET SETTINGS
+  sell_to_state_percent REAL DEFAULT 0.50,
+  min_listing_price_percent REAL DEFAULT 0.80,
+  forced_buy_multiplier REAL DEFAULT 6.0,
+
   -- METADATA
   created_at TEXT DEFAULT CURRENT_TIMESTAMP,
   updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
@@ -215,7 +261,7 @@ INSERT OR IGNORE INTO tick_settings (id) VALUES ('global');
 
 | Table | Action | Columns |
 |-------|--------|---------|
-| tick_settings | CREATE | 34 columns (31 settings + id + timestamps + updated_by) |
+| tick_settings | CREATE | 45 columns (42 settings + id + timestamps + updated_by) |
 
 ## Test Cases
 
@@ -235,7 +281,7 @@ SELECT id, fire_damage_base, tax_rate_town, adjacency_range FROM tick_settings W
 ### Test 3: All Columns Present
 ```sql
 PRAGMA table_info(tick_settings);
--- Expected: 34 columns returned
+-- Expected: 45 columns returned
 ```
 
 ### Test 4: Default Values Correct
@@ -252,7 +298,7 @@ FROM tick_settings WHERE id = 'global';
 ## Acceptance Checklist
 
 - [ ] Migration file created at `migrations/0054_create_tick_settings.sql`
-- [ ] Table has all 34 columns defined
+- [ ] Table has all 45 columns defined
 - [ ] Default values match current hardcoded values
 - [ ] INSERT OR IGNORE prevents duplicate global rows
 - [ ] Migration runs without errors on fresh database

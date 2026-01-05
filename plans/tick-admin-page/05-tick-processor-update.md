@@ -8,7 +8,7 @@ Modify the tick processor and related modules to read settings from the database
 `[Requires: Stage 4 complete]` (settings API for testing)
 
 ## Complexity
-**Medium** — Modify 4 files, refactor constant usage to settings object
+**Medium** — Modify 6 files, refactor constant usage to settings object
 
 ## Files to Modify
 
@@ -24,6 +24,12 @@ Modify the tick processor and related modules to read settings from the database
 
 ### 4. `authentication-dashboard-system/worker/src/adjacencyCalculator.js`
 - Replace hardcoded adjacency constants with settings parameter
+
+### 5. `authentication-dashboard-system/worker/src/routes/game/attacks.js`
+- Replace hardcoded combat constants (fines, security bonuses, cleanup cost) with settings parameter
+
+### 6. `authentication-dashboard-system/worker/src/utils/marketPricing.js`
+- Replace hardcoded market pricing constants with settings parameter
 
 ## Implementation Details
 
@@ -75,6 +81,21 @@ const DEFAULT_SETTINGS = {
   terrain_multiplier_free_land: 1.0,
   terrain_multiplier_dirt_track: 0.8,
   terrain_multiplier_trees: 1.2,
+
+  // Combat (Dirty Tricks / Prison)
+  prison_fine_multiplier: 8.0,
+  fine_multiplier_town: 1.0,
+  fine_multiplier_city: 1.5,
+  fine_multiplier_capital: 2.0,
+  security_bonus_cameras: 0.10,
+  security_bonus_guard_dogs: 0.15,
+  security_bonus_security_guards: 0.25,
+  cleanup_cost_percent: 0.05,
+
+  // Market
+  sell_to_state_percent: 0.50,
+  min_listing_price_percent: 0.80,
+  forced_buy_multiplier: 6.0,
 };
 ```
 
@@ -360,6 +381,139 @@ export function calculateLandCost(tile, locationContext, settings) {
 }
 ```
 
+### attacks.js Changes
+
+```javascript
+// worker/src/routes/game/attacks.js
+
+// REMOVE these hardcoded constants:
+// const LOCATION_MULTIPLIERS = { town: 1.0, city: 1.5, capital: 2.0 };
+// const SECURITY_BONUSES = { cameras: 0.10, guard_dogs: 0.15, security_guards: 0.25 };
+// const CLEANUP_COST_PERCENT = 0.05;
+// const prisonFine = trickCost * 8 * locationMultiplier; (hardcoded 8)
+
+// Add helper to get settings (used by route handlers, not tick processor)
+async function getSettings(env) {
+  const settings = await env.DB.prepare(
+    'SELECT * FROM tick_settings WHERE id = ?'
+  ).bind('global').first();
+  return settings || DEFAULT_SETTINGS;
+}
+
+// UPDATE handlePerformAttack to use settings
+export async function handlePerformAttack(request, authService, env, corsHeaders) {
+  // ... existing auth checks ...
+
+  const settings = await getSettings(env);
+
+  // Build multipliers from settings
+  const LOCATION_MULTIPLIERS = {
+    town: settings.fine_multiplier_town,
+    city: settings.fine_multiplier_city,
+    capital: settings.fine_multiplier_capital,
+  };
+
+  const SECURITY_BONUSES = {
+    cameras: settings.security_bonus_cameras,
+    guard_dogs: settings.security_bonus_guard_dogs,
+    security_guards: settings.security_bonus_security_guards,
+  };
+
+  // Use settings for prison fine calculation (line ~162)
+  const prisonFine = Math.round(
+    trickCost * settings.prison_fine_multiplier * LOCATION_MULTIPLIERS[locationType]
+  );
+
+  // Use settings for cleanup cost (line ~431)
+  const cleanupCost = Math.round(buildingType.cost * settings.cleanup_cost_percent);
+
+  // ... rest of attack logic ...
+}
+```
+
+### marketPricing.js Changes
+
+```javascript
+// worker/src/utils/marketPricing.js
+
+// REMOVE these hardcoded values:
+// const buildingValue = Math.round(baseValue * 0.5);  // 50% hardcoded
+// return Math.round(baseValue * 0.8);  // 80% hardcoded
+// return Math.round(baseValue * 6);  // 6x hardcoded
+
+// Import or define default settings
+const DEFAULT_MARKET_SETTINGS = {
+  sell_to_state_percent: 0.50,
+  min_listing_price_percent: 0.80,
+  forced_buy_multiplier: 6.0,
+  damage_profit_multiplier: 1.176,
+};
+
+// UPDATE functions to accept optional settings parameter
+// (for backwards compatibility, use defaults if not provided)
+
+/**
+ * Calculate the value when selling a building to the state
+ * @param {Object} settings - Optional tick settings
+ */
+export function calculateSellToStateValue(building, buildingType, tile, map, settings = DEFAULT_MARKET_SETTINGS) {
+  const baseValue = building.calculated_value || buildingType.cost;
+  // Use setting instead of hardcoded 0.5
+  const buildingValue = Math.round(baseValue * settings.sell_to_state_percent);
+
+  // Use setting instead of hardcoded 1.176
+  const healthMultiplier = Math.max(0, (100 - building.damage_percent * settings.damage_profit_multiplier) / 100);
+  const adjustedBuildingValue = Math.round(buildingValue * healthMultiplier);
+
+  const landValue = calculateLandCost(tile, map);
+  return adjustedBuildingValue + landValue;
+}
+
+/**
+ * Calculate minimum listing price for selling to other players
+ * @param {Object} settings - Optional tick settings
+ */
+export function calculateMinListingPrice(building, buildingType, settings = DEFAULT_MARKET_SETTINGS) {
+  const baseValue = building.calculated_value || buildingType.cost;
+  // Use setting instead of hardcoded 0.8
+  return Math.round(baseValue * settings.min_listing_price_percent);
+}
+
+/**
+ * Calculate forced buy price (hostile takeover)
+ * @param {Object} settings - Optional tick settings
+ */
+export function calculateBuyFromPlayerPrice(building, buildingType, tile, map, settings = DEFAULT_MARKET_SETTINGS) {
+  const baseValue = building.calculated_value || buildingType.cost;
+  // Use setting instead of hardcoded 6
+  return Math.round(baseValue * settings.forced_buy_multiplier);
+}
+```
+
+### Updating Market Route Handlers
+
+```javascript
+// In any route that uses marketPricing functions, fetch settings first:
+// e.g., worker/src/routes/game/market.js
+
+import { calculateSellToStateValue, calculateMinListingPrice, calculateBuyFromPlayerPrice } from '../utils/marketPricing.js';
+
+export async function handleSellToState(request, authService, env, corsHeaders) {
+  // ... existing validation ...
+
+  // Fetch settings once
+  const settings = await env.DB.prepare('SELECT * FROM tick_settings WHERE id = ?')
+    .bind('global').first() || DEFAULT_SETTINGS;
+
+  // Pass settings to pricing functions
+  const saleValue = calculateSellToStateValue(building, buildingType, tile, map, settings);
+  const minPrice = calculateMinListingPrice(building, buildingType, settings);
+  const forcedBuyPrice = calculateBuyFromPlayerPrice(building, buildingType, tile, map, settings);
+
+  // ... rest of handler ...
+}
+```
+
 ### Update All Callers
 
 Find all places that call these functions and add the settings parameter:
@@ -438,6 +592,28 @@ SELECT id, calculated_value FROM building_instances WHERE map_id = 'test_map';
 -- Query values again, verify difference
 ```
 
+### Test 6: Combat Settings Apply
+```bash
+# Change prison fine multiplier
+curl -X PUT -H "Authorization: Bearer $TOKEN" \
+  -d '{"prison_fine_multiplier": 10.0}' \
+  "https://api.example.com/api/admin/tick/settings"
+
+# Perform a dirty trick that gets caught
+# Verify fine is calculated with 10x multiplier instead of 8x
+```
+
+### Test 7: Market Settings Apply
+```bash
+# Change forced buy multiplier
+curl -X PUT -H "Authorization: Bearer $TOKEN" \
+  -d '{"forced_buy_multiplier": 8.0}' \
+  "https://api.example.com/api/admin/tick/settings"
+
+# Check forced buy price for a building
+# Verify it's now calculated_value * 8 instead of * 6
+```
+
 ## Acceptance Checklist
 
 - [ ] processor.js fetches settings at tick start
@@ -450,10 +626,19 @@ SELECT id, calculated_value FROM building_instances WHERE map_id = 'test_map';
 - [ ] adjacencyCalculator.js accepts settings parameter
 - [ ] adjacencyCalculator.js uses settings for adjacency range
 - [ ] adjacencyCalculator.js uses settings for all modifiers
+- [ ] attacks.js uses settings for prison fine multiplier
+- [ ] attacks.js uses settings for location fine multipliers
+- [ ] attacks.js uses settings for security bonuses
+- [ ] attacks.js uses settings for cleanup cost percent
+- [ ] marketPricing.js uses settings for sell_to_state_percent
+- [ ] marketPricing.js uses settings for min_listing_price_percent
+- [ ] marketPricing.js uses settings for forced_buy_multiplier
 - [ ] All callers updated to pass settings
 - [ ] Tick completes successfully with DB settings
 - [ ] Tick completes successfully with fallback defaults
 - [ ] Changed settings take effect on next tick
+- [ ] Combat settings changes affect dirty tricks outcomes
+- [ ] Market settings changes affect sale/buy prices
 
 ## Deployment
 

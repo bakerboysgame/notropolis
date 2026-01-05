@@ -8,13 +8,14 @@ import { postActionCheck } from './levels.js';
 import { moderateAttackMessage } from './moderation.js';
 
 // Dirty trick definitions (mirrors dirtyTricks.ts on frontend)
+// costPercent = percentage of target building's calculated_value
 const DIRTY_TRICKS = {
-  graffiti: { cost: 500, damage: 5, policeCatchRate: 0.10, securityCatchRate: 0.15, levelRequired: 1 },
-  smoke_bomb: { cost: 1500, damage: 15, policeCatchRate: 0.20, securityCatchRate: 0.25, levelRequired: 1 },
-  stink_bomb: { cost: 3000, damage: 25, policeCatchRate: 0.30, securityCatchRate: 0.35, levelRequired: 2 },
-  cluster_bomb: { cost: 6000, damage: 35, policeCatchRate: 0.40, securityCatchRate: 0.45, levelRequired: 3 },
-  fire_bomb: { cost: 10000, damage: 40, policeCatchRate: 0.50, securityCatchRate: 0.55, levelRequired: 1 },
-  destruction_bomb: { cost: 20000, damage: 60, policeCatchRate: 0.70, securityCatchRate: 0.75, levelRequired: 5 },
+  graffiti: { costPercent: 0.05, damage: 5, policeCatchRate: 0.10, securityCatchRate: 0.15, levelRequired: 1 },
+  smoke_bomb: { costPercent: 0.10, damage: 15, policeCatchRate: 0.20, securityCatchRate: 0.25, levelRequired: 1 },
+  stink_bomb: { costPercent: 0.15, damage: 25, policeCatchRate: 0.30, securityCatchRate: 0.35, levelRequired: 2 },
+  cluster_bomb: { costPercent: 0.25, damage: 35, policeCatchRate: 0.40, securityCatchRate: 0.45, levelRequired: 3 },
+  fire_bomb: { costPercent: 0.30, damage: 40, policeCatchRate: 0.50, securityCatchRate: 0.55, levelRequired: 1 },
+  destruction_bomb: { costPercent: 0.40, damage: 60, policeCatchRate: 0.70, securityCatchRate: 0.75, levelRequired: 5 },
 };
 
 const LOCATION_MULTIPLIERS = {
@@ -67,16 +68,12 @@ export async function performAttack(request, env, company) {
     throw new Error(`Requires company level ${trick.levelRequired}`);
   }
 
-  // Check funds
-  if (company.cash < trick.cost) {
-    throw new Error('Insufficient funds');
-  }
-
-  // Get target building with all needed data
+  // Get target building with all needed data (including calculated_value for dynamic pricing)
   const building = await env.DB.prepare(`
-    SELECT bi.*, t.x, t.y, t.map_id, m.location_type, m.police_strike_day,
+    SELECT bi.*, bt.cost as type_cost, t.x, t.y, t.map_id, m.location_type, m.police_strike_day,
            gc.name as owner_name
     FROM building_instances bi
+    JOIN building_types bt ON bi.building_type_id = bt.id
     JOIN tiles t ON bi.tile_id = t.id
     JOIN maps m ON t.map_id = m.id
     JOIN game_companies gc ON bi.company_id = gc.id
@@ -95,6 +92,15 @@ export async function performAttack(request, env, company) {
   // Cannot attack collapsed building
   if (building.is_collapsed) {
     throw new Error('Building is already collapsed');
+  }
+
+  // Calculate trick cost based on building's calculated_value (or fall back to type cost)
+  const buildingValue = building.calculated_value || building.type_cost;
+  const trickCost = Math.round(buildingValue * trick.costPercent);
+
+  // Check funds
+  if (company.cash < trickCost) {
+    throw new Error(`Insufficient funds. This attack costs $${trickCost.toLocaleString()}`);
   }
 
   // Get security systems for this building
@@ -149,11 +155,11 @@ export async function performAttack(request, env, company) {
   const newDamage = Math.min(building.damage_percent + damageDealt, 100);
   const collapsed = newDamage >= 100;
 
-  // Calculate fine if caught
+  // Calculate fine if caught (8x trick cost, scaled by location)
   let fineAmount = 0;
   if (wasCaught) {
     const locationMultiplier = LOCATION_MULTIPLIERS[building.location_type] || 1.0;
-    fineAmount = Math.floor(trick.cost * 3 * locationMultiplier);
+    fineAmount = Math.floor(trickCost * 8 * locationMultiplier);
   }
 
   // Set fire flag for fire bomb
@@ -185,7 +191,7 @@ export async function performAttack(request, env, company) {
             last_action_at = ?,
             ticks_since_action = 0
         WHERE id = ?
-      `).bind(trick.cost, fineAmount, new Date().toISOString(), company.id)
+      `).bind(trickCost, fineAmount, new Date().toISOString(), company.id)
     );
   } else {
     statements.push(
@@ -196,7 +202,7 @@ export async function performAttack(request, env, company) {
             last_action_at = ?,
             ticks_since_action = 0
         WHERE id = ?
-      `).bind(trick.cost, new Date().toISOString(), company.id)
+      `).bind(trickCost, new Date().toISOString(), company.id)
     );
   }
 
@@ -238,7 +244,7 @@ export async function performAttack(request, env, company) {
       building.map_id,
       building_id,
       building.company_id,
-      -trick.cost
+      -trickCost
     )
   );
 
@@ -256,6 +262,7 @@ export async function performAttack(request, env, company) {
 
   return {
     success: true,
+    trick_cost: trickCost,
     damage_dealt: damageDealt,
     total_damage: newDamage,
     was_caught: wasCaught,

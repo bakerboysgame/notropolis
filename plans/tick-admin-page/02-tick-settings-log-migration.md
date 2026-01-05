@@ -123,6 +123,8 @@ CREATE INDEX IF NOT EXISTS idx_settings_log_category ON tick_settings_log(catego
 | `adjacency` | adjacency_range, competition_penalty, collapsed_neighbor_*, commercial_synergy_bonus, premium_terrain_*, penalty_terrain_*, min_building_value_floor |
 | `hero` | default_forced_hero_ticks, land_streak_requirement |
 | `land` | base_land_cost, land_multiplier_*, terrain_multiplier_* |
+| `combat` | prison_fine_multiplier, fine_multiplier_town/city/capital, security_bonus_cameras/guard_dogs/security_guards, cleanup_cost_percent |
+| `market` | sell_to_state_percent, min_listing_price_percent, forced_buy_multiplier |
 | `multiple` | When changes span multiple categories |
 
 ## Database Changes

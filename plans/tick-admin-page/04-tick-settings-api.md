@@ -173,6 +173,21 @@ const SETTING_VALIDATION = {
   terrain_multiplier_free_land: { min: 0.5, max: 2, type: 'decimal' },
   terrain_multiplier_dirt_track: { min: 0.1, max: 2, type: 'decimal' },
   terrain_multiplier_trees: { min: 0.5, max: 3, type: 'decimal' },
+
+  // Combat settings (Dirty Tricks / Prison)
+  prison_fine_multiplier: { min: 1, max: 20, type: 'decimal' },
+  fine_multiplier_town: { min: 0.5, max: 5, type: 'decimal' },
+  fine_multiplier_city: { min: 0.5, max: 5, type: 'decimal' },
+  fine_multiplier_capital: { min: 0.5, max: 5, type: 'decimal' },
+  security_bonus_cameras: { min: 0, max: 0.5, type: 'decimal' },
+  security_bonus_guard_dogs: { min: 0, max: 0.5, type: 'decimal' },
+  security_bonus_security_guards: { min: 0, max: 0.5, type: 'decimal' },
+  cleanup_cost_percent: { min: 0, max: 0.2, type: 'decimal' },
+
+  // Market settings
+  sell_to_state_percent: { min: 0.1, max: 1, type: 'decimal' },
+  min_listing_price_percent: { min: 0.5, max: 1.5, type: 'decimal' },
+  forced_buy_multiplier: { min: 1, max: 20, type: 'decimal' },
 };
 ```
 
@@ -215,6 +230,19 @@ const DEFAULT_SETTINGS = {
   terrain_multiplier_free_land: 1.0,
   terrain_multiplier_dirt_track: 0.8,
   terrain_multiplier_trees: 1.2,
+  // Combat settings
+  prison_fine_multiplier: 8.0,
+  fine_multiplier_town: 1.0,
+  fine_multiplier_city: 1.5,
+  fine_multiplier_capital: 2.0,
+  security_bonus_cameras: 0.10,
+  security_bonus_guard_dogs: 0.15,
+  security_bonus_security_guards: 0.25,
+  cleanup_cost_percent: 0.05,
+  // Market settings
+  sell_to_state_percent: 0.50,
+  min_listing_price_percent: 0.80,
+  forced_buy_multiplier: 6.0,
 };
 
 // Validation rules (as defined above)
@@ -243,14 +271,18 @@ function determineCategory(settingNames) {
       categories.add('fire');
     } else if (name.startsWith('tax_')) {
       categories.add('tax');
-    } else if (name.includes('profit') || name.includes('earning') || name.includes('maintenance') || name.includes('security') || name.includes('damage_profit')) {
+    } else if (name.includes('profit') || name.includes('earning') || name.includes('maintenance') || name.includes('security_cost') || name.includes('damage_profit')) {
       categories.add('profit');
-    } else if (name.includes('adjacency') || name.includes('neighbor') || name.includes('synergy') || name.includes('terrain') || name.includes('competition') || name.includes('building_value')) {
+    } else if (name.includes('adjacency') || name.includes('neighbor') || name.includes('synergy') || name.includes('premium_terrain') || name.includes('penalty_terrain') || name.includes('competition') || name.includes('building_value')) {
       categories.add('adjacency');
     } else if (name.includes('hero') || name.includes('streak')) {
       categories.add('hero');
     } else if (name.includes('land') || name.includes('terrain_multiplier')) {
       categories.add('land');
+    } else if (name.includes('prison') || name.includes('fine_multiplier') || name.includes('security_bonus') || name.includes('cleanup')) {
+      categories.add('combat');
+    } else if (name.includes('sell_to_state') || name.includes('listing_price') || name.includes('forced_buy')) {
+      categories.add('market');
     }
   }
   return categories.size === 1 ? [...categories][0] : 'multiple';

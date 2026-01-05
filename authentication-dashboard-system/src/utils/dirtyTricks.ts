@@ -12,7 +12,7 @@ export interface DirtyTrick {
   id: TrickType;
   name: string;
   description: string;
-  cost: number;
+  costPercent: number; // Percentage of target building's value (0-1)
   damage: number;
   policeCatchRate: number; // Base rate (0-1)
   securityCatchRate: number; // Base rate (0-1)
@@ -25,7 +25,7 @@ export const DIRTY_TRICKS: Record<TrickType, DirtyTrick> = {
     id: 'graffiti',
     name: 'Graffiti',
     description: 'Spray paint their building. Low damage, low risk.',
-    cost: 500,
+    costPercent: 0.05,
     damage: 5,
     policeCatchRate: 0.10,
     securityCatchRate: 0.15,
@@ -36,7 +36,7 @@ export const DIRTY_TRICKS: Record<TrickType, DirtyTrick> = {
     id: 'smoke_bomb',
     name: 'Smoke Bomb',
     description: 'Fill the building with smoke. Moderate damage.',
-    cost: 1500,
+    costPercent: 0.10,
     damage: 15,
     policeCatchRate: 0.20,
     securityCatchRate: 0.25,
@@ -47,7 +47,7 @@ export const DIRTY_TRICKS: Record<TrickType, DirtyTrick> = {
     id: 'stink_bomb',
     name: 'Stink Bomb',
     description: 'Make it uninhabitable. Good damage.',
-    cost: 3000,
+    costPercent: 0.15,
     damage: 25,
     policeCatchRate: 0.30,
     securityCatchRate: 0.35,
@@ -58,7 +58,7 @@ export const DIRTY_TRICKS: Record<TrickType, DirtyTrick> = {
     id: 'cluster_bomb',
     name: 'Cluster Bomb',
     description: 'Multiple small explosives. High damage, high risk.',
-    cost: 6000,
+    costPercent: 0.25,
     damage: 35,
     policeCatchRate: 0.40,
     securityCatchRate: 0.45,
@@ -69,7 +69,7 @@ export const DIRTY_TRICKS: Record<TrickType, DirtyTrick> = {
     id: 'fire_bomb',
     name: 'Fire Bomb',
     description: 'Set the building ablaze. Very high damage + fire spread.',
-    cost: 10000,
+    costPercent: 0.30,
     damage: 40,
     policeCatchRate: 0.50,
     securityCatchRate: 0.55,
@@ -80,7 +80,7 @@ export const DIRTY_TRICKS: Record<TrickType, DirtyTrick> = {
     id: 'destruction_bomb',
     name: 'Destruction Bomb',
     description: 'Maximum devastation. Extreme damage, extreme risk.',
-    cost: 20000,
+    costPercent: 0.40,
     damage: 60,
     policeCatchRate: 0.70,
     securityCatchRate: 0.75,
@@ -122,14 +122,25 @@ export function calculateSecurityCatchRate(
 }
 
 /**
- * Calculate fine amount based on trick cost and location
+ * Calculate trick cost based on building value
+ */
+export function calculateTrickCost(
+  trickType: TrickType,
+  buildingValue: number
+): number {
+  const trick = DIRTY_TRICKS[trickType];
+  return Math.round(buildingValue * trick.costPercent);
+}
+
+/**
+ * Calculate fine amount based on trick cost and location (8x multiplier)
  */
 export function calculateFine(
   trickCost: number,
   locationType: string
 ): number {
   const multiplier = LOCATION_MULTIPLIERS[locationType] || 1.0;
-  return Math.floor(trickCost * 3 * multiplier);
+  return Math.floor(trickCost * 8 * multiplier);
 }
 
 /**

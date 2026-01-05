@@ -4,7 +4,7 @@
 
 **What:** A master-admin-only page at `/admin/tick` with two tabs:
 1. **Tick History** — View historical tick data with drill-down to per-company statistics, charts for trends
-2. **Tick Settings** — Configure all tick-related parameters (fire, tax, adjacency, hero, land costs) with change logging
+2. **Tick Settings** — Configure all tick-related parameters (fire, tax, adjacency, hero, land costs, combat/prison, market pricing) with change logging
 
 **Why:**
 - The 10-minute tick drives core game mechanics (profit distribution, fire spread, hero eligibility)

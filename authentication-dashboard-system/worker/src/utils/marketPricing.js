@@ -51,23 +51,18 @@ export function calculateMinListingPrice(building, buildingType) {
 
 /**
  * Calculate inflated price for buying from other players (not listed)
- * Used for future offer system
- * 200% of building value + land value + profit premium
+ * Used for forced buy / hostile takeover
+ * 6x of building's calculated value
  *
  * @param {Object} building - Building instance with calculated_profit and optional calculated_value
  * @param {Object} buildingType - Building type with cost
- * @param {Object} tile - Tile with x, y, terrain_type
- * @param {Object} map - Map with location_type
- * @returns {number} Inflated buy price
+ * @param {Object} tile - Tile with x, y, terrain_type (unused, kept for API compatibility)
+ * @param {Object} map - Map with location_type (unused, kept for API compatibility)
+ * @returns {number} Forced buy price
  */
 export function calculateBuyFromPlayerPrice(building, buildingType, tile, map) {
   // Use dynamic value if available, otherwise fall back to cost
   const baseValue = building.calculated_value || buildingType.cost;
-  // If not for sale, calculate inflated price
-  // 200% of building value + land value + profit premium
-  const buildingValue = baseValue * 2;
-  const landValue = calculateLandCost(tile, map);
-  const profitPremium = building.calculated_profit * 10; // 10 ticks worth
-
-  return Math.round(buildingValue + landValue + profitPremium);
+  // Forced buy = 6x building value
+  return Math.round(baseValue * 6);
 }
