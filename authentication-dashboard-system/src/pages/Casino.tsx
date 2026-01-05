@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Dice6, AlertCircle } from 'lucide-react';
 import { useActiveCompany } from '../contexts/CompanyContext';
 import { api, apiHelpers } from '../services/api';
+import { RouletteWheel } from '../components/RouletteWheel';
 
 const RED_NUMBERS = [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36];
 
@@ -36,8 +37,33 @@ export function Casino(): JSX.Element {
   const [betAmount, setBetAmount] = useState('1000');
   const [betType, setBetType] = useState<BetType>('red');
   const [spinning, setSpinning] = useState(false);
+  const [wheelResult, setWheelResult] = useState<number | null>(null);
   const [lastResult, setLastResult] = useState<SpinResult | null>(null);
+  const [showResult, setShowResult] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const pendingResultRef = useRef<SpinResult | null>(null);
+
+  const handleSpinComplete = async () => {
+    setSpinning(false);
+    setShowResult(true);
+
+    if (pendingResultRef.current) {
+      setLastResult(pendingResultRef.current);
+      pendingResultRef.current = null;
+
+      // Update active company with new cash balance
+      if (activeCompany) {
+        try {
+          const companyResponse = await api.get(`/api/game/companies/${activeCompany.id}`);
+          if (companyResponse.data.success && companyResponse.data.company) {
+            setActiveCompany(companyResponse.data.company);
+          }
+        } catch {
+          // Silently fail - balance will update on next action
+        }
+      }
+    }
+  };
 
   const handleSpin = async () => {
     if (!activeCompany) return;
@@ -60,6 +86,8 @@ export function Casino(): JSX.Element {
 
     setSpinning(true);
     setError(null);
+    setShowResult(false);
+    setLastResult(null);
 
     try {
       const response = await api.post('/api/game/casino/roulette', {
@@ -69,19 +97,16 @@ export function Casino(): JSX.Element {
       });
 
       if (response.data.success) {
-        setLastResult(response.data.data);
-
-        // Update active company with new cash balance
-        const companyResponse = await api.get(`/api/game/companies/${activeCompany.id}`);
-        if (companyResponse.data.success && companyResponse.data.company) {
-          setActiveCompany(companyResponse.data.company);
-        }
+        // Store the result and trigger wheel animation
+        pendingResultRef.current = response.data.data;
+        setWheelResult(response.data.data.result);
+        // The wheel animation will call handleSpinComplete when done
       } else {
         setError(response.data.error || 'Spin failed');
+        setSpinning(false);
       }
     } catch (err) {
       setError(apiHelpers.handleError(err));
-    } finally {
       setSpinning(false);
     }
   };
@@ -110,10 +135,16 @@ export function Casino(): JSX.Element {
 
         {/* Casino Banner */}
         <div className="text-center mb-6">
-          <div className="text-6xl mb-4">🎰</div>
-          <h1 className="text-2xl font-bold text-white">Casino</h1>
+          <h1 className="text-2xl font-bold text-white mb-2">Casino Roulette</h1>
           <p className="text-gray-400">Max bet: $10,000</p>
         </div>
+
+        {/* Roulette Wheel */}
+        <RouletteWheel
+          result={wheelResult}
+          spinning={spinning}
+          onSpinComplete={handleSpinComplete}
+        />
 
         {/* Prison Warning */}
         {activeCompany.is_in_prison && (
@@ -137,7 +168,7 @@ export function Casino(): JSX.Element {
         </div>
 
         {/* Last result */}
-        {lastResult && (
+        {showResult && lastResult && (
           <div
             className={`rounded-lg p-6 mb-6 text-center border ${
               lastResult.won

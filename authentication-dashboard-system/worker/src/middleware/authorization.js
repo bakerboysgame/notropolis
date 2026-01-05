@@ -83,6 +83,17 @@ const ENDPOINT_AUTHORIZATION = [
 
   // ==================== GAME MODERATION ADMIN ENDPOINTS ====================
   { pattern: '/api/game/moderation/*', roles: ['master_admin'], companyIsolation: false },
+
+  // ==================== GAME TEMPLE/CASINO/AVATAR/OTHER ENDPOINTS ====================
+  // These use game company IDs, not SaaS company IDs - business logic validates ownership
+  { pattern: '/api/game/temple/*', roles: [], companyIsolation: false },
+  { pattern: '/api/game/casino/*', roles: [], companyIsolation: false },
+  { pattern: '/api/game/avatar/*', roles: [], companyIsolation: false },
+  { pattern: '/api/game/security/*', roles: [], companyIsolation: false },
+  { pattern: '/api/game/hero/*', roles: [], companyIsolation: false },
+  { pattern: '/api/game/achievements/*', roles: [], companyIsolation: false },
+  { pattern: '/api/game/statistics/*', roles: [], companyIsolation: false },
+  { pattern: '/api/game/events/*', roles: [], companyIsolation: false },
 ];
 
 // Match a URL path against a pattern
