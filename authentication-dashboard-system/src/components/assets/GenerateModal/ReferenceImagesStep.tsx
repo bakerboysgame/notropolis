@@ -29,13 +29,13 @@ const categoryLabels: Record<string, string> = {
   building_ref: 'Building Refs',
   character_ref: 'Character Refs',
   vehicle_ref: 'Vehicle Refs',
-  effect_ref: 'Effect Refs',
+  effect_ref: 'Dirty Trick Refs',
   terrain_ref: 'Terrain Refs',
   // Sprites
   building_sprite: 'Building Sprites',
   npc: 'NPCs',
   avatar: 'Avatars',
-  effect: 'Effects',
+  effect: 'Dirty Tricks',
   terrain: 'Terrain',
   overlay: 'Overlays',
 };

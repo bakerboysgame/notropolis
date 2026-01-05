@@ -556,36 +556,30 @@ export default {
           });
         }
 
-        // AUTH: Get all published dirty trick assets (icon + overlay for each trick)
-        // Each trick has 2 images: icon (for UI modal) and overlay (for building damage display)
+        // AUTH: Get all published dirty trick sprites (visual effect overlays for buildings)
         case path === '/api/assets/dirty-tricks/published' && method === 'GET': {
           if (!currentUser) {
             return new Response(JSON.stringify({ success: false, error: 'Authentication required' }), {
               status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
             });
           }
-          // Fetch both icons and overlays for dirty tricks
+          // Fetch dirty tricks from effects category
           const results = await env.DB.prepare(`
-            SELECT ac.category, ac.asset_key, ga.r2_url as sprite_url, ac.config
+            SELECT ac.asset_key, ga.r2_url as sprite_url
             FROM asset_configurations ac
             INNER JOIN generated_assets ga ON ac.active_sprite_id = ga.id
-            WHERE ac.category IN ('dirty_trick_icon', 'dirty_trick_overlay')
+            WHERE ac.category = 'effects'
               AND ac.is_published = TRUE
               AND ga.r2_url IS NOT NULL
           `).all();
 
-          // Group by trick type with icon and overlay
+          // Map each trick to { icon: null, overlay: sprite_url }
           const tricks = {};
           for (const row of results.results) {
-            // asset_key is the trick name (graffiti, smoke_bomb, etc.)
-            if (!tricks[row.asset_key]) {
-              tricks[row.asset_key] = { icon: null, overlay: null };
-            }
-            if (row.category === 'dirty_trick_icon') {
-              tricks[row.asset_key].icon = row.sprite_url;
-            } else if (row.category === 'dirty_trick_overlay') {
-              tricks[row.asset_key].overlay = row.sprite_url;
-            }
+            tricks[row.asset_key] = {
+              icon: null,
+              overlay: row.sprite_url
+            };
           }
           return new Response(JSON.stringify({ success: true, tricks }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Cache-Control': 'private, max-age=300' }

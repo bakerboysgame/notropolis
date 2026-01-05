@@ -8,7 +8,6 @@ import {
   getBuildingMapScale,
 } from '../../utils/isometricRenderer';
 import { useHighlights } from '../../contexts/HighlightContext';
-import { hexToRgba } from '../../utils/mapRenderer';
 
 // Responsive tile size: 64px for mobile/tablet, 85px for desktop (2/3 of 128)
 const MOBILE_TILE_SIZE = 64;
@@ -245,13 +244,12 @@ export function IsometricView({
           const highlightColor = !isOwned && tile.owner_company_id
             ? getCompanyHighlight(tile.owner_company_id) : null;
 
-          const glowColor = isOwned ? 'rgba(59, 130, 246, 1.0)' : highlightColor ? hexToRgba(highlightColor, 1.0) : null;
+          const glowColor = isOwned ? 'rgb(59, 130, 246)' : highlightColor || null;
 
+          // Apply stacked drop-shadow filter for thick solid outline
           if (glowColor) {
-            ctx.shadowColor = glowColor;
-            ctx.shadowBlur = 60 * zoom;
-            ctx.shadowOffsetX = 0;
-            ctx.shadowOffsetY = 0;
+            const outlineSize = Math.round(4 * zoom);
+            ctx.filter = `drop-shadow(0 0 ${outlineSize}px ${glowColor}) drop-shadow(0 0 ${outlineSize}px ${glowColor}) drop-shadow(0 0 ${outlineSize}px ${glowColor})`;
           }
 
           // Building sprite centered horizontally, bottom at tile bottom
@@ -263,10 +261,9 @@ export function IsometricView({
             spriteHeight
           );
 
-          // Reset shadow
+          // Reset filter
           if (glowColor) {
-            ctx.shadowColor = 'transparent';
-            ctx.shadowBlur = 0;
+            ctx.filter = 'none';
           }
 
           // Damage overlay (darken based on damage)
@@ -344,13 +341,12 @@ export function IsometricView({
           const stakeHighlightColor = !isOwned
             ? getCompanyHighlight(tile.owner_company_id) : null;
 
-          const stakeGlowColor = isOwned ? 'rgba(59, 130, 246, 1.0)' : stakeHighlightColor ? hexToRgba(stakeHighlightColor, 1.0) : null;
+          const stakeGlowColor = isOwned ? 'rgb(59, 130, 246)' : stakeHighlightColor || null;
 
+          // Apply stacked drop-shadow filter for thick solid outline
           if (stakeGlowColor) {
-            ctx.shadowColor = stakeGlowColor;
-            ctx.shadowBlur = 60 * zoom;
-            ctx.shadowOffsetX = 0;
-            ctx.shadowOffsetY = 0;
+            const outlineSize = Math.round(4 * zoom);
+            ctx.filter = `drop-shadow(0 0 ${outlineSize}px ${stakeGlowColor}) drop-shadow(0 0 ${outlineSize}px ${stakeGlowColor}) drop-shadow(0 0 ${outlineSize}px ${stakeGlowColor})`;
           }
 
           ctx.drawImage(
@@ -361,10 +357,9 @@ export function IsometricView({
             spriteHeight
           );
 
-          // Reset shadow
+          // Reset filter
           if (stakeGlowColor) {
-            ctx.shadowColor = 'transparent';
-            ctx.shadowBlur = 0;
+            ctx.filter = 'none';
           }
         }
       }

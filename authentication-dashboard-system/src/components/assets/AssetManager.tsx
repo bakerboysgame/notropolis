@@ -894,10 +894,9 @@ export function AssetManager() {
       <div className="p-6">
         {activeTab === 'buildings' && <BuildingsList />}
         {activeTab === 'npcs' && <GenericAssetList category="npcs" />}
-        {activeTab === 'effects' && <GenericAssetList category="effects" />}
+        {activeTab === 'dirty_tricks' && <GenericAssetList category="effects" />}
         {activeTab === 'terrain' && <GenericAssetList category="terrain" />}
         {activeTab === 'base_ground' && <BaseGroundList />}
-        {activeTab === 'tricks' && <GenericAssetList category="tricks" />}
       </div>
     </div>
   );

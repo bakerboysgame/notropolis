@@ -56,7 +56,7 @@ export const ASSET_KEYS: Record<string, string[]> = {
   ],
   character_ref: ['pedestrian', 'pedestrian_business', 'pedestrian_casual', 'avatar_base'],
   vehicle_ref: ['car_sedan', 'car_sports', 'car_van', 'car_taxi'],
-  effect_ref: ['fire', 'cluster_bomb', 'vandalism', 'robbery', 'poisoning', 'blackout', 'smoke_bomb', 'stink_bomb', 'destruction_bomb', 'graffiti'],
+  effect_ref: ['fire', 'cluster_bomb', 'vandalism', 'robbery', 'poisoning', 'blackout', 'smoke_bomb', 'stink_bomb', 'destruction_bomb', 'graffiti', 'damage_25', 'damage_50', 'damage_75', 'for_sale', 'security'],
   // NPC sprites - directional walk cycles and car sprites
   npc: [
     // Pedestrian directional sprites (2-frame animation strips)
@@ -100,7 +100,7 @@ export const TABS: TabConfig[] = [
   { key: 'buildings', label: 'Buildings', refCategory: 'building_ref', spriteCategory: 'building_sprite' },
   { key: 'characters', label: 'Characters', refCategory: 'character_ref', spriteCategory: 'npc' },
   { key: 'vehicles', label: 'Vehicles', refCategory: 'vehicle_ref', spriteCategory: 'vehicle' },
-  { key: 'effects', label: 'Effects', refCategory: 'effect_ref', spriteCategory: 'effect' },
+  { key: 'dirty_tricks', label: 'Dirty Tricks', refCategory: 'effect_ref', spriteCategory: 'effect' },
   { key: 'scenes', label: 'Scenes', standaloneCategory: 'scene' },
   { key: 'terrain', label: 'Terrain', refCategory: 'terrain_ref', spriteCategory: 'terrain' },
   { key: 'avatars', label: 'Avatars', refCategory: 'character_ref', spriteCategory: 'avatar' },
@@ -997,7 +997,7 @@ export const assetConfigApi = new AssetConfigurationApi();
 export const ASSET_MANAGER_CATEGORIES = [
   { key: 'buildings', label: 'Buildings', hasPrice: true },
   { key: 'npcs', label: 'NPCs', hasPrice: false },
-  { key: 'effects', label: 'Effects', hasPrice: false },
+  { key: 'dirty_tricks', label: 'Dirty Tricks', hasPrice: false },
   { key: 'terrain', label: 'Terrain', hasPrice: false },
   { key: 'base_ground', label: 'Base Ground', hasPrice: false, singleActive: true },
 ] as const;
