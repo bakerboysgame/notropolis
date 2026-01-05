@@ -245,16 +245,29 @@ export function IsometricView({
           const highlightColor = !isOwned && tile.owner_company_id
             ? getCompanyHighlight(tile.owner_company_id) : null;
 
-          if (isOwned) {
-            ctx.shadowColor = 'rgba(59, 130, 246, 1.0)';
+          const glowColor = isOwned ? 'rgba(59, 130, 246, 1.0)' : highlightColor ? hexToRgba(highlightColor, 1.0) : null;
+
+          if (glowColor) {
+            // Outline stroke - draw multiple times at small offsets with tight blur
+            ctx.shadowColor = glowColor;
+            ctx.shadowBlur = 2 * zoom;
+            const outlineOffset = 2 * zoom;
+            const offsets = [
+              [-outlineOffset, 0], [outlineOffset, 0], [0, -outlineOffset], [0, outlineOffset],
+              [-outlineOffset, -outlineOffset], [outlineOffset, -outlineOffset], [-outlineOffset, outlineOffset], [outlineOffset, outlineOffset]
+            ];
+            for (const [ox, oy] of offsets) {
+              ctx.drawImage(
+                buildingSprite,
+                screenX - spriteWidth / 2 + ox,
+                screenY - spriteHeight + tileSize / 2 + oy,
+                spriteWidth,
+                spriteHeight
+              );
+            }
+
+            // Outer glow
             ctx.shadowBlur = 20 * zoom;
-            ctx.shadowOffsetX = 0;
-            ctx.shadowOffsetY = 0;
-          } else if (highlightColor) {
-            ctx.shadowColor = hexToRgba(highlightColor, 1.0);
-            ctx.shadowBlur = 20 * zoom;
-            ctx.shadowOffsetX = 0;
-            ctx.shadowOffsetY = 0;
           }
 
           // Building sprite centered horizontally, bottom at tile bottom
@@ -267,7 +280,7 @@ export function IsometricView({
           );
 
           // Reset shadow
-          if (isOwned || highlightColor) {
+          if (glowColor) {
             ctx.shadowColor = 'transparent';
             ctx.shadowBlur = 0;
           }
@@ -347,16 +360,29 @@ export function IsometricView({
           const stakeHighlightColor = !isOwned
             ? getCompanyHighlight(tile.owner_company_id) : null;
 
-          if (isOwned) {
-            ctx.shadowColor = 'rgba(59, 130, 246, 1.0)';
+          const stakeGlowColor = isOwned ? 'rgba(59, 130, 246, 1.0)' : stakeHighlightColor ? hexToRgba(stakeHighlightColor, 1.0) : null;
+
+          if (stakeGlowColor) {
+            // Outline stroke - draw multiple times at small offsets with tight blur
+            ctx.shadowColor = stakeGlowColor;
+            ctx.shadowBlur = 2 * zoom;
+            const outlineOffset = 2 * zoom;
+            const offsets = [
+              [-outlineOffset, 0], [outlineOffset, 0], [0, -outlineOffset], [0, outlineOffset],
+              [-outlineOffset, -outlineOffset], [outlineOffset, -outlineOffset], [-outlineOffset, outlineOffset], [outlineOffset, outlineOffset]
+            ];
+            for (const [ox, oy] of offsets) {
+              ctx.drawImage(
+                stakeSprite,
+                screenX - spriteWidth / 2 + ox,
+                screenY - spriteHeight + tileSize / 2 + oy,
+                spriteWidth,
+                spriteHeight
+              );
+            }
+
+            // Outer glow
             ctx.shadowBlur = 20 * zoom;
-            ctx.shadowOffsetX = 0;
-            ctx.shadowOffsetY = 0;
-          } else if (stakeHighlightColor) {
-            ctx.shadowColor = hexToRgba(stakeHighlightColor, 1.0);
-            ctx.shadowBlur = 20 * zoom;
-            ctx.shadowOffsetX = 0;
-            ctx.shadowOffsetY = 0;
           }
 
           ctx.drawImage(
@@ -368,7 +394,7 @@ export function IsometricView({
           );
 
           // Reset shadow
-          if (isOwned || stakeHighlightColor) {
+          if (stakeGlowColor) {
             ctx.shadowColor = 'transparent';
             ctx.shadowBlur = 0;
           }
