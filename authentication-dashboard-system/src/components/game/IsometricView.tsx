@@ -486,6 +486,7 @@ export function IsometricView({
     setIsDragging(true);
     setDragStart({ x: e.clientX, y: e.clientY });
     setDragDistance(0);
+    setHoveredBuilding(null);
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
@@ -718,18 +719,60 @@ export function IsometricView({
     );
   }
 
+  // Format building type for display (e.g., "high_street_store" -> "High Street Store")
+  const formatBuildingType = (typeId: string) => {
+    return typeId
+      .split('_')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  };
+
   return (
-    <canvas
-      ref={canvasRef}
-      className={`w-full h-full ${isDragging ? 'cursor-grabbing' : 'cursor-grab'} touch-none`}
-      onMouseDown={handleMouseDown}
-      onMouseMove={handleMouseMove}
-      onMouseUp={handleMouseUp}
-      onMouseLeave={() => setIsDragging(false)}
-      onWheel={handleWheel}
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
-    />
+    <div className="relative w-full h-full">
+      <canvas
+        ref={canvasRef}
+        className={`w-full h-full ${isDragging ? 'cursor-grabbing' : 'cursor-grab'} touch-none`}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={() => {
+          setIsDragging(false);
+          setHoveredBuilding(null);
+        }}
+        onWheel={handleWheel}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      />
+      {hoveredBuilding && (
+        <div
+          className="absolute pointer-events-none bg-gray-900/95 border border-gray-600 rounded-lg px-3 py-2 text-sm shadow-lg z-50"
+          style={{
+            left: hoveredBuilding.screenX + 12,
+            top: hoveredBuilding.screenY + 12,
+            transform: hoveredBuilding.screenX > window.innerWidth / 2 ? 'translateX(-100%)' : 'none',
+          }}
+        >
+          <div className="text-white font-semibold">
+            {hoveredBuilding.building.name || formatBuildingType(hoveredBuilding.building.building_type_id || 'Unknown')}
+          </div>
+          {hoveredBuilding.building.variant && (
+            <div className="text-gray-300">
+              Variant: <span className="text-amber-400">{hoveredBuilding.building.variant}</span>
+            </div>
+          )}
+          <div className="text-gray-300">
+            Health: <span className={hoveredBuilding.building.damage_percent > 50 ? 'text-red-400' : hoveredBuilding.building.damage_percent > 20 ? 'text-yellow-400' : 'text-green-400'}>
+              {100 - hoveredBuilding.building.damage_percent}%
+            </span>
+          </div>
+          <div className="text-gray-300">
+            Value: <span className="text-emerald-400">
+              ${hoveredBuilding.building.calculated_value?.toLocaleString() ?? 'N/A'}
+            </span>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
