@@ -248,26 +248,10 @@ export function IsometricView({
           const glowColor = isOwned ? 'rgba(59, 130, 246, 1.0)' : highlightColor ? hexToRgba(highlightColor, 1.0) : null;
 
           if (glowColor) {
-            // Outline stroke - draw multiple times at small offsets with tight blur
             ctx.shadowColor = glowColor;
-            ctx.shadowBlur = 6 * zoom;
-            const outlineOffset = 6 * zoom;
-            const offsets = [
-              [-outlineOffset, 0], [outlineOffset, 0], [0, -outlineOffset], [0, outlineOffset],
-              [-outlineOffset, -outlineOffset], [outlineOffset, -outlineOffset], [-outlineOffset, outlineOffset], [outlineOffset, outlineOffset]
-            ];
-            for (const [ox, oy] of offsets) {
-              ctx.drawImage(
-                buildingSprite,
-                screenX - spriteWidth / 2 + ox,
-                screenY - spriteHeight + tileSize / 2 + oy,
-                spriteWidth,
-                spriteHeight
-              );
-            }
-
-            // Outer glow
-            ctx.shadowBlur = 20 * zoom;
+            ctx.shadowBlur = 60 * zoom;
+            ctx.shadowOffsetX = 0;
+            ctx.shadowOffsetY = 0;
           }
 
           // Building sprite centered horizontally, bottom at tile bottom
@@ -363,26 +347,10 @@ export function IsometricView({
           const stakeGlowColor = isOwned ? 'rgba(59, 130, 246, 1.0)' : stakeHighlightColor ? hexToRgba(stakeHighlightColor, 1.0) : null;
 
           if (stakeGlowColor) {
-            // Outline stroke - draw multiple times at small offsets with tight blur
             ctx.shadowColor = stakeGlowColor;
-            ctx.shadowBlur = 6 * zoom;
-            const outlineOffset = 6 * zoom;
-            const offsets = [
-              [-outlineOffset, 0], [outlineOffset, 0], [0, -outlineOffset], [0, outlineOffset],
-              [-outlineOffset, -outlineOffset], [outlineOffset, -outlineOffset], [-outlineOffset, outlineOffset], [outlineOffset, outlineOffset]
-            ];
-            for (const [ox, oy] of offsets) {
-              ctx.drawImage(
-                stakeSprite,
-                screenX - spriteWidth / 2 + ox,
-                screenY - spriteHeight + tileSize / 2 + oy,
-                spriteWidth,
-                spriteHeight
-              );
-            }
-
-            // Outer glow
-            ctx.shadowBlur = 20 * zoom;
+            ctx.shadowBlur = 60 * zoom;
+            ctx.shadowOffsetX = 0;
+            ctx.shadowOffsetY = 0;
           }
 
           ctx.drawImage(

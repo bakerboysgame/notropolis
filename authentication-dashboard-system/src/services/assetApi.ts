@@ -1000,7 +1000,6 @@ export const ASSET_MANAGER_CATEGORIES = [
   { key: 'effects', label: 'Effects', hasPrice: false },
   { key: 'terrain', label: 'Terrain', hasPrice: false },
   { key: 'base_ground', label: 'Base Ground', hasPrice: false, singleActive: true },
-  { key: 'tricks', label: 'Dirty Tricks', hasPrice: false },
 ] as const;
 
 export type AssetManagerCategory = typeof ASSET_MANAGER_CATEGORIES[number]['key'];
