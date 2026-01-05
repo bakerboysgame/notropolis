@@ -73,7 +73,7 @@ export function EnemyHeadquarters(): JSX.Element {
   }, [fetchCompanyStats]);
 
   const handleColorSelect = async (color: string | null) => {
-    if (companyId && companyStats) {
+    if (companyId && companyStats && activeCompany) {
       // Only call API when setting a highlight (not removing)
       // and only if it's a new highlight (different from current)
       if (color && color !== currentHighlight) {
