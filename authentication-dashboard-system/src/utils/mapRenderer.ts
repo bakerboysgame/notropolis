@@ -40,18 +40,6 @@ interface GameMap {
 }
 
 /**
- * Convert hex color to RGB object
- */
-function hexToRgb(hex: string): { r: number; g: number; b: number } {
-  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-  return result ? {
-    r: parseInt(result[1], 16),
-    g: parseInt(result[2], 16),
-    b: parseInt(result[3], 16)
-  } : { r: 0, g: 0, b: 0 };
-}
-
-/**
  * Convert hex color to rgba string
  */
 export function hexToRgba(hex: string, alpha = 0.8): string {
@@ -59,18 +47,6 @@ export function hexToRgba(hex: string, alpha = 0.8): string {
   const g = parseInt(hex.slice(3, 5), 16);
   const b = parseInt(hex.slice(5, 7), 16);
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-}
-
-/**
- * Blend two colors together
- */
-function blendColors(base: string, overlay: string, amount: number): string {
-  const b = hexToRgb(base);
-  const o = hexToRgb(overlay);
-  const r = Math.round(b.r * (1 - amount) + o.r * amount);
-  const g = Math.round(b.g * (1 - amount) + o.g * amount);
-  const bl = Math.round(b.b * (1 - amount) + o.b * amount);
-  return `rgb(${r},${g},${bl})`;
 }
 
 /**
