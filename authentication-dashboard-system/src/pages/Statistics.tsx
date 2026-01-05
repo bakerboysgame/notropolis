@@ -3,6 +3,7 @@ import { Navigate, useNavigate } from 'react-router-dom';
 import { ArrowLeft, BarChart3, TrendingUp, TrendingDown, Wallet, Building2, DollarSign, Flame, MapPin, ExternalLink, AlertTriangle } from 'lucide-react';
 import { useActiveCompany } from '../contexts/CompanyContext';
 import { api, apiHelpers } from '../services/api';
+import { getDisplayName, getVariantInfo } from '../utils/buildingTypes';
 
 interface ProfitEntry {
   rank: number;
@@ -42,6 +43,7 @@ interface Property {
   tileId: string;
   buildingType: string;
   buildingTypeId: string;
+  variant: string | null;
   location: {
     mapId: string;
     mapName: string;
@@ -475,10 +477,18 @@ export function Statistics(): JSX.Element {
                               }`}
                             >
                               <td className="px-4 py-3">
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-2 flex-wrap">
                                   <span className="font-medium text-white">
-                                    {property.buildingType}
+                                    {getDisplayName(property.buildingTypeId, property.variant)}
                                   </span>
+                                  {property.variant && (() => {
+                                    const variantInfo = getVariantInfo(property.buildingTypeId, property.variant);
+                                    return (
+                                      <span className="text-xs bg-purple-900/50 text-purple-400 px-2 py-0.5 rounded border border-purple-700">
+                                        {variantInfo?.icon} {property.variant}
+                                      </span>
+                                    );
+                                  })()}
                                   {property.isOnFire && (
                                     <span title="On Fire!">
                                       <Flame className="w-4 h-4 text-orange-500" />

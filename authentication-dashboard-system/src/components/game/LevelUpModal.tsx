@@ -1,7 +1,8 @@
 import { Modal } from '../ui/Modal';
 import { Star, Sparkles } from 'lucide-react';
 import { type LevelUnlocks } from '../../utils/levels';
-import { BUILDING_TYPES } from '../../utils/buildingTypes';
+import { getBuildingSpriteUrl } from '../../utils/isometricRenderer';
+import { DIRTY_TRICKS, type TrickType } from '../../utils/dirtyTricks';
 
 interface LevelUpModalProps {
   isOpen: boolean;
@@ -51,13 +52,21 @@ export function LevelUpModal({ isOpen, onClose, newLevel, unlocks }: LevelUpModa
                   <p className="text-xs text-neutral-500 mb-2">Buildings</p>
                   <div className="flex flex-wrap gap-2">
                     {unlocks.buildings.map((building) => {
-                      const buildingInfo = BUILDING_TYPES[building.id];
+                      const spriteUrl = getBuildingSpriteUrl(building.id);
                       return (
                         <div
                           key={building.id}
                           className="flex items-center gap-2 px-3 py-2 bg-neutral-700 rounded-lg"
                         >
-                          <span className="text-xl">{buildingInfo?.icon || '🏢'}</span>
+                          {spriteUrl ? (
+                            <img
+                              src={spriteUrl}
+                              alt={building.name}
+                              className="w-10 h-10 object-contain"
+                            />
+                          ) : (
+                            <span className="text-xl">🏢</span>
+                          )}
                           <div>
                             <p className="text-white font-medium text-sm">{building.name}</p>
                             {building.description && (

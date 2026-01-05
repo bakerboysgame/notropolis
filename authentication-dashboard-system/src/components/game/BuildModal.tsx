@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { X, Building2, DollarSign, TrendingUp, Lock } from 'lucide-react';
 import { api, apiHelpers, BuildingType, ProfitPreviewResponse, BuildBuildingRequest } from '../../services/api';
 import { type LevelUnlocks } from '../../utils/levels';
-import { getBuildingVariants, requiresVariant, type BuildingVariant } from '../../utils/buildingTypes';
+import { getBuildingVariants, requiresVariant } from '../../utils/buildingTypes';
 
 interface LevelUpData {
   newLevel: number;

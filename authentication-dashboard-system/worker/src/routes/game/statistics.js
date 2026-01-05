@@ -289,6 +289,7 @@ export async function getCompanyProperties(env, companyId) {
     SELECT
       bi.id,
       bi.tile_id,
+      bi.variant,
       bi.damage_percent,
       bi.is_on_fire,
       bi.is_collapsed,
@@ -386,6 +387,7 @@ export async function getCompanyProperties(env, companyId) {
       tileId: building.tile_id,
       buildingType: building.building_type_name,
       buildingTypeId: building.building_type_id,
+      variant: building.variant || null,
       location: {
         mapId: building.map_id,
         mapName: building.map_name,

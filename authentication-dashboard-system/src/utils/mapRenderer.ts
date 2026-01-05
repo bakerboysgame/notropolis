@@ -145,8 +145,8 @@ export function renderMap(
           ctx.strokeRect(px + 1, py + 1, tileSize - 3, tileSize - 3);
         }
 
-        // Draw building icon
-        ctx.fillStyle = building.is_on_fire ? '#ef4444' : '#ffffff';
+        // Draw building icon (white circle for all buildings including those on fire)
+        ctx.fillStyle = '#ffffff';
         ctx.beginPath();
         ctx.arc(px + tileSize / 2, py + tileSize / 2, tileSize / 4, 0, Math.PI * 2);
         ctx.fill();

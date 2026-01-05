@@ -313,12 +313,35 @@ export function PropertyModal({
                     {100 - (building.damage_percent || 0)}%
                   </span>
                 </div>
-                {(building as any).calculated_profit !== undefined && (
+                {(building as any).calculated_value !== undefined && (
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-400">Income:</span>
-                    <span className="text-green-400">${(building as any).calculated_profit}/tick</span>
+                    <span className="text-gray-400">Value:</span>
+                    <span className="text-blue-400">${((building as any).calculated_value || 0).toLocaleString()}</span>
                   </div>
                 )}
+                {(building as any).calculated_profit !== undefined && (() => {
+                  const baseProfit = (building as any).calculated_profit || 0;
+                  const damagePercent = building.damage_percent || 0;
+                  // Match tick system formula: damage reduction, tax, security
+                  const damageMultiplier = (100 - damagePercent * 1.176) / 100;
+                  const grossProfit = Math.max(0, baseProfit * damageMultiplier);
+                  const taxRate = map.location_type === 'capital' ? 0.20 : map.location_type === 'city' ? 0.15 : 0.10;
+                  const taxAmount = grossProfit * taxRate;
+                  const securityCost = ((security as any)?.monthly_cost || 0) / 144; // Per tick
+                  const netProfit = Math.round(grossProfit - taxAmount - securityCost);
+                  const hasDeductions = damagePercent > 0 || securityCost > 0;
+                  return (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-400">Profit:</span>
+                      <span className={netProfit <= 0 ? 'text-red-400' : hasDeductions ? 'text-yellow-400' : 'text-green-400'}>
+                        ${netProfit.toLocaleString()}/tick
+                        {hasDeductions && baseProfit > 0 && (
+                          <span className="text-gray-500 text-xs ml-1">(${baseProfit} base)</span>
+                        )}
+                      </span>
+                    </div>
+                  );
+                })()}
 
                 {/* Status indicators */}
                 <div className="flex gap-2 flex-wrap">
