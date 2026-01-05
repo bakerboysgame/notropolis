@@ -36,7 +36,10 @@ import {
   getHeroStatus,
   heroOut,
   joinLocation as heroJoinLocation,
-  getAvailableLocations
+  getAvailableLocations,
+  getCelebrationStatus,
+  leaveHeroMessage,
+  getHeroMessages
 } from './src/routes/game/hero.js';
 import {
   getBankStatus,
@@ -551,6 +554,15 @@ export default {
 
         case path === '/api/game/hero/available-locations' && method === 'GET':
           return handleHeroGetAction(request, authService, env, corsHeaders, getAvailableLocations);
+
+        case path === '/api/game/hero/celebration-status' && method === 'GET':
+          return handleHeroGetAction(request, authService, env, corsHeaders, getCelebrationStatus);
+
+        case path === '/api/game/hero/leave-message' && method === 'POST':
+          return handleMarketAction(request, authService, env, corsHeaders, leaveHeroMessage);
+
+        case path === '/api/game/hero/messages' && method === 'GET':
+          return handleHeroGetAction(request, authService, env, corsHeaders, getHeroMessages);
 
         // ==================== GAME BANK ENDPOINTS ====================
         case path === '/api/game/bank/status' && method === 'GET':

@@ -147,8 +147,19 @@ export function CompanyDashboard() {
 
   return (
     <div className="p-6">
-      {/* Top Navigation - Go to Map button or Back to Companies */}
-      {company.current_map_id ? (
+      {/* Top Navigation - Go to Map button, Celebration, or Back to Companies */}
+      {company.hero_celebration_pending ? (
+        <button
+          onClick={() => navigate('/hero-celebration')}
+          className="w-full flex items-center justify-center gap-3 px-6 py-4 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg mb-6 transition-colors shadow-lg animate-pulse"
+        >
+          <Map className="w-6 h-6" />
+          <div className="text-left">
+            <span className="text-lg font-bold">View Celebration</span>
+            <span className="ml-2 text-yellow-200">— You've Hero'd Out!</span>
+          </div>
+        </button>
+      ) : company.current_map_id ? (
         <button
           onClick={() => navigate(`/map/${company.current_map_id}`)}
           className="w-full flex items-center justify-center gap-3 px-6 py-4 bg-primary-600 hover:bg-primary-700 text-white rounded-lg mb-6 transition-colors shadow-lg"

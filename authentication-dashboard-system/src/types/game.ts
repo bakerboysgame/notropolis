@@ -19,6 +19,9 @@ export interface GameCompany {
   land_ownership_streak: number;
   land_percentage: number;
   hero_eligible_streak: number;
+  hero_celebration_pending: boolean;
+  hero_from_map_id: string | null;
+  hero_from_location_type: 'town' | 'city' | 'capital' | null;
 }
 
 export interface GameMap {

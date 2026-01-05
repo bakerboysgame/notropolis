@@ -175,6 +175,11 @@ export async function getHeroStatus(request, env, company) {
 export async function executeHeroOut(env, company, qualifiedPath, options = {}) {
   const { isForced = false, unlocks = null } = options;
 
+  // Get map details for celebration page
+  const mapDetails = await env.DB.prepare(
+    'SELECT name, location_type FROM maps WHERE id = ?'
+  ).bind(company.current_map_id).first();
+
   // Get all buildings to sell (use dynamic value if available)
   const buildingsResult = await env.DB.prepare(`
     SELECT bi.id, bi.tile_id, bt.name, bt.cost as base_cost, COALESCE(bi.calculated_value, bt.cost) as value
@@ -214,7 +219,7 @@ export async function executeHeroOut(env, company, qualifiedPath, options = {}) 
     `).bind(company.id, company.current_map_id)
   );
 
-  // Update company: add to offshore, reset everything
+  // Update company: add to offshore, reset everything, set celebration pending
   // For forced hero-out, also clear prison status
   if (isForced) {
     statements.push(
@@ -231,10 +236,13 @@ export async function executeHeroOut(env, company, qualifiedPath, options = {}) 
             hero_eligible_streak = 0,
             is_in_prison = 0,
             prison_fine = 0,
+            hero_celebration_pending = 1,
+            hero_from_map_id = ?,
+            hero_from_location_type = ?,
             last_action_at = ?,
             ticks_since_action = 0
         WHERE id = ?
-      `).bind(totalToOffshore, new Date().toISOString(), company.id)
+      `).bind(totalToOffshore, company.current_map_id, mapDetails?.location_type, new Date().toISOString(), company.id)
     );
   } else {
     statements.push(
@@ -249,10 +257,13 @@ export async function executeHeroOut(env, company, qualifiedPath, options = {}) 
             land_ownership_streak = 0,
             land_percentage = 0,
             hero_eligible_streak = 0,
+            hero_celebration_pending = 1,
+            hero_from_map_id = ?,
+            hero_from_location_type = ?,
             last_action_at = ?,
             ticks_since_action = 0
         WHERE id = ?
-      `).bind(totalToOffshore, new Date().toISOString(), company.id)
+      `).bind(totalToOffshore, company.current_map_id, mapDetails?.location_type, new Date().toISOString(), company.id)
     );
   }
 
@@ -495,5 +506,167 @@ export async function getAvailableLocations(request, env, company) {
       unlocked: unlockedLocations.includes(m.location_type),
       starting_cash: STARTING_CASH[m.location_type] || STARTING_CASH.town,
     })),
+  };
+}
+
+/**
+ * GET /api/game/hero/celebration-status
+ * Check if company has a pending hero celebration
+ */
+export async function getCelebrationStatus(request, env, company) {
+  // Check if there's a pending celebration
+  if (!company.hero_celebration_pending) {
+    return {
+      success: true,
+      hasPendingCelebration: false,
+    };
+  }
+
+  // Get details about the map they hero'd from
+  const mapDetails = await env.DB.prepare(
+    'SELECT id, name, location_type FROM maps WHERE id = ?'
+  ).bind(company.hero_from_map_id).first();
+
+  // Get the transaction details for the hero-out
+  const heroTransaction = await env.DB.prepare(`
+    SELECT amount, details, created_at
+    FROM game_transactions
+    WHERE company_id = ? AND action_type IN ('hero_out', 'forced_hero_out')
+    ORDER BY created_at DESC
+    LIMIT 1
+  `).bind(company.id).first();
+
+  const details = heroTransaction?.details ? JSON.parse(heroTransaction.details) : {};
+
+  return {
+    success: true,
+    hasPendingCelebration: true,
+    celebration: {
+      mapId: company.hero_from_map_id,
+      mapName: mapDetails?.name || 'Unknown Location',
+      locationType: company.hero_from_location_type,
+      offshoreAmount: heroTransaction?.amount || 0,
+      heroPath: details.path || 'netWorth',
+      unlocks: details.unlocks,
+      heroedAt: heroTransaction?.created_at,
+    },
+  };
+}
+
+/**
+ * POST /api/game/hero/leave-message
+ * Leave a message in the town hall book after hero-ing out
+ */
+export async function leaveHeroMessage(request, env, company) {
+  // Check if there's a pending celebration
+  if (!company.hero_celebration_pending) {
+    throw new Error('No pending hero celebration');
+  }
+
+  const { message } = await request.json();
+
+  if (!message || typeof message !== 'string') {
+    throw new Error('Message is required');
+  }
+
+  const trimmedMessage = message.trim();
+  if (trimmedMessage.length === 0) {
+    throw new Error('Message cannot be empty');
+  }
+
+  if (trimmedMessage.length > 500) {
+    throw new Error('Message must be 500 characters or less');
+  }
+
+  // Get map details
+  const mapDetails = await env.DB.prepare(
+    'SELECT id, name, location_type FROM maps WHERE id = ?'
+  ).bind(company.hero_from_map_id).first();
+
+  if (!mapDetails) {
+    throw new Error('Map not found');
+  }
+
+  // Get the transaction details for the hero-out amount
+  const heroTransaction = await env.DB.prepare(`
+    SELECT amount, details
+    FROM game_transactions
+    WHERE company_id = ? AND action_type IN ('hero_out', 'forced_hero_out')
+    ORDER BY created_at DESC
+    LIMIT 1
+  `).bind(company.id).first();
+
+  const details = heroTransaction?.details ? JSON.parse(heroTransaction.details) : {};
+
+  // Insert the hero message
+  await env.DB.prepare(`
+    INSERT INTO hero_messages (id, company_id, company_name, boss_name, map_id, map_name, location_type, message, offshore_amount, hero_path)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).bind(
+    crypto.randomUUID(),
+    company.id,
+    company.name,
+    company.boss_name,
+    company.hero_from_map_id,
+    mapDetails.name,
+    mapDetails.location_type,
+    trimmedMessage,
+    heroTransaction?.amount || 0,
+    details.path || 'netWorth'
+  ).run();
+
+  // Clear the celebration pending flag
+  await env.DB.prepare(`
+    UPDATE game_companies
+    SET hero_celebration_pending = 0,
+        hero_from_map_id = NULL,
+        hero_from_location_type = NULL
+    WHERE id = ?
+  `).bind(company.id).run();
+
+  return {
+    success: true,
+    message: 'Message saved to the town hall book',
+  };
+}
+
+/**
+ * GET /api/game/hero/messages
+ * Get hero messages for a specific map (town hall book)
+ */
+export async function getHeroMessages(request, env, company) {
+  const url = new URL(request.url);
+  const mapId = url.searchParams.get('map_id');
+  const limit = Math.min(parseInt(url.searchParams.get('limit') || '50'), 100);
+  const offset = parseInt(url.searchParams.get('offset') || '0');
+
+  let query;
+  let bindings;
+
+  if (mapId) {
+    query = `
+      SELECT id, company_name, boss_name, map_name, location_type, message, offshore_amount, hero_path, created_at
+      FROM hero_messages
+      WHERE map_id = ?
+      ORDER BY created_at DESC
+      LIMIT ? OFFSET ?
+    `;
+    bindings = [mapId, limit, offset];
+  } else {
+    // Get all messages for the location type the company has access to
+    query = `
+      SELECT id, company_name, boss_name, map_name, location_type, message, offshore_amount, hero_path, created_at
+      FROM hero_messages
+      ORDER BY created_at DESC
+      LIMIT ? OFFSET ?
+    `;
+    bindings = [limit, offset];
+  }
+
+  const messagesResult = await env.DB.prepare(query).bind(...bindings).all();
+
+  return {
+    success: true,
+    messages: messagesResult.results || [],
   };
 }

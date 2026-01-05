@@ -49,7 +49,7 @@ const useIsMobile = (breakpoint = 768) => {
 
 interface NavigationItem {
   name: string;
-  href: string | ((mapId: string | null) => string);
+  href: string | ((mapId: string | null, hasCelebration?: boolean) => string);
   icon: LucideIcon;
   pageKey: string;
   requiresMasterAdmin?: boolean;
@@ -60,7 +60,7 @@ interface NavigationItem {
 const navigation: NavigationItem[] = [
   { name: 'Home', href: '/', icon: Home, pageKey: 'dashboard', hideOnMapPage: true },
   { name: 'Companies', href: '/companies', icon: Briefcase, pageKey: 'companies', hideOnMapPage: true },
-  { name: 'Map', href: (mapId) => mapId ? `/map/${mapId}` : '/companies', icon: Map, pageKey: 'map', requiresMapLocation: true },
+  { name: 'Map', href: (mapId, hasCelebration) => hasCelebration ? '/hero-celebration' : (mapId ? `/map/${mapId}` : '/companies'), icon: Map, pageKey: 'map', requiresMapLocation: true },
   { name: 'Headquarters', href: '/headquarters', icon: Building2, pageKey: 'headquarters', requiresMapLocation: true },
   { name: 'Statistics', href: '/statistics', icon: BarChart3, pageKey: 'statistics', requiresMapLocation: true },
   { name: 'Events', href: '/events', icon: Calendar, pageKey: 'events', requiresMapLocation: true },
@@ -332,7 +332,7 @@ export default function Sidebar() {
           {allNavigation.map((item) => {
             // Resolve href if it's a function (for dynamic routes like Map)
             const resolvedHref = typeof item.href === 'function'
-              ? item.href(activeCompany?.current_map_id || null)
+              ? item.href(activeCompany?.current_map_id || null, activeCompany?.hero_celebration_pending)
               : item.href
             const isActive = item.pageKey === 'map'
               ? location.pathname.startsWith('/map/')

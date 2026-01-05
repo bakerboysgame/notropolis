@@ -32,6 +32,7 @@ import { Achievements } from './pages/Achievements';
 import { Statistics } from './pages/Statistics';
 import { Events } from './pages/Events';
 import { EnemyHeadquarters } from './pages/EnemyHeadquarters';
+import { HeroCelebration } from './pages/HeroCelebration';
 import { ProtectedPageRoute } from './components/ProtectedPageRoute';
 import { api, apiHelpers } from './services/api';
 
@@ -302,6 +303,15 @@ function App() {
                 <ProtectedRoute>
                   <Layout>
                     <GameMap />
+                  </Layout>
+                </ProtectedRoute>
+              } />
+
+              {/* Hero Celebration Route */}
+              <Route path="/hero-celebration" element={
+                <ProtectedRoute>
+                  <Layout>
+                    <HeroCelebration />
                   </Layout>
                 </ProtectedRoute>
               } />
