@@ -72,6 +72,10 @@ const ENDPOINT_AUTHORIZATION = [
   // ==================== GAME HEARTBEAT ENDPOINT ====================
   { pattern: '/api/game/heartbeat', roles: [], companyIsolation: false },
 
+  // ==================== GAME BANK ENDPOINTS ====================
+  // Cross-company transfers between user's own game companies - bank.js validates same user ownership
+  { pattern: '/api/game/bank/*', roles: [], companyIsolation: false },
+
   // ==================== GAME SOCIAL/MESSAGES ENDPOINTS ====================
   // Public message boards per map - any user can post to their current location
   { pattern: '/api/game/messages', roles: [], companyIsolation: false },

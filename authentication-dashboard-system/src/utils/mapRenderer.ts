@@ -163,8 +163,8 @@ export function renderMap(
           ctx.arc(px + tileSize / 2, py + tileSize / 2, tileSize / 4, 0, Math.PI * 2);
           ctx.fill();
         }
-        // Normal buildings: white circle only for non-owned, non-highlighted properties
-        else if (!isOwnedByUser && !isHighlighted) {
+        // Normal buildings: white circle only for unowned properties (free land with buildings)
+        else if (!tile.owner_company_id) {
           // Draw for-sale highlight (yellow border)
           if (building.is_for_sale) {
             ctx.strokeStyle = '#fbbf24'; // Yellow/gold color

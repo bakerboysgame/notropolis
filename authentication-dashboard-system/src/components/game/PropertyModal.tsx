@@ -313,12 +313,23 @@ export function PropertyModal({
                     {100 - (building.damage_percent || 0)}%
                   </span>
                 </div>
-                {(building as any).calculated_value !== undefined && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-400">Value:</span>
-                    <span className="text-blue-400">${((building as any).calculated_value || 0).toLocaleString()}</span>
-                  </div>
-                )}
+                {(building as any).calculated_value !== undefined && (() => {
+                  const baseValue = (building as any).calculated_value || 0;
+                  const health = 100 - (building.damage_percent || 0);
+                  const currentValue = building.is_collapsed ? 0 : Math.round(baseValue * (health / 100));
+                  const isDamaged = building.damage_percent > 0;
+                  return (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-400">Value:</span>
+                      <span className={building.is_collapsed ? 'text-red-400' : isDamaged ? 'text-yellow-400' : 'text-blue-400'}>
+                        ${currentValue.toLocaleString()}
+                        {isDamaged && !building.is_collapsed && baseValue > 0 && (
+                          <span className="text-gray-500 text-xs ml-1">(${baseValue.toLocaleString()} base)</span>
+                        )}
+                      </span>
+                    </div>
+                  );
+                })()}
                 {(building as any).calculated_profit !== undefined && (() => {
                   const baseProfit = (building as any).calculated_profit || 0;
                   const damagePercent = building.damage_percent || 0;
