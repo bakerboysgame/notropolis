@@ -26,13 +26,13 @@ export function GameMap(): JSX.Element {
   // Check for initial coordinates from URL (e.g., /map/123?x=5&y=10)
   const initialX = searchParams.get('x');
   const initialY = searchParams.get('y');
+  const openModal = searchParams.get('modal') === 'true';
   const hasInitialCoords = initialX !== null && initialY !== null;
+  const initialCoords = hasInitialCoords ? { x: parseInt(initialX, 10), y: parseInt(initialY, 10) } : null;
 
   // View mode state - start in zoomed mode if coordinates provided
   const [viewMode, setViewMode] = useState<ViewMode>(hasInitialCoords ? 'zoomed' : 'overview');
-  const [zoomCenter, setZoomCenter] = useState<{ x: number; y: number } | null>(
-    hasInitialCoords ? { x: parseInt(initialX, 10), y: parseInt(initialY, 10) } : null
-  );
+  const [zoomCenter, setZoomCenter] = useState<{ x: number; y: number } | null>(initialCoords);
 
   // Broadcast view mode changes for Layout to use (overlay sidebar in zoomed mode)
   useEffect(() => {
@@ -55,8 +55,10 @@ export function GameMap(): JSX.Element {
     return () => window.removeEventListener('toggleMapViewMode', handleToggleViewMode);
   }, []);
 
-  // Modal state for zoomed view
-  const [modalTile, setModalTile] = useState<{ x: number; y: number } | null>(null);
+  // Modal state for zoomed view - open automatically if modal=true in URL
+  const [modalTile, setModalTile] = useState<{ x: number; y: number } | null>(
+    openModal && initialCoords ? initialCoords : null
+  );
 
   // Overview mode state
   const [zoom, setZoom] = useState(1);

@@ -147,3 +147,80 @@ export function getBuildingsUpToLevel(level: number): BuildingTypeInfo[] {
 export function getBuildingById(id: string): BuildingTypeInfo | undefined {
   return BUILDING_TYPES[id];
 }
+
+/**
+ * Building Variants - Sub-types for certain buildings
+ * Players select a variant when building to differentiate their business
+ * Same-variant buildings nearby compete (reduce profit/value)
+ */
+export interface BuildingVariant {
+  id: string;
+  name: string;
+  icon: string;
+}
+
+export const BUILDING_VARIANTS: Record<string, BuildingVariant[]> = {
+  high_street_store: [
+    { id: 'Fashion', name: 'Fashion', icon: '👗' },
+    { id: 'Food', name: 'Food', icon: '🍕' },
+    { id: 'Electronics', name: 'Electronics', icon: '📱' },
+    { id: 'Books', name: 'Books', icon: '📚' },
+  ],
+  shop: [
+    { id: 'Grocery', name: 'Grocery', icon: '🛒' },
+    { id: 'Hardware', name: 'Hardware', icon: '🔧' },
+    { id: 'Pharmacy', name: 'Pharmacy', icon: '💊' },
+    { id: 'Pet', name: 'Pet', icon: '🐕' },
+    { id: 'Sports', name: 'Sports', icon: '⚽' },
+    { id: 'Gift', name: 'Gift', icon: '🎁' },
+  ],
+  market_stall: [
+    { id: 'Crafts', name: 'Crafts', icon: '🎨' },
+    { id: 'Flowers', name: 'Flowers', icon: '💐' },
+    { id: 'Antiques', name: 'Antiques', icon: '🏺' },
+    { id: 'Clothing', name: 'Clothing', icon: '👕' },
+    { id: 'Jewelry', name: 'Jewelry', icon: '💎' },
+    { id: 'Art', name: 'Art', icon: '🖼️' },
+  ],
+};
+
+/**
+ * Get available variants for a building type
+ * Returns null if building doesn't support variants
+ */
+export function getBuildingVariants(buildingTypeId: string): BuildingVariant[] | null {
+  return BUILDING_VARIANTS[buildingTypeId] || null;
+}
+
+/**
+ * Check if a building type requires a variant selection
+ */
+export function requiresVariant(buildingTypeId: string): boolean {
+  return buildingTypeId in BUILDING_VARIANTS;
+}
+
+/**
+ * Get display name for a building, including variant if present
+ * e.g., "Fashion High Street Store" or just "Campsite"
+ */
+export function getDisplayName(buildingTypeId: string, variant?: string | null): string {
+  const buildingType = BUILDING_TYPES[buildingTypeId];
+  if (!buildingType) return buildingTypeId;
+
+  if (variant) {
+    const variants = BUILDING_VARIANTS[buildingTypeId];
+    const variantInfo = variants?.find(v => v.id === variant);
+    if (variantInfo) {
+      return `${variantInfo.name} ${buildingType.name}`;
+    }
+  }
+  return buildingType.name;
+}
+
+/**
+ * Get variant info by building type and variant id
+ */
+export function getVariantInfo(buildingTypeId: string, variantId: string): BuildingVariant | undefined {
+  const variants = BUILDING_VARIANTS[buildingTypeId];
+  return variants?.find(v => v.id === variantId);
+}

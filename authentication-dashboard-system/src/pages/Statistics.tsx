@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
-import { ArrowLeft, BarChart3, TrendingUp, TrendingDown, Wallet, Building2, DollarSign, Heart, Flame, MapPin, ExternalLink, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, BarChart3, TrendingUp, TrendingDown, Wallet, Building2, DollarSign, Flame, MapPin, ExternalLink, AlertTriangle } from 'lucide-react';
 import { useActiveCompany } from '../contexts/CompanyContext';
 import { api, apiHelpers } from '../services/api';
 
@@ -364,16 +364,18 @@ export function Statistics(): JSX.Element {
                           {formatNetWorth(entry.netWorth)}
                         </span>
                       </div>
-                      <div className="ml-12 flex items-center gap-4 text-xs text-gray-400">
-                        <span className="flex items-center gap-1">
-                          <Wallet className="w-3 h-3" />
-                          Cash: {formatNetWorth(entry.cash)}
-                        </span>
-                        <span className="flex items-center gap-1">
-                          <Building2 className="w-3 h-3" />
-                          Buildings: {formatNetWorth(entry.buildingsValue)}
-                        </span>
-                      </div>
+                      {entry.companyId === activeCompany.id && (
+                        <div className="ml-12 flex items-center gap-4 text-xs text-gray-400">
+                          <span className="flex items-center gap-1">
+                            <Wallet className="w-3 h-3" />
+                            Cash: {formatNetWorth(entry.cash)}
+                          </span>
+                          <span className="flex items-center gap-1">
+                            <Building2 className="w-3 h-3" />
+                            Buildings: {formatNetWorth(entry.buildingsValue)}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   ))
                 )}
@@ -465,7 +467,7 @@ export function Statistics(): JSX.Element {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-700">
-                          {propertiesData.properties.map((property) => (
+                          {[...propertiesData.properties].sort((a, b) => b.profitPerTick - a.profitPerTick).map((property) => (
                             <tr
                               key={property.id}
                               className={`hover:bg-gray-700/50 ${
@@ -478,7 +480,9 @@ export function Statistics(): JSX.Element {
                                     {property.buildingType}
                                   </span>
                                   {property.isOnFire && (
-                                    <Flame className="w-4 h-4 text-orange-500" title="On Fire!" />
+                                    <span title="On Fire!">
+                                      <Flame className="w-4 h-4 text-orange-500" />
+                                    </span>
                                   )}
                                   {property.isCollapsed && (
                                     <span className="text-xs bg-red-900/50 text-red-400 px-2 py-0.5 rounded">
@@ -512,7 +516,7 @@ export function Statistics(): JSX.Element {
                                 </div>
                               </td>
                               <td className="px-4 py-3">
-                                {property.recentAttacks.length > 0 ? (
+                                {property.recentAttacks.length > 0 && property.health < 100 ? (
                                   <div className="flex flex-col gap-1">
                                     {property.recentAttacks.slice(0, 2).map((attack) => (
                                       <div
@@ -550,7 +554,7 @@ export function Statistics(): JSX.Element {
                               </td>
                               <td className="px-4 py-3">
                                 <button
-                                  onClick={() => navigate(`/companies/${activeCompany.id}?x=${property.location.x}&y=${property.location.y}`)}
+                                  onClick={() => navigate(`/map/${property.location.mapId}?x=${property.location.x}&y=${property.location.y}&modal=true`)}
                                   className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-700 rounded transition-colors"
                                   title="View on map"
                                 >

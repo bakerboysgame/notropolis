@@ -7,7 +7,7 @@ import { EmailService } from './src/email-postmark.js';
 import { SecurityService } from './src/security.js';
 import { generateJWT } from './src/jwt.js';
 import { checkAuthorization, ROLE_BUILTIN_PAGES, BASE_USER_PAGES, MASTER_ADMIN_ONLY_PAGES } from './src/middleware/authorization.js';
-import { calculateProfit, markAffectedBuildingsDirty, calculateLandCost } from './src/adjacencyCalculator.js';
+import { calculateProfit, calculateValue, markAffectedBuildingsDirty, calculateLandCost } from './src/adjacencyCalculator.js';
 import { processTick } from './src/tick/processor.js';
 import {
   sellToState,
@@ -567,7 +567,7 @@ export default {
           const company = await getActiveCompany(authService, env, request);
           const url = new URL(request.url);
           const page = parseInt(url.searchParams.get('page') || '1');
-          const messages = await getMessages(env, company.current_map_id, page);
+          const messages = await getMessages(env, company.current_map_id, company.id, page);
           return new Response(JSON.stringify({ success: true, data: messages }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }
           });
@@ -7449,7 +7449,7 @@ async function handleBuildBuilding(request, authService, env, corsHeaders) {
   try {
     const { user } = await authService.getUserFromToken(token);
     const body = await request.json();
-    const { company_id, tile_id, building_type_id } = body;
+    const { company_id, tile_id, building_type_id, variant } = body;
 
     // Get company and verify ownership
     const company = await env.DB.prepare(`
@@ -7532,6 +7532,29 @@ async function handleBuildBuilding(request, authService, env, corsHeaders) {
       });
     }
 
+    // Validate variant for building types that require one
+    const allowedVariants = buildingType.variants ? JSON.parse(buildingType.variants) : null;
+    if (allowedVariants && allowedVariants.length > 0) {
+      if (!variant) {
+        return new Response(JSON.stringify({
+          success: false,
+          error: 'This building type requires a specialty selection'
+        }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+      if (!allowedVariants.includes(variant)) {
+        return new Response(JSON.stringify({
+          success: false,
+          error: `Invalid specialty. Choose from: ${allowedVariants.join(', ')}`
+        }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+    }
+
     // Check level requirement
     if (company.level < buildingType.level_required) {
       return new Response(JSON.stringify({
@@ -7588,13 +7611,19 @@ async function handleBuildBuilding(request, authService, env, corsHeaders) {
       SELECT * FROM maps WHERE id = ?
     `).bind(tile.map_id).first();
 
-    // Calculate profit
+    // Calculate profit and value
     const profitResult = calculateProfit(
       tile,
       buildingType,
       allTiles.results,
       allBuildings.results,
       map
+    );
+    const valueResult = calculateValue(
+      tile,
+      buildingType,
+      allTiles.results,
+      allBuildings.results
     );
 
     // Create building
@@ -7611,15 +7640,18 @@ async function handleBuildBuilding(request, authService, env, corsHeaders) {
       // Create building
       env.DB.prepare(`
         INSERT INTO building_instances
-        (id, tile_id, building_type_id, company_id, calculated_profit, profit_modifiers, damage_percent, is_collapsed, needs_profit_recalc)
-        VALUES (?, ?, ?, ?, ?, ?, 0, 0, 0)
+        (id, tile_id, building_type_id, company_id, variant, calculated_profit, profit_modifiers, calculated_value, value_modifiers, damage_percent, is_collapsed, needs_profit_recalc)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0)
       `).bind(
         buildingId,
         tile_id,
         building_type_id,
         company.id,
+        variant || null,
         profitResult.finalProfit,
-        JSON.stringify(profitResult.breakdown)
+        JSON.stringify(profitResult.breakdown),
+        valueResult.finalValue,
+        JSON.stringify(valueResult.breakdown)
       ),
 
       // Log transaction
@@ -7641,6 +7673,8 @@ async function handleBuildBuilding(request, authService, env, corsHeaders) {
         building_id: buildingId,
         profit: profitResult.finalProfit,
         breakdown: profitResult.breakdown,
+        value: valueResult.finalValue,
+        value_breakdown: valueResult.breakdown,
         affected_buildings: affectedCount,
         remaining_cash: company.cash - buildingType.cost,
         levelUp
@@ -7681,14 +7715,54 @@ async function handleGetBuildingTypes(request, authService, env, corsHeaders) {
   try {
     await authService.getUserFromToken(token);
 
+    const url = new URL(request.url);
+    const mapId = url.searchParams.get('map_id');
+
     const result = await env.DB.prepare(`
       SELECT * FROM building_types ORDER BY level_required ASC, cost ASC
     `).all();
 
+    let buildingTypes = result.results || [];
+
+    // If map_id provided, add license availability for licensed building types
+    if (mapId) {
+      const licensedTypes = buildingTypes.filter(bt => bt.requires_license && bt.max_per_map);
+
+      if (licensedTypes.length > 0) {
+        // Get current counts for all licensed building types on this map
+        const licenseCounts = await env.DB.prepare(`
+          SELECT bi.building_type_id, COUNT(*) as count
+          FROM building_instances bi
+          JOIN tiles t ON bi.tile_id = t.id
+          WHERE t.map_id = ? AND bi.is_collapsed = 0
+          AND bi.building_type_id IN (${licensedTypes.map(() => '?').join(',')})
+          GROUP BY bi.building_type_id
+        `).bind(mapId, ...licensedTypes.map(bt => bt.id)).all();
+
+        const countMap = {};
+        for (const row of (licenseCounts.results || [])) {
+          countMap[row.building_type_id] = row.count;
+        }
+
+        // Add license availability to each building type
+        buildingTypes = buildingTypes.map(bt => {
+          if (bt.requires_license && bt.max_per_map) {
+            const currentCount = countMap[bt.id] || 0;
+            return {
+              ...bt,
+              licenses_used: currentCount,
+              licenses_remaining: bt.max_per_map - currentCount
+            };
+          }
+          return bt;
+        });
+      }
+    }
+
     return new Response(JSON.stringify({
       success: true,
       data: {
-        building_types: result.results || []
+        building_types: buildingTypes
       }
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }

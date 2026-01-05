@@ -29,7 +29,6 @@ interface HeroApiResponse {
   success: boolean;
   current: {
     buildingValue: number;
-    buildingSellValue: number;
   };
   buildings: Array<{
     id: string;

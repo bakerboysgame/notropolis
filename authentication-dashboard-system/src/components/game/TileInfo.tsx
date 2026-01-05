@@ -403,6 +403,7 @@ export function TileInfo({ mapId, x, y, map, onClose, onRefresh }: TileInfoProps
             onClose={() => setShowBuildModal(false)}
             onSuccess={handleActionSuccess}
             tile={tile}
+            mapId={mapId}
             activeCompanyId={activeCompany.id}
             activeCompanyCash={activeCompany.cash}
             activeCompanyLevel={activeCompany.level}

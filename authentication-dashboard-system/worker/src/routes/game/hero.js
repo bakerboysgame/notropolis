@@ -65,9 +65,9 @@ async function calculateHeroStatus(env, company) {
     };
   }
 
-  // Get total building value
+  // Get total building value (uses dynamic calculated_value if available, falls back to cost)
   const buildingsResult = await env.DB.prepare(`
-    SELECT SUM(bt.cost) as total_value
+    SELECT SUM(COALESCE(bi.calculated_value, bt.cost)) as total_value
     FROM building_instances bi
     JOIN building_types bt ON bi.building_type_id = bt.id
     JOIN tiles t ON bi.tile_id = t.id
@@ -75,8 +75,8 @@ async function calculateHeroStatus(env, company) {
   `).bind(company.id, company.current_map_id).first();
 
   const totalBuildingValue = buildingsResult?.total_value || 0;
-  const buildingSellValue = Math.floor(totalBuildingValue * 0.5);
-  const netWorth = company.cash + buildingSellValue;
+  // Buildings sell at full value for hero
+  const netWorth = company.cash + totalBuildingValue;
 
   // Check each path
   const canHeroNetWorth = netWorth >= requirements.netWorth;
@@ -100,7 +100,6 @@ async function calculateHeroStatus(env, company) {
     current: {
       cash: company.cash,
       buildingValue: totalBuildingValue,
-      buildingSellValue,
       netWorth,
       landPercentage: company.land_percentage || 0,
       landOwnershipStreak: company.land_ownership_streak || 0,
@@ -143,12 +142,12 @@ export async function getHeroStatus(request, env, company) {
   let buildings = [];
   if (company.current_map_id) {
     const buildingsResult = await env.DB.prepare(`
-      SELECT bi.id, bt.name, bt.cost
+      SELECT bi.id, bt.name, bt.cost as base_cost, COALESCE(bi.calculated_value, bt.cost) as value
       FROM building_instances bi
       JOIN building_types bt ON bi.building_type_id = bt.id
       JOIN tiles t ON bi.tile_id = t.id
       WHERE bi.company_id = ? AND t.map_id = ?
-      ORDER BY bt.cost DESC
+      ORDER BY COALESCE(bi.calculated_value, bt.cost) DESC
     `).bind(company.id, company.current_map_id).all();
     buildings = buildingsResult.results || [];
   }
@@ -163,25 +162,22 @@ export async function getHeroStatus(request, env, company) {
 }
 
 /**
- * POST /api/game/hero/hero-out
- * Execute hero - sell all buildings, add to offshore, reset company
+ * Execute hero-out for a company (core logic)
+ * Used by both voluntary hero-out API and forced hero-out in tick processor
+ * @param {Object} env - Worker environment with DB binding
+ * @param {Object} company - Company object with id, current_map_id, cash, offshore, user_id
+ * @param {string} qualifiedPath - Which path qualified ('netWorth', 'cash', or 'land')
+ * @param {Object} options - Additional options
+ * @param {boolean} options.isForced - Whether this is a forced hero-out (clears prison, different action_type)
+ * @param {string} options.unlocks - What location type this unlocks ('city', 'capital', or null)
+ * @returns {Object} Hero-out result with details
  */
-export async function heroOut(request, env, company) {
-  // Check prison status
-  if (company.is_in_prison) {
-    throw new Error(`You are in prison! Pay your fine of $${company.prison_fine?.toLocaleString()} to continue.`);
-  }
+export async function executeHeroOut(env, company, qualifiedPath, options = {}) {
+  const { isForced = false, unlocks = null } = options;
 
-  // Calculate hero eligibility
-  const status = await calculateHeroStatus(env, company);
-
-  if (!status.eligible) {
-    throw new Error(status.reason || 'You do not meet the requirements to hero out');
-  }
-
-  // Get all buildings to sell
+  // Get all buildings to sell (use dynamic value if available)
   const buildingsResult = await env.DB.prepare(`
-    SELECT bi.id, bi.tile_id, bt.name, bt.cost
+    SELECT bi.id, bi.tile_id, bt.name, bt.cost as base_cost, COALESCE(bi.calculated_value, bt.cost) as value
     FROM building_instances bi
     JOIN building_types bt ON bi.building_type_id = bt.id
     JOIN tiles t ON bi.tile_id = t.id
@@ -189,12 +185,11 @@ export async function heroOut(request, env, company) {
   `).bind(company.id, company.current_map_id).all();
 
   const buildings = buildingsResult.results || [];
-  const totalBuildingValue = buildings.reduce((sum, b) => sum + b.cost, 0);
-  const buildingSellValue = Math.floor(totalBuildingValue * 0.5);
-  const totalToOffshore = company.cash + buildingSellValue;
+  const totalBuildingValue = buildings.reduce((sum, b) => sum + b.value, 0);
+  // Buildings sell at full value for hero (net worth = offshore)
+  const totalToOffshore = company.cash + totalBuildingValue;
 
   const buildingIds = buildings.map((b) => b.id);
-  const tileIds = buildings.map((b) => b.tile_id);
 
   // Build batch statements
   const statements = [];
@@ -220,40 +215,66 @@ export async function heroOut(request, env, company) {
   );
 
   // Update company: add to offshore, reset everything
-  statements.push(
-    env.DB.prepare(`
-      UPDATE game_companies
-      SET offshore = offshore + ?,
-          cash = 0,
-          level = 1,
-          total_actions = 0,
-          current_map_id = NULL,
-          location_type = NULL,
-          land_ownership_streak = 0,
-          land_percentage = 0,
-          last_action_at = ?,
-          ticks_since_action = 0
-      WHERE id = ?
-    `).bind(totalToOffshore, new Date().toISOString(), company.id)
-  );
+  // For forced hero-out, also clear prison status
+  if (isForced) {
+    statements.push(
+      env.DB.prepare(`
+        UPDATE game_companies
+        SET offshore = offshore + ?,
+            cash = 0,
+            level = 1,
+            total_actions = 0,
+            current_map_id = NULL,
+            location_type = NULL,
+            land_ownership_streak = 0,
+            land_percentage = 0,
+            hero_eligible_streak = 0,
+            is_in_prison = 0,
+            prison_fine = 0,
+            last_action_at = ?,
+            ticks_since_action = 0
+        WHERE id = ?
+      `).bind(totalToOffshore, new Date().toISOString(), company.id)
+    );
+  } else {
+    statements.push(
+      env.DB.prepare(`
+        UPDATE game_companies
+        SET offshore = offshore + ?,
+            cash = 0,
+            level = 1,
+            total_actions = 0,
+            current_map_id = NULL,
+            location_type = NULL,
+            land_ownership_streak = 0,
+            land_percentage = 0,
+            hero_eligible_streak = 0,
+            last_action_at = ?,
+            ticks_since_action = 0
+        WHERE id = ?
+      `).bind(totalToOffshore, new Date().toISOString(), company.id)
+    );
+  }
 
   // Log hero transaction
+  const actionType = isForced ? 'forced_hero_out' : 'hero_out';
   statements.push(
     env.DB.prepare(`
       INSERT INTO game_transactions (id, company_id, map_id, action_type, amount, details)
-      VALUES (?, ?, ?, 'hero_out', ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?)
     `).bind(
       crypto.randomUUID(),
       company.id,
       company.current_map_id,
+      actionType,
       totalToOffshore,
       JSON.stringify({
-        path: status.qualifiedPath,
+        path: qualifiedPath,
         buildings_sold: buildings.length,
         building_value: totalBuildingValue,
-        building_sell_value: buildingSellValue,
         cash: company.cash,
-        unlocks: status.unlocks,
+        unlocks: unlocks,
+        forced: isForced,
       })
     )
   );
@@ -261,22 +282,28 @@ export async function heroOut(request, env, company) {
   await env.DB.batch(statements);
 
   // Check for avatar unlocks after hero out
-  // Note: Use company.user_id since heroOut receives company, not user
   const { newlyUnlocked } = await checkAvatarUnlocks(env, company.user_id);
 
   return {
     success: true,
-    path: status.qualifiedPath,
+    path: qualifiedPath,
     buildings_sold: buildings.length,
     building_value: totalBuildingValue,
-    building_sell_value: buildingSellValue,
     cash_added: company.cash,
     total_to_offshore: totalToOffshore,
     new_offshore: company.offshore + totalToOffshore,
-    unlocks: status.unlocks,
-    // Include newly unlocked avatar items
+    unlocks: unlocks,
     unlocked_items: newlyUnlocked,
+    forced: isForced,
   };
+}
+
+/**
+ * POST /api/game/hero/hero-out
+ * Voluntary hero-out is disabled - hero only happens automatically via forced hero-out
+ */
+export async function heroOut(request, env, company) {
+  throw new Error('Voluntary hero-out is disabled. You will be automatically hero\'d out after meeting requirements for 6 consecutive ticks.');
 }
 
 /**
@@ -346,6 +373,7 @@ export async function joinLocation(request, env, company) {
         total_actions = 0,
         land_ownership_streak = 0,
         land_percentage = 0,
+        hero_eligible_streak = 0,
         last_action_at = ?,
         ticks_since_action = 0
     WHERE id = ?
@@ -403,6 +431,15 @@ export async function joinLocation(request, env, company) {
     map_id,
     taxRate
   ).run();
+
+  // Initialize message_read_status so company only sees messages from after they joined
+  // joined_at tracks when they joined (for filtering messages)
+  // last_read_at tracks when they last viewed messages (for unread count)
+  await env.DB.prepare(`
+    INSERT INTO message_read_status (company_id, map_id, joined_at, last_read_at)
+    VALUES (?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+    ON CONFLICT (company_id, map_id) DO UPDATE SET joined_at = CURRENT_TIMESTAMP, last_read_at = CURRENT_TIMESTAMP
+  `).bind(company.id, map_id).run();
 
   return {
     success: true,

@@ -193,8 +193,8 @@ export async function getCompanyStatistics(env, companyId) {
         SUM(CASE WHEN bi.is_collapsed = 0 THEN COALESCE(bi.calculated_profit, 0) ELSE 0 END) as base_profit,
         SUM(CASE WHEN bi.is_collapsed = 0 THEN COALESCE(bi.calculated_profit, 0) * (100 - bi.damage_percent * 1.176) / 100 ELSE 0 END) as gross_profit,
         SUM(CASE WHEN bi.is_collapsed = 0 THEN COALESCE(bs.monthly_cost, 0) ELSE 0 END) / 144 as total_security_cost,
-        SUM(CASE WHEN bi.is_collapsed = 0 THEN bt.cost ELSE 0 END) as total_building_value,
-        SUM(CASE WHEN bi.is_collapsed = 0 THEN bt.cost * (100 - COALESCE(bi.damage_percent, 0)) / 100 ELSE 0 END) as damaged_building_value,
+        SUM(CASE WHEN bi.is_collapsed = 0 THEN COALESCE(bi.calculated_value, bt.cost) ELSE 0 END) as total_building_value,
+        SUM(CASE WHEN bi.is_collapsed = 0 THEN COALESCE(bi.calculated_value, bt.cost) * (100 - COALESCE(bi.damage_percent, 0)) / 100 ELSE 0 END) as damaged_building_value,
         SUM(CASE WHEN bi.is_collapsed = 0 THEN bi.damage_percent ELSE 0 END) as total_damage_percent,
         SUM(CASE WHEN bi.is_collapsed = 0 AND bi.is_on_fire = 1 THEN 1 ELSE 0 END) as buildings_on_fire
       FROM building_instances bi
@@ -295,6 +295,7 @@ export async function getCompanyProperties(env, companyId) {
       bi.is_for_sale,
       bi.sale_price,
       bi.calculated_profit,
+      bi.calculated_value,
       bi.built_at,
       bt.id as building_type_id,
       bt.name as building_type_name,
@@ -360,9 +361,10 @@ export async function getCompanyProperties(env, companyId) {
     const health = 100 - (building.damage_percent || 0);
     const isActive = !building.is_collapsed;
 
-    // Calculate value (damaged value)
+    // Calculate value using dynamic calculated_value (falls back to building_cost)
+    const buildingValue = building.calculated_value || building.building_cost;
     const value = isActive
-      ? Math.round(building.building_cost * (health / 100))
+      ? Math.round(buildingValue * (health / 100))
       : 0;
 
     // Calculate profit per tick (after damage, tax, and security)
@@ -396,6 +398,7 @@ export async function getCompanyProperties(env, companyId) {
       isForSale: building.is_for_sale === 1,
       salePrice: building.sale_price,
       value,
+      currentValue: buildingValue, // Dynamic value based on location/neighbors
       baseCost: building.building_cost,
       profitPerTick,
       baseProfit: building.calculated_profit || 0,
@@ -419,7 +422,8 @@ export async function getCompanyProperties(env, companyId) {
       propertyCount: properties.length,
       collapsedCount: properties.filter(p => p.isCollapsed).length,
       onFireCount: properties.filter(p => p.isOnFire).length,
-      attackedCount: properties.filter(p => p.recentAttacks.length > 0).length
+      // Only count as "under attack" if building has damage (not yet repaired)
+      attackedCount: properties.filter(p => p.recentAttacks.length > 0 && p.health < 100).length
     },
     mapName: company.map_name,
     locationType: company.location_type,

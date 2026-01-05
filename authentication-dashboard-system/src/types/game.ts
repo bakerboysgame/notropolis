@@ -18,6 +18,7 @@ export interface GameCompany {
   ticks_since_action: number;
   land_ownership_streak: number;
   land_percentage: number;
+  hero_eligible_streak: number;
 }
 
 export interface GameMap {
@@ -31,6 +32,7 @@ export interface GameMap {
   hero_cash: number;
   hero_land_percentage: number;
   police_strike_day: number;
+  forced_hero_after_ticks: number | null;
   created_at: string;
   is_active: boolean;
 }
@@ -59,6 +61,7 @@ export interface BuildingType {
   adjacency_bonuses: Record<string, number>;
   adjacency_penalties: Record<string, number>;
   max_per_map: number | null;
+  variants: string[] | null; // Available variants for this building type (e.g., ["Fashion", "Food"])
 }
 
 export interface BuildingInstance {
@@ -66,6 +69,7 @@ export interface BuildingInstance {
   tile_id: string;
   building_type_id: string;
   company_id: string;
+  variant: string | null; // Selected variant (e.g., "Fashion" for High Street Store)
   damage_percent: number;
   is_on_fire: boolean;
   is_collapsed: boolean;
@@ -73,6 +77,8 @@ export interface BuildingInstance {
   sale_price: number | null;
   calculated_profit: number;
   profit_modifiers: Record<string, number>;
+  calculated_value: number | null;
+  value_modifiers: Record<string, number> | null;
   needs_profit_recalc: boolean; // Dirty flag for tick optimization
   built_at: string;
 }
@@ -100,6 +106,7 @@ export type ActionType =
   | 'pay_fine'
   | 'tick_income'
   | 'hero_out'
+  | 'forced_hero_out'
   | 'bank_transfer'
   | 'security_purchase';
 

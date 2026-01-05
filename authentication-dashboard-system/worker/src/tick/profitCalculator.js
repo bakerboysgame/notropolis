@@ -55,8 +55,8 @@ export async function processMapProfits(env, mapId) {
       SUM(CASE WHEN bi.is_collapsed = 0 THEN COALESCE(bi.calculated_profit, 0) * (100 - bi.damage_percent * 1.176) / 100 ELSE 0 END) as gross_profit,
       SUM(CASE WHEN bi.is_collapsed = 0 THEN COALESCE(bs.monthly_cost, 0) ELSE 0 END) / 144 as total_security_cost,
       SUM(CASE WHEN bi.is_collapsed = 1 THEN bt.cost * 0.05 ELSE 0 END) as collapsed_maintenance_cost,
-      SUM(CASE WHEN bi.is_collapsed = 0 THEN bt.cost ELSE 0 END) as total_building_value,
-      SUM(CASE WHEN bi.is_collapsed = 0 THEN bt.cost * (100 - COALESCE(bi.damage_percent, 0)) / 100 ELSE 0 END) as damaged_building_value,
+      SUM(CASE WHEN bi.is_collapsed = 0 THEN COALESCE(bi.calculated_value, bt.cost) ELSE 0 END) as total_building_value,
+      SUM(CASE WHEN bi.is_collapsed = 0 THEN COALESCE(bi.calculated_value, bt.cost) * (100 - COALESCE(bi.damage_percent, 0)) / 100 ELSE 0 END) as damaged_building_value,
       SUM(CASE WHEN bi.is_collapsed = 0 THEN bi.damage_percent ELSE 0 END) as total_damage_percent,
       SUM(CASE WHEN bi.is_collapsed = 0 AND bi.is_on_fire = 1 THEN 1 ELSE 0 END) as buildings_on_fire
     FROM game_companies gc

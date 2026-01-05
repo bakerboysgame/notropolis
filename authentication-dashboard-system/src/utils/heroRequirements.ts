@@ -45,13 +45,11 @@ export interface BuildingSummary {
   id: string;
   name: string;
   cost: number;
-  sellValue: number; // 50% of cost
 }
 
 export interface HeroSummary {
   buildings: BuildingSummary[];
   totalBuildingValue: number;
-  buildingSellValue: number; // 50%
   currentCash: number;
   totalToOffshore: number;
   newLocation: 'city' | 'capital' | null;
@@ -104,7 +102,8 @@ export function getHeroProgress(
   landOwnershipStreak: number
 ): HeroProgress {
   const requirements = HERO_REQUIREMENTS[locationType];
-  const netWorth = cash + Math.floor(buildingsTotalValue * 0.5);
+  // Buildings sell at full value for hero
+  const netWorth = cash + buildingsTotalValue;
 
   // Path 1: Net Worth
   const netWorthProgress = Math.min(100, (netWorth / requirements.netWorth) * 100);
@@ -202,17 +201,15 @@ export function calculateHeroSummary(
     id: b.id,
     name: b.name,
     cost: b.cost,
-    sellValue: Math.floor(b.cost * 0.5),
   }));
 
   const totalBuildingValue = buildings.reduce((sum, b) => sum + b.cost, 0);
-  const buildingSellValue = Math.floor(totalBuildingValue * 0.5);
-  const totalToOffshore = currentCash + buildingSellValue;
+  // Buildings sell at full value (net worth = offshore)
+  const totalToOffshore = currentCash + totalBuildingValue;
 
   return {
     buildings: buildingSummaries,
     totalBuildingValue,
-    buildingSellValue,
     currentCash,
     totalToOffshore,
     newLocation: unlocksLocation,

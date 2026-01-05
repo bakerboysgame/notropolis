@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { X, Building2, DollarSign, TrendingUp, Lock } from 'lucide-react';
 import { api, apiHelpers, BuildingType, ProfitPreviewResponse, BuildBuildingRequest } from '../../services/api';
 import { type LevelUnlocks } from '../../utils/levels';
+import { getBuildingVariants, requiresVariant, type BuildingVariant } from '../../utils/buildingTypes';
 
 interface LevelUpData {
   newLevel: number;
@@ -13,6 +14,7 @@ interface BuildModalProps {
   onClose: () => void;
   onSuccess: (levelUp?: LevelUpData | null) => void;
   tile: any;
+  mapId: string;
   activeCompanyId: string;
   activeCompanyCash: number;
   activeCompanyLevel: number;
@@ -23,23 +25,34 @@ export function BuildModal({
   onClose,
   onSuccess,
   tile,
+  mapId,
   activeCompanyId,
   activeCompanyCash,
   activeCompanyLevel,
 }: BuildModalProps) {
   const [buildingTypes, setBuildingTypes] = useState<BuildingType[]>([]);
   const [selectedType, setSelectedType] = useState<string | null>(null);
+  const [selectedVariant, setSelectedVariant] = useState<string | null>(null);
   const [profitPreview, setProfitPreview] = useState<ProfitPreviewResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [loadingTypes, setLoadingTypes] = useState(true);
   const [loadingPreview, setLoadingPreview] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Get available variants for selected building type
+  const availableVariants = selectedType ? getBuildingVariants(selectedType) : null;
+  const needsVariant = selectedType ? requiresVariant(selectedType) : false;
+
   useEffect(() => {
     if (isOpen) {
       loadBuildingTypes();
     }
   }, [isOpen]);
+
+  // Reset variant when building type changes
+  useEffect(() => {
+    setSelectedVariant(null);
+  }, [selectedType]);
 
   useEffect(() => {
     if (selectedType) {
@@ -53,7 +66,7 @@ export function BuildModal({
     setLoadingTypes(true);
     try {
       const response = await api.get<{ success: boolean; data: { building_types: BuildingType[] } }>(
-        '/api/game/buildings/types'
+        `/api/game/buildings/types?map_id=${mapId}`
       );
 
       if (response.data.success) {
@@ -90,6 +103,12 @@ export function BuildModal({
     const selectedBuilding = buildingTypes.find(bt => bt.id === selectedType);
     if (!selectedBuilding || activeCompanyCash < selectedBuilding.cost) return;
 
+    // Validate variant selection for buildings that require it
+    if (needsVariant && !selectedVariant) {
+      setError('Please select a specialty for this building');
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
@@ -98,6 +117,7 @@ export function BuildModal({
         company_id: activeCompanyId,
         tile_id: tile.id,
         building_type_id: selectedType,
+        variant: selectedVariant || undefined,
       };
 
       const response = await api.post<{ success: boolean; data: { levelUp?: LevelUpData } }>('/api/game/buildings/build', request);
@@ -119,6 +139,7 @@ export function BuildModal({
 
   const selectedBuilding = selectedType ? buildingTypes.find(bt => bt.id === selectedType) : null;
   const canAfford = selectedBuilding ? activeCompanyCash >= selectedBuilding.cost : false;
+  const canBuild = selectedType && canAfford && (!needsVariant || selectedVariant);
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
@@ -157,14 +178,16 @@ export function BuildModal({
               ) : (
                 buildingTypes.map(type => {
                   const isLocked = activeCompanyLevel < type.level_required;
+                  const noLicensesRemaining = type.requires_license && type.licenses_remaining === 0;
+                  const isDisabled = isLocked || noLicensesRemaining;
                   const isSelected = selectedType === type.id;
 
                   return (
                     <div
                       key={type.id}
-                      onClick={() => !isLocked && setSelectedType(type.id)}
+                      onClick={() => !isDisabled && setSelectedType(type.id)}
                       className={`p-3 rounded cursor-pointer transition-colors ${
-                        isLocked
+                        isDisabled
                           ? 'bg-gray-700/50 cursor-not-allowed opacity-50'
                           : isSelected
                           ? 'bg-blue-600'
@@ -175,9 +198,13 @@ export function BuildModal({
                         <div className="flex-1">
                           <div className="flex items-center gap-2">
                             <span className="font-bold text-white">{type.name}</span>
-                            {type.requires_license && (
-                              <span className="text-xs px-2 py-0.5 bg-purple-900/50 text-purple-400 rounded border border-purple-700">
-                                License
+                            {type.requires_license && type.max_per_map && (
+                              <span className={`text-xs px-2 py-0.5 rounded border ${
+                                noLicensesRemaining
+                                  ? 'bg-red-900/50 text-red-400 border-red-700'
+                                  : 'bg-purple-900/50 text-purple-400 border-purple-700'
+                              }`}>
+                                {type.licenses_remaining}/{type.max_per_map} licenses
                               </span>
                             )}
                             {isLocked && (
@@ -193,6 +220,11 @@ export function BuildModal({
                               Requires Level {type.level_required}
                             </div>
                           )}
+                          {noLicensesRemaining && !isLocked && (
+                            <div className="text-xs text-red-400 mt-1">
+                              No licenses available
+                            </div>
+                          )}
                         </div>
                         <div className="text-right">
                           <div className="text-yellow-400 font-mono">${type.cost.toLocaleString()}</div>
@@ -203,6 +235,34 @@ export function BuildModal({
                 })
               )}
             </div>
+
+            {/* Variant selection - shown when a building type with variants is selected */}
+            {selectedType && availableVariants && availableVariants.length > 0 && (
+              <div className="mt-4">
+                <h3 className="text-sm text-gray-400 mb-2">Select Specialty</h3>
+                <div className="grid grid-cols-3 gap-2">
+                  {availableVariants.map(variant => (
+                    <button
+                      key={variant.id}
+                      onClick={() => setSelectedVariant(variant.id)}
+                      className={`p-2 rounded text-center transition-colors ${
+                        selectedVariant === variant.id
+                          ? 'bg-purple-600 border border-purple-400'
+                          : 'bg-gray-700 hover:bg-gray-600 border border-gray-600'
+                      }`}
+                    >
+                      <span className="text-xl">{variant.icon}</span>
+                      <p className="text-xs text-white mt-1">{variant.name}</p>
+                    </button>
+                  ))}
+                </div>
+                {needsVariant && !selectedVariant && (
+                  <p className="text-xs text-yellow-400 mt-2">
+                    Select a specialty to build this {selectedBuilding?.name}
+                  </p>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Profit preview */}
@@ -299,10 +359,10 @@ export function BuildModal({
           </button>
           <button
             onClick={handleBuild}
-            disabled={!selectedType || !canAfford || loading}
+            disabled={!canBuild || loading}
             className="flex-1 py-2 bg-green-600 text-white rounded hover:bg-green-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            {loading ? 'Building...' : 'Build'}
+            {loading ? 'Building...' : selectedVariant ? `Build ${selectedVariant} ${selectedBuilding?.name || ''}` : 'Build'}
           </button>
         </div>
       </div>

@@ -5,7 +5,10 @@
 
 import { processMapProfits, updateIdleCompanies } from './profitCalculator.js';
 import { processMapFires } from './fireSpread.js';
-import { HERO_REQUIREMENTS } from '../routes/game/hero.js';
+import { HERO_REQUIREMENTS, executeHeroOut } from '../routes/game/hero.js';
+
+// Default number of ticks a company can be hero-eligible before forced hero-out
+const DEFAULT_FORCED_HERO_TICKS = 6;
 
 /**
  * Process a single game tick across all active maps
@@ -53,6 +56,7 @@ export async function processTick(env) {
     let totalBuildingsDamaged = 0;
     let totalBuildingsCollapsed = 0;
     let totalLandStreaksUpdated = 0;
+    let totalForcedHeroOuts = 0;
 
     // Step 2: Process each map
     for (const map of activeMaps.results) {
@@ -71,6 +75,10 @@ export async function processTick(env) {
         totalGrossProfit += profitStats.grossProfit;
         totalTaxAmount += profitStats.taxAmount;
         totalNetProfit += profitStats.netProfit;
+
+        // Process forced hero-outs (after profits so cash is up-to-date)
+        const forcedHeroStats = await processForcedHeroOuts(env, map.id);
+        totalForcedHeroOuts += forcedHeroStats.forcedCount;
 
         // Update land ownership streaks for hero system
         const landStreaksUpdated = await updateLandOwnershipStreaks(env, map.id);
@@ -115,6 +123,7 @@ export async function processTick(env) {
       buildingsDamaged: totalBuildingsDamaged,
       buildingsCollapsed: totalBuildingsCollapsed,
       landStreaksUpdated: totalLandStreaksUpdated,
+      forcedHeroOuts: totalForcedHeroOuts,
       executionTimeMs
     };
 
@@ -225,6 +234,135 @@ async function updateLandOwnershipStreaks(env, mapId) {
   }
 
   return statements.length;
+}
+
+/**
+ * Process forced hero-outs for companies on a map
+ * Companies that meet hero eligibility for 6+ consecutive ticks are forced to hero out
+ *
+ * @param {Object} env - Worker environment with DB binding
+ * @param {string} mapId - Map ID to process
+ * @returns {Object} { forcedCount, streaksUpdated }
+ */
+async function processForcedHeroOuts(env, mapId) {
+  // Get map details including location_type and forced_hero_after_ticks setting
+  const map = await env.DB.prepare(
+    'SELECT location_type, forced_hero_after_ticks FROM maps WHERE id = ?'
+  ).bind(mapId).first();
+
+  if (!map || !map.location_type) {
+    return { forcedCount: 0, streaksUpdated: 0 };
+  }
+
+  const requirements = HERO_REQUIREMENTS[map.location_type];
+  if (!requirements) {
+    return { forcedCount: 0, streaksUpdated: 0 };
+  }
+
+  // Use map-specific threshold or default
+  const forcedHeroThreshold = map.forced_hero_after_ticks ?? DEFAULT_FORCED_HERO_TICKS;
+
+  // Get all companies on this map with their financial data
+  const companiesResult = await env.DB.prepare(`
+    SELECT
+      gc.id,
+      gc.user_id,
+      gc.cash,
+      gc.offshore,
+      gc.current_map_id,
+      gc.location_type,
+      gc.land_percentage,
+      gc.land_ownership_streak,
+      gc.hero_eligible_streak,
+      COALESCE(SUM(bt.cost), 0) as total_building_value
+    FROM game_companies gc
+    LEFT JOIN building_instances bi ON bi.company_id = gc.id
+    LEFT JOIN tiles t ON bi.tile_id = t.id AND t.map_id = ?
+    LEFT JOIN building_types bt ON bi.building_type_id = bt.id
+    WHERE gc.current_map_id = ?
+    GROUP BY gc.id
+  `).bind(mapId, mapId).all();
+
+  if (companiesResult.results.length === 0) {
+    return { forcedCount: 0, streaksUpdated: 0 };
+  }
+
+  const forcedHeroCompanies = [];
+  const streakUpdates = [];
+
+  for (const company of companiesResult.results) {
+    // Calculate hero eligibility via any path (buildings at full value)
+    const totalBuildingValue = company.total_building_value || 0;
+    const netWorth = company.cash + totalBuildingValue;
+
+    const canHeroNetWorth = netWorth >= requirements.netWorth;
+    const canHeroCash = company.cash >= requirements.cash;
+    const canHeroLand =
+      (company.land_percentage || 0) >= requirements.landPercentage &&
+      (company.land_ownership_streak || 0) >= requirements.landStreakTicks;
+
+    const isEligible = canHeroNetWorth || canHeroCash || canHeroLand;
+    const currentStreak = company.hero_eligible_streak || 0;
+
+    if (isEligible) {
+      const newStreak = currentStreak + 1;
+
+      // Check if this tick should force the hero-out (streak >= threshold means force NOW)
+      if (newStreak > forcedHeroThreshold) {
+        // Determine which path qualified
+        let qualifiedPath = 'netWorth';
+        if (canHeroCash) qualifiedPath = 'cash';
+        else if (canHeroLand) qualifiedPath = 'land';
+
+        forcedHeroCompanies.push({
+          company,
+          qualifiedPath,
+          unlocks: requirements.unlocks,
+        });
+      } else {
+        // Just increment the streak
+        streakUpdates.push(
+          env.DB.prepare(`
+            UPDATE game_companies SET hero_eligible_streak = ? WHERE id = ?
+          `).bind(newStreak, company.id)
+        );
+      }
+    } else {
+      // Not eligible - reset streak if it was > 0
+      if (currentStreak > 0) {
+        streakUpdates.push(
+          env.DB.prepare(`
+            UPDATE game_companies SET hero_eligible_streak = 0 WHERE id = ?
+          `).bind(company.id)
+        );
+      }
+    }
+  }
+
+  // Execute streak updates
+  if (streakUpdates.length > 0) {
+    await env.DB.batch(streakUpdates);
+  }
+
+  // Execute forced hero-outs
+  let forcedCount = 0;
+  for (const { company, qualifiedPath, unlocks } of forcedHeroCompanies) {
+    try {
+      await executeHeroOut(env, company, qualifiedPath, {
+        isForced: true,
+        unlocks,
+      });
+      forcedCount++;
+      console.log(`Forced hero-out for company ${company.id} via ${qualifiedPath} path`);
+    } catch (err) {
+      console.error(`Failed to force hero-out for company ${company.id}:`, err);
+    }
+  }
+
+  return {
+    forcedCount,
+    streaksUpdated: streakUpdates.length,
+  };
 }
 
 /**

@@ -12,6 +12,7 @@ import { LevelUpModal } from './LevelUpModal';
 import { api, apiHelpers } from '../../services/api';
 import { type LevelUnlocks } from '../../utils/levels';
 import { GameMap } from '../../types/game';
+import { getDisplayName, getVariantInfo } from '../../utils/buildingTypes';
 
 interface LevelUpData {
   newLevel: number;
@@ -253,7 +254,7 @@ export function PropertyModal({
               <div>
                 <h2 className="text-lg font-bold text-white">
                   {building
-                    ? (building as any).name || 'Building'
+                    ? getDisplayName(building.building_type_id, building.variant)
                     : tile.special_building
                     ? tile.special_building.replace(/_/g, ' ')
                     : tile.terrain_type.replace(/_/g, ' ')}
@@ -321,6 +322,14 @@ export function PropertyModal({
 
                 {/* Status indicators */}
                 <div className="flex gap-2 flex-wrap">
+                  {building.variant && (() => {
+                    const variantInfo = getVariantInfo(building.building_type_id, building.variant);
+                    return (
+                      <span className="inline-flex items-center gap-1 px-2 py-1 bg-purple-900/50 rounded text-xs text-purple-400 border border-purple-700">
+                        {variantInfo?.icon} {building.variant}
+                      </span>
+                    );
+                  })()}
                   {building.is_on_fire && (
                     <span className="inline-flex items-center gap-1 px-2 py-1 bg-red-900/50 rounded text-xs text-red-400 border border-red-700">
                       <Flame className="w-3 h-3" /> On Fire
@@ -748,6 +757,7 @@ export function PropertyModal({
             onClose={() => setShowBuildModal(false)}
             onSuccess={handleActionSuccess}
             tile={tile}
+            mapId={mapId}
             activeCompanyId={activeCompany.id}
             activeCompanyCash={activeCompany.cash}
             activeCompanyLevel={activeCompany.level}

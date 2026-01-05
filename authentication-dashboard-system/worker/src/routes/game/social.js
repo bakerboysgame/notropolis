@@ -6,18 +6,45 @@ import { moderateMessage } from './moderation.js';
 // ==================== MESSAGE BOARD ====================
 
 // Get messages for a map (paginated)
-export async function getMessages(env, mapId, page = 1) {
+// Only shows messages created after the company joined the location
+export async function getMessages(env, mapId, companyId, page = 1) {
   const limit = 50;
   const offset = (page - 1) * limit;
 
-  const messages = await env.DB.prepare(`
-    SELECT m.*, c.name as company_name
-    FROM messages m
-    JOIN game_companies c ON m.company_id = c.id
-    WHERE m.map_id = ?
-    ORDER BY m.created_at DESC
-    LIMIT ? OFFSET ?
-  `).bind(mapId, limit, offset).all();
+  // Get the company's join time for this map from message_read_status
+  // joined_at is set when a company joins a location and never changes
+  const readStatus = await env.DB.prepare(`
+    SELECT joined_at FROM message_read_status
+    WHERE company_id = ? AND map_id = ?
+  `).bind(companyId, mapId).first();
+
+  // If no joined_at exists, this is a legacy company - show all messages
+  // New companies will have this set when they join via joinLocation()
+  const joinedAt = readStatus?.joined_at;
+
+  let messages;
+  if (joinedAt) {
+    // Only show messages created after or at the time the company joined
+    messages = await env.DB.prepare(`
+      SELECT m.*, c.name as company_name
+      FROM messages m
+      JOIN game_companies c ON m.company_id = c.id
+      WHERE m.map_id = ?
+        AND m.created_at >= ?
+      ORDER BY m.created_at DESC
+      LIMIT ? OFFSET ?
+    `).bind(mapId, joinedAt, limit, offset).all();
+  } else {
+    // Legacy: no join time recorded, show all messages
+    messages = await env.DB.prepare(`
+      SELECT m.*, c.name as company_name
+      FROM messages m
+      JOIN game_companies c ON m.company_id = c.id
+      WHERE m.map_id = ?
+      ORDER BY m.created_at DESC
+      LIMIT ? OFFSET ?
+    `).bind(mapId, limit, offset).all();
+  }
 
   return messages.results;
 }
@@ -77,6 +104,7 @@ export async function postMessage(env, company, content) {
 }
 
 // Get unread message count for current map
+// Only counts messages posted after the company joined AND after they last read
 export async function getUnreadCount(env, company) {
   const result = await env.DB.prepare(`
     SELECT COUNT(*) as count
@@ -85,6 +113,7 @@ export async function getUnreadCount(env, company) {
       ON mrs.company_id = ? AND mrs.map_id = m.map_id
     WHERE m.map_id = ?
       AND m.company_id != ?
+      AND (mrs.joined_at IS NULL OR m.created_at >= mrs.joined_at)
       AND (mrs.last_read_at IS NULL OR m.created_at > mrs.last_read_at)
   `).bind(company.id, company.current_map_id, company.id).first();
 
@@ -92,6 +121,7 @@ export async function getUnreadCount(env, company) {
 }
 
 // Get unread message counts for all companies belonging to a user
+// Only counts messages posted after each company joined AND after they last read
 export async function getUnreadCountsForUser(env, userId) {
   // Get all companies for this user that are in a location
   const companies = await env.DB.prepare(`
@@ -114,6 +144,7 @@ export async function getUnreadCountsForUser(env, userId) {
         ON mrs.company_id = ? AND mrs.map_id = m.map_id
       WHERE m.map_id = ?
         AND m.company_id != ?
+        AND (mrs.joined_at IS NULL OR m.created_at >= mrs.joined_at)
         AND (mrs.last_read_at IS NULL OR m.created_at > mrs.last_read_at)
     `).bind(company.id, company.current_map_id, company.id).first();
 

@@ -266,6 +266,8 @@ export interface BuildingType {
   adjacency_bonuses: string | Record<string, number>;
   adjacency_penalties: string | Record<string, number>;
   max_per_map: number | null;
+  licenses_used?: number;
+  licenses_remaining?: number;
 }
 
 export interface AdjacencyModifier {
@@ -296,12 +298,15 @@ export interface BuildBuildingRequest {
   company_id: string;
   tile_id: string;
   building_type_id: string;
+  variant?: string; // Required for building types that have variants (shop, market_stall, high_street_store)
 }
 
 export interface BuildBuildingResponse {
   building_id: string;
   profit: number;
   breakdown: AdjacencyModifier[];
+  value: number;
+  value_breakdown: AdjacencyModifier[];
   affected_buildings: number;
   remaining_cash: number;
 }

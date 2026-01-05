@@ -212,15 +212,9 @@ export function HeroModal({
                 <span className="text-white">{formatHeroAmount(currentCash)}</span>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-neutral-400">Building Value (Full)</span>
-                <span className="text-neutral-500">
-                  {formatHeroAmount(summary.totalBuildingValue)}
-                </span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-neutral-400">Building Value (50%)</span>
+                <span className="text-neutral-400">Building Value</span>
                 <span className="text-green-400">
-                  +{formatHeroAmount(summary.buildingSellValue)}
+                  +{formatHeroAmount(summary.totalBuildingValue)}
                 </span>
               </div>
               <div className="border-t border-neutral-600 pt-3 flex justify-between">
