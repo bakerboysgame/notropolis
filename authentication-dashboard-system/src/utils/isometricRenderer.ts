@@ -34,6 +34,39 @@ export function setPublishedBuildingSprites(sprites: Record<string, PublishedBui
   publishedBuildingSprites = sprites;
 }
 
+// Published dirty trick sprites fetched from API (populated at runtime)
+// Map of trick_type (e.g., 'arson', 'vandalism') -> { icon, overlay }
+export interface PublishedDirtyTrickSprite {
+  icon: string | null;    // URL for attack modal UI
+  overlay: string | null; // URL for building overlay
+}
+export let publishedDirtyTrickSprites: Record<string, PublishedDirtyTrickSprite> = {};
+
+/**
+ * Set the published dirty trick sprites (called after fetching from API)
+ */
+export function setPublishedDirtyTrickSprites(tricks: Record<string, PublishedDirtyTrickSprite>) {
+  publishedDirtyTrickSprites = tricks;
+}
+
+/**
+ * Get the overlay sprite URL for a dirty trick type (e.g., 'arson' -> fire overlay)
+ * Returns null if no published overlay exists
+ */
+export function getDirtyTrickOverlayUrl(trickType: string): string | null {
+  const trick = publishedDirtyTrickSprites[trickType];
+  return trick?.overlay || null;
+}
+
+/**
+ * Get the icon sprite URL for a dirty trick type (for UI)
+ * Returns null if no published icon exists
+ */
+export function getDirtyTrickIconUrl(trickType: string): string | null {
+  const trick = publishedDirtyTrickSprites[trickType];
+  return trick?.icon || null;
+}
+
 // Fallback sprites for buildings that aren't published yet
 // These will be used when a building doesn't have a published sprite in Asset Manager
 export const FALLBACK_BUILDING_SPRITES: Record<string, BuildingSprite> = {

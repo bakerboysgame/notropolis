@@ -1,6 +1,6 @@
 import { useRef, useEffect, useState, useMemo, useCallback } from 'react';
 import { GameMap, Tile, BuildingInstance } from '../../types/game';
-import { useIsometricAssets, getSprite, getTerrainSprite } from '../../hooks/useIsometricAssets';
+import { useIsometricAssets, getSprite, getTerrainSprite, getDirtyTrickOverlay } from '../../hooks/useIsometricAssets';
 import {
   TERRAIN_COLORS,
   gridToScreen,
@@ -115,8 +115,9 @@ export function IsometricView({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Disable smoothing for crisp pixel art look
-    ctx.imageSmoothingEnabled = false;
+    // Enable high-quality image smoothing for AI-generated sprites
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
 
     const tileSize = baseTileSize * zoom;
     // Base scale depends on tile size: 64px = 0.2, 128px = 0.4
@@ -269,15 +270,33 @@ export function IsometricView({
             );
           }
 
-          // Fire effect
+          // Fire effect - use published overlay sprite if available, fallback to orange tint
           if (building.is_on_fire) {
-            ctx.fillStyle = 'rgba(255, 100, 0, 0.4)';
-            ctx.fillRect(
-              screenX - spriteWidth / 2,
-              screenY - spriteHeight + tileSize / 2,
-              spriteWidth,
-              spriteHeight
-            );
+            const fireOverlay = getDirtyTrickOverlay(sprites, 'arson');
+            if (fireOverlay) {
+              // Draw the published fire overlay sprite
+              const overlayScale = baseScale * zoom;
+              const overlayWidth = fireOverlay.naturalWidth * overlayScale;
+              const overlayHeight = fireOverlay.naturalHeight * overlayScale;
+              ctx.globalAlpha = 0.8;
+              ctx.drawImage(
+                fireOverlay,
+                screenX - overlayWidth / 2,
+                screenY - overlayHeight + tileSize / 2,
+                overlayWidth,
+                overlayHeight
+              );
+              ctx.globalAlpha = 1.0;
+            } else {
+              // Fallback: orange tint overlay
+              ctx.fillStyle = 'rgba(255, 100, 0, 0.4)';
+              ctx.fillRect(
+                screenX - spriteWidth / 2,
+                screenY - spriteHeight + tileSize / 2,
+                spriteWidth,
+                spriteHeight
+              );
+            }
           }
 
           // For sale indicator (golden glow)

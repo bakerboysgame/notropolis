@@ -7,6 +7,10 @@ import {
   getBuildingSpriteUrl,
   setPublishedBuildingSprites,
   PublishedBuildingSprite,
+  setPublishedDirtyTrickSprites,
+  PublishedDirtyTrickSprite,
+  getDirtyTrickOverlayUrl,
+  publishedDirtyTrickSprites,
 } from '../utils/isometricRenderer';
 import { config } from '../config/environment';
 
@@ -45,6 +49,7 @@ export function useIsometricAssets(): UseIsometricAssetsReturn {
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [publishedSprites, setPublishedSpritesState] = useState<Record<string, PublishedBuildingSprite>>({});
+  const [dirtyTrickSprites, setDirtyTrickSpritesState] = useState<Record<string, PublishedDirtyTrickSprite>>({});
 
   // Fetch published building sprites from API (requires auth)
   useEffect(() => {
@@ -74,7 +79,35 @@ export function useIsometricAssets(): UseIsometricAssetsReturn {
     fetchPublishedSprites();
   }, []);
 
-  // Collect all unique sprite URLs needed (depends on published sprites)
+  // Fetch published dirty trick sprites from API (requires auth)
+  useEffect(() => {
+    const fetchDirtyTrickSprites = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) {
+          console.warn('No auth token, skipping dirty trick sprites');
+          return;
+        }
+        const response = await fetch(`${API_BASE_URL}/api/assets/dirty-tricks/published`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && data.tricks) {
+            setPublishedDirtyTrickSprites(data.tricks);
+            setDirtyTrickSpritesState(data.tricks);
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to fetch dirty trick sprites');
+      }
+    };
+    fetchDirtyTrickSprites();
+  }, []);
+
+  // Collect all unique sprite URLs needed (depends on published sprites and dirty tricks)
   const spriteUrls = useMemo(() => {
     const urls = new Set<string>();
 
@@ -90,8 +123,14 @@ export function useIsometricAssets(): UseIsometricAssetsReturn {
       urls.add(`${SPRITE_BASE_URL}/${path}`);
     });
 
+    // Add dirty trick overlay sprites
+    Object.values(publishedDirtyTrickSprites).forEach((trick) => {
+      if (trick.overlay) urls.add(trick.overlay);
+      if (trick.icon) urls.add(trick.icon);
+    });
+
     return Array.from(urls);
-  }, [publishedSprites]);
+  }, [publishedSprites, dirtyTrickSprites]);
 
   useEffect(() => {
     let cancelled = false;
@@ -198,5 +237,19 @@ export function getTerrainSprite(
   const path = TERRAIN_SPRITES[terrainType];
   if (!path) return null;
   const url = `${SPRITE_BASE_URL}/${path}`;
+  return sprites.get(url) || null;
+}
+
+/**
+ * Get dirty trick overlay sprite from the loaded sprites map
+ * @param sprites The loaded sprites map
+ * @param trickType The dirty trick type (e.g., 'arson', 'vandalism')
+ */
+export function getDirtyTrickOverlay(
+  sprites: Map<string, HTMLImageElement>,
+  trickType: string
+): HTMLImageElement | null {
+  const url = getDirtyTrickOverlayUrl(trickType);
+  if (!url) return null;
   return sprites.get(url) || null;
 }
