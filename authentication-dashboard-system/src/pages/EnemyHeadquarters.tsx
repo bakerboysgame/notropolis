@@ -72,8 +72,20 @@ export function EnemyHeadquarters(): JSX.Element {
     fetchCompanyStats();
   }, [fetchCompanyStats]);
 
-  const handleColorSelect = (color: string | null) => {
+  const handleColorSelect = async (color: string | null) => {
     if (companyId && companyStats) {
+      // Only call API when setting a highlight (not removing)
+      // and only if it's a new highlight (different from current)
+      if (color && color !== currentHighlight) {
+        try {
+          await api.post('/api/game/highlight', {
+            company_id: activeCompany.id,
+            target_company_id: companyId
+          });
+        } catch {
+          // Silently fail - the highlight still works locally
+        }
+      }
       setCompanyHighlight(companyId, companyStats.companyName, color);
     }
   };

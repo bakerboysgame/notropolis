@@ -191,7 +191,62 @@ export async function processMapProfits(env, mapId) {
     );
   }
 
-  // Step 5: Execute all updates in a single batch
+  // Step 5: Reset statistics for companies in this location with NO buildings
+  // This handles the case where a company sold/lost all their buildings but still has a stale statistics row
+  const companiesWithNoBuildings = await env.DB.prepare(`
+    SELECT gc.id, gc.ticks_since_action
+    FROM game_companies gc
+    WHERE gc.current_map_id = ?
+      AND gc.id NOT IN (
+        SELECT DISTINCT bi.company_id
+        FROM building_instances bi
+        JOIN tiles t ON bi.tile_id = t.id
+        WHERE t.map_id = ?
+      )
+  `).bind(mapId, mapId).all();
+
+  for (const company of companiesWithNoBuildings.results) {
+    const isEarning = company.ticks_since_action < 6;
+    statements.push(
+      env.DB.prepare(`
+        INSERT INTO company_statistics (
+          id, company_id, map_id,
+          building_count, collapsed_count,
+          base_profit, gross_profit, tax_rate, tax_amount, security_cost, net_profit,
+          total_building_value, damaged_building_value,
+          total_damage_percent, average_damage_percent, buildings_on_fire,
+          ticks_since_action, is_earning,
+          last_tick_at
+        ) VALUES (?, ?, ?, 0, 0, 0, 0, ?, 0, 0, 0, 0, 0, 0, 0, 0, ?, ?, CURRENT_TIMESTAMP)
+        ON CONFLICT (company_id, map_id) DO UPDATE SET
+          building_count = 0,
+          collapsed_count = 0,
+          base_profit = 0,
+          gross_profit = 0,
+          tax_rate = excluded.tax_rate,
+          tax_amount = 0,
+          security_cost = 0,
+          net_profit = 0,
+          total_building_value = 0,
+          damaged_building_value = 0,
+          total_damage_percent = 0,
+          average_damage_percent = 0,
+          buildings_on_fire = 0,
+          ticks_since_action = excluded.ticks_since_action,
+          is_earning = excluded.is_earning,
+          last_tick_at = CURRENT_TIMESTAMP
+      `).bind(
+        crypto.randomUUID(),
+        company.id,
+        mapId,
+        taxRate,
+        company.ticks_since_action,
+        isEarning ? 1 : 0
+      )
+    );
+  }
+
+  // Step 6: Execute all updates in a single batch
   await env.DB.batch(statements);
 
   return {

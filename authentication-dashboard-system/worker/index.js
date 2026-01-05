@@ -66,7 +66,8 @@ import {
   markMessagesAsRead,
   donate,
   getDonationLeaderboard,
-  playRoulette
+  playRoulette,
+  highlightCompany
 } from './src/routes/game/social.js';
 import {
   getAvatarItems,
@@ -705,6 +706,15 @@ export default {
         case path === '/api/game/casino/roulette' && method === 'POST': {
           const company = await getActiveCompany(authService, env, request, requestBody);
           const result = await playRoulette(env, company, requestBody.bet_amount, requestBody.bet_type, requestBody.bet_value);
+          return new Response(JSON.stringify({ success: true, data: result }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        // ==================== HIGHLIGHT ENDPOINTS ====================
+        case path === '/api/game/highlight' && method === 'POST': {
+          const company = await getActiveCompany(authService, env, request, requestBody);
+          const result = await highlightCompany(env, company, requestBody.target_company_id);
           return new Response(JSON.stringify({ success: true, data: result }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }
           });

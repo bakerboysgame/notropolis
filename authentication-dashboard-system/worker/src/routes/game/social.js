@@ -26,7 +26,7 @@ export async function getMessages(env, mapId, companyId, page = 1) {
   if (joinedAt) {
     // Only show messages created after or at the time the company joined
     messages = await env.DB.prepare(`
-      SELECT m.*, c.name as company_name
+      SELECT m.*, c.name as company_name, c.boss_name
       FROM messages m
       JOIN game_companies c ON m.company_id = c.id
       WHERE m.map_id = ?
@@ -37,7 +37,7 @@ export async function getMessages(env, mapId, companyId, page = 1) {
   } else {
     // Legacy: no join time recorded, show all messages
     messages = await env.DB.prepare(`
-      SELECT m.*, c.name as company_name
+      SELECT m.*, c.name as company_name, c.boss_name
       FROM messages m
       JOIN game_companies c ON m.company_id = c.id
       WHERE m.map_id = ?
@@ -164,6 +164,45 @@ export async function markMessagesAsRead(env, company) {
   `).bind(company.id, company.current_map_id).run();
 
   return { success: true };
+}
+
+// ==================== COMPANY HIGHLIGHTS ====================
+
+// Highlight another company (creates event visible to both parties)
+export async function highlightCompany(env, company, targetCompanyId) {
+  if (!targetCompanyId) {
+    throw new Error('Target company ID is required');
+  }
+
+  if (targetCompanyId === company.id) {
+    throw new Error('Cannot highlight yourself');
+  }
+
+  // Verify target company exists and is on the same map
+  const targetCompany = await env.DB.prepare(`
+    SELECT id, name, current_map_id FROM game_companies WHERE id = ?
+  `).bind(targetCompanyId).first();
+
+  if (!targetCompany) {
+    throw new Error('Target company not found');
+  }
+
+  if (targetCompany.current_map_id !== company.current_map_id) {
+    throw new Error('Target company is not in the same location');
+  }
+
+  // Log the highlight as a game transaction (visible to both companies)
+  await env.DB.prepare(`
+    INSERT INTO game_transactions (id, company_id, map_id, action_type, target_company_id)
+    VALUES (?, ?, ?, 'highlight', ?)
+  `).bind(
+    crypto.randomUUID(),
+    company.id,
+    company.current_map_id,
+    targetCompanyId
+  ).run();
+
+  return { success: true, targetCompanyName: targetCompany.name };
 }
 
 // ==================== TEMPLE DONATIONS ====================

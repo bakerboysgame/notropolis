@@ -198,6 +198,11 @@ function formatEventDescription(event, details) {
       const damageFixed = details?.damage_repaired || 0;
       return `${actor} repaired ${damageFixed}% damage for ${amount}`;
 
+    case 'highlight':
+      return target
+        ? `${actor} highlighted ${target}`
+        : `${actor} highlighted a company`;
+
     default:
       return `${actor} performed ${event.action_type}`;
   }
