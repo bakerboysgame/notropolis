@@ -20,9 +20,10 @@ export interface BuildingSprite {
 }
 
 // Published building sprites fetched from API (populated at runtime)
-// Map of building_type_id -> { url, map_scale }
+// Map of building_type_id -> { url, outline_url, map_scale }
 export interface PublishedBuildingSprite {
   url: string;
+  outline_url?: string;
   map_scale?: number;
 }
 export let publishedBuildingSprites: Record<string, PublishedBuildingSprite> = {};
@@ -132,6 +133,15 @@ export function getBuildingSpriteUrl(buildingTypeId: string): string | null {
 export function getBuildingMapScale(buildingTypeId: string): number {
   const published = publishedBuildingSprites[buildingTypeId];
   return published?.map_scale ?? 1.0;
+}
+
+/**
+ * Get the outline sprite URL for a building type
+ * Returns null if no outline exists
+ */
+export function getBuildingOutlineUrl(buildingTypeId: string): string | null {
+  const published = publishedBuildingSprites[buildingTypeId];
+  return published?.outline_url || null;
 }
 
 /**

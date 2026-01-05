@@ -4824,10 +4824,10 @@ Please address the above feedback in this generation.`;
             const sprites = await env.DB.prepare(`
                 SELECT ga.id, ga.category, ga.asset_key, ga.variant, ga.r2_url, ga.outline_url
                 FROM generated_assets ga
-                JOIN asset_configurations ac ON ga.category = ac.category AND ga.asset_key = ac.asset_key
+                JOIN building_configurations bc ON ga.asset_key = bc.building_type_id AND ga.id = bc.active_sprite_id
                 WHERE ga.category = 'building_sprite'
                   AND ga.status = 'approved'
-                  AND ac.is_published = TRUE
+                  AND bc.is_published = TRUE
                   AND ga.r2_url IS NOT NULL
                 ORDER BY ga.asset_key, ga.variant
             `).all();

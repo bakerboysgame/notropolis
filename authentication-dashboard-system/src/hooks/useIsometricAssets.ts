@@ -5,6 +5,7 @@ import {
   FALLBACK_BUILDING_SPRITES,
   TERRAIN_SPRITES,
   getBuildingSpriteUrl,
+  getBuildingOutlineUrl,
   setPublishedBuildingSprites,
   PublishedBuildingSprite,
   setPublishedDirtyTrickSprites,
@@ -116,6 +117,9 @@ export function useIsometricAssets(): UseIsometricAssetsReturn {
     Object.keys(FALLBACK_BUILDING_SPRITES).forEach((buildingType) => {
       const url = getBuildingSpriteUrl(buildingType);
       if (url) urls.add(url);
+      // Also preload outline sprites for buildings that have them
+      const outlineUrl = getBuildingOutlineUrl(buildingType);
+      if (outlineUrl) urls.add(outlineUrl);
     });
 
     // Add terrain sprites
@@ -250,6 +254,20 @@ export function getDirtyTrickOverlay(
   trickType: string
 ): HTMLImageElement | null {
   const url = getDirtyTrickOverlayUrl(trickType);
+  if (!url) return null;
+  return sprites.get(url) || null;
+}
+
+/**
+ * Get building outline sprite from the loaded sprites map
+ * @param sprites The loaded sprites map
+ * @param buildingTypeId The building type ID
+ */
+export function getBuildingOutline(
+  sprites: Map<string, HTMLImageElement>,
+  buildingTypeId: string
+): HTMLImageElement | null {
+  const url = getBuildingOutlineUrl(buildingTypeId);
   if (!url) return null;
   return sprites.get(url) || null;
 }

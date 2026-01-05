@@ -1,6 +1,6 @@
 import { useRef, useEffect, useState, useMemo, useCallback } from 'react';
 import { GameMap, Tile, BuildingInstance } from '../../types/game';
-import { useIsometricAssets, getSprite, getTerrainSprite, getDirtyTrickOverlay } from '../../hooks/useIsometricAssets';
+import { useIsometricAssets, getSprite, getTerrainSprite, getDirtyTrickOverlay, getBuildingOutline } from '../../hooks/useIsometricAssets';
 import {
   TERRAIN_COLORS,
   gridToScreen,
@@ -63,6 +63,9 @@ interface IsometricViewProps {
  * Isometric zoomed view with sprite rendering
  * Shows a ~15x15 tile area with building sprites
  */
+// Outline expansion size (must match OutlineGeneratorTool OUTLINE_SIZE)
+const OUTLINE_EXPANSION = 12;
+
 export function IsometricView({
   map,
   tiles,
@@ -74,6 +77,7 @@ export function IsometricView({
   onCenterChange,
 }: IsometricViewProps): JSX.Element {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const tintCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const [zoom, setZoom] = useState(1);
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
@@ -82,6 +86,34 @@ export function IsometricView({
   const [baseTileSize, setBaseTileSize] = useState(
     typeof window !== 'undefined' && window.innerWidth < BREAKPOINT ? MOBILE_TILE_SIZE : DESKTOP_TILE_SIZE
   );
+
+  // Create offscreen canvas for tinting outlines (lazy init)
+  const getTintCanvas = useCallback(() => {
+    if (!tintCanvasRef.current) {
+      tintCanvasRef.current = document.createElement('canvas');
+    }
+    return tintCanvasRef.current;
+  }, []);
+
+  // Tint a white outline image with a color
+  const tintOutline = useCallback((outline: HTMLImageElement, color: string): HTMLCanvasElement => {
+    const tintCanvas = getTintCanvas();
+    tintCanvas.width = outline.naturalWidth;
+    tintCanvas.height = outline.naturalHeight;
+    const tintCtx = tintCanvas.getContext('2d')!;
+
+    // Draw the white outline
+    tintCtx.clearRect(0, 0, tintCanvas.width, tintCanvas.height);
+    tintCtx.drawImage(outline, 0, 0);
+
+    // Tint it with the color using source-in composite
+    tintCtx.globalCompositeOperation = 'source-in';
+    tintCtx.fillStyle = color;
+    tintCtx.fillRect(0, 0, tintCanvas.width, tintCanvas.height);
+    tintCtx.globalCompositeOperation = 'source-over';
+
+    return tintCanvas;
+  }, [getTintCanvas]);
 
   // Preload sprites
   const { sprites, grassBackground, isLoading, loadingProgress } = useIsometricAssets();
@@ -239,6 +271,38 @@ export function IsometricView({
           const spriteWidth = buildingSprite.naturalWidth * baseScale * zoom * mapScale;
           const spriteHeight = buildingSprite.naturalHeight * baseScale * zoom * mapScale;
 
+          // Check if we need to draw an outline (owned building or tracked company)
+          const isOwned = building.company_id === activeCompanyId;
+          const highlightColor = !isOwned && building.company_id
+            ? getCompanyHighlight(building.company_id)
+            : null;
+          const outlineColor = isOwned ? 'rgba(59, 130, 246, 0.9)' : highlightColor;
+
+          // Draw outline behind building if applicable
+          if (outlineColor && !building.is_collapsed) {
+            const outlineSprite = getBuildingOutline(sprites, effectiveTypeId);
+            if (outlineSprite) {
+              // Tint the white outline with the highlight color
+              const tintedOutline = tintOutline(outlineSprite, outlineColor);
+
+              // Outline is OUTLINE_EXPANSION pixels larger on each side
+              // Scale the expansion with the same factor as the sprite
+              const outlineScale = baseScale * zoom * mapScale;
+              const outlineWidth = outlineSprite.naturalWidth * outlineScale;
+              const outlineHeight = outlineSprite.naturalHeight * outlineScale;
+              const expansionScaled = OUTLINE_EXPANSION * outlineScale;
+
+              // Position outline so sprite center aligns (outline has extra padding)
+              ctx.drawImage(
+                tintedOutline,
+                screenX - outlineWidth / 2,
+                screenY - outlineHeight + tileSize / 2 + expansionScaled,
+                outlineWidth,
+                outlineHeight
+              );
+            }
+          }
+
           // Building sprite centered horizontally, bottom at tile bottom
           ctx.drawImage(
             buildingSprite,
@@ -363,6 +427,7 @@ export function IsometricView({
     map.height,
     baseTileSize,
     getCompanyHighlight,
+    tintOutline,
   ]);
 
   // Render on changes
