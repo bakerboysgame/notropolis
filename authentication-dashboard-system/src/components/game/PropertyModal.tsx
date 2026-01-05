@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Building2, DollarSign, Shield, Flame, ShoppingCart, Hammer, Trash2, AlertCircle, MessageSquare, Sparkles } from 'lucide-react';
+import { X, Building2, DollarSign, Shield, Flame, ShoppingCart, Hammer, Trash2, AlertCircle, MessageSquare, Sparkles, Dices } from 'lucide-react';
 import { useTileDetail } from '../../hooks/useTileDetail';
 import { useActiveCompany } from '../../contexts/CompanyContext';
 import { BuyLandModal } from './BuyLandModal';
@@ -227,7 +227,7 @@ export function PropertyModal({
   const isEnemyOwned = tile?.owner_company_id && tile.owner_company_id !== activeCompany?.id;
   const isUnclaimed = !tile?.owner_company_id;
   const isSpecialBuilding =
-    tile?.special_building && ['temple', 'bank', 'police_station'].includes(tile.special_building);
+    tile?.special_building && ['temple', 'bank', 'police_station', 'casino'].includes(tile.special_building);
   const canBuyLand =
     isUnclaimed &&
     tile.terrain_type !== 'water' &&
@@ -823,6 +823,18 @@ export function PropertyModal({
                     The local police station. Stay out of trouble!
                   </p>
                 </div>
+              )}
+
+              {tile.special_building === 'casino' && (
+                <a
+                  href="https://boss.notropolis.net/casino/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full py-3 px-4 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+                >
+                  <Dices className="w-5 h-5" />
+                  Enter Casino
+                </a>
               )}
             </div>
           </div>

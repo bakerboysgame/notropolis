@@ -63,9 +63,6 @@ interface IsometricViewProps {
  * Isometric zoomed view with sprite rendering
  * Shows a ~15x15 tile area with building sprites
  */
-// Outline expansion size (must match OutlineGeneratorTool OUTLINE_SIZE)
-const OUTLINE_EXPANSION = 24;
-
 export function IsometricView({
   map,
   tiles,
@@ -290,20 +287,17 @@ export function IsometricView({
               // Tint the white outline with the highlight color
               const tintedOutline = tintOutline(outlineSprite, outlineColor);
 
-              // Outline is OUTLINE_EXPANSION pixels larger on each side
-              // Scale the expansion with the same factor as the sprite
+              // Scale outline same as sprite
               const outlineScale = baseScale * zoom * mapScale;
               const outlineWidth = outlineSprite.naturalWidth * outlineScale;
               const outlineHeight = outlineSprite.naturalHeight * outlineScale;
-              const expansionScaled = OUTLINE_EXPANSION * outlineScale;
 
-              // Position outline so its inner sprite area aligns with the sprite
-              // Sprite top-left is at (screenX - spriteWidth/2, screenY - spriteHeight + tileSize/2)
-              // Outline needs to be offset by -expansionScaled on both axes
+              // Center outline on same center point as sprite
+              // Sprite center: (screenX, screenY - spriteHeight/2 + tileSize/2)
               ctx.drawImage(
                 tintedOutline,
-                screenX - spriteWidth / 2 - expansionScaled,
-                screenY - spriteHeight + tileSize / 2 - expansionScaled,
+                screenX - outlineWidth / 2,
+                screenY - spriteHeight / 2 + tileSize / 2 - outlineHeight / 2,
                 outlineWidth,
                 outlineHeight
               );
@@ -392,13 +386,12 @@ export function IsometricView({
               const outlineScale = stakeScale * zoom;
               const outlineWidth = outlineSprite.naturalWidth * outlineScale;
               const outlineHeight = outlineSprite.naturalHeight * outlineScale;
-              const expansionScaled = OUTLINE_EXPANSION * outlineScale;
 
-              // Position outline so its inner sprite area aligns with the stake
+              // Center outline on same center point as stake sprite
               ctx.drawImage(
                 tintedOutline,
-                screenX - spriteWidth / 2 - expansionScaled,
-                screenY - spriteHeight + tileSize / 2 - expansionScaled,
+                screenX - outlineWidth / 2,
+                screenY - spriteHeight / 2 + tileSize / 2 - outlineHeight / 2,
                 outlineWidth,
                 outlineHeight
               );
