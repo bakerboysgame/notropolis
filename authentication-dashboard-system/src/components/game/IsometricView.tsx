@@ -250,8 +250,8 @@ export function IsometricView({
           if (glowColor) {
             // Outline stroke - draw multiple times at small offsets with tight blur
             ctx.shadowColor = glowColor;
-            ctx.shadowBlur = 2 * zoom;
-            const outlineOffset = 2 * zoom;
+            ctx.shadowBlur = 6 * zoom;
+            const outlineOffset = 6 * zoom;
             const offsets = [
               [-outlineOffset, 0], [outlineOffset, 0], [0, -outlineOffset], [0, outlineOffset],
               [-outlineOffset, -outlineOffset], [outlineOffset, -outlineOffset], [-outlineOffset, outlineOffset], [outlineOffset, outlineOffset]
@@ -365,8 +365,8 @@ export function IsometricView({
           if (stakeGlowColor) {
             // Outline stroke - draw multiple times at small offsets with tight blur
             ctx.shadowColor = stakeGlowColor;
-            ctx.shadowBlur = 2 * zoom;
-            const outlineOffset = 2 * zoom;
+            ctx.shadowBlur = 6 * zoom;
+            const outlineOffset = 6 * zoom;
             const offsets = [
               [-outlineOffset, 0], [outlineOffset, 0], [0, -outlineOffset], [0, outlineOffset],
               [-outlineOffset, -outlineOffset], [outlineOffset, -outlineOffset], [-outlineOffset, outlineOffset], [outlineOffset, outlineOffset]
