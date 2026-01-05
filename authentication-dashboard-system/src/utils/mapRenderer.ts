@@ -13,7 +13,8 @@ export const TERRAIN_COLORS: Record<string, string> = {
 export const SPECIAL_COLORS: Record<string, string> = {
   temple: '#fbbf24',       // Gold
   bank: '#94a3b8',         // Silver
-  police_station: '#3b82f6' // Blue
+  police_station: '#22d3ee', // Cyan
+  casino: '#a855f7',       // Purple
 };
 
 interface Tile {
@@ -126,8 +127,8 @@ export function renderMap(
           // Solid highlight color for highlighted companies (same as user)
           color = highlightColor;
         } else {
-          // Red tint for rival tiles
-          color = blendColors(color, '#ef4444', 0.3);
+          // Solid red for rival tiles (matches legend)
+          color = '#ef4444';
         }
       }
 

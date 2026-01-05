@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
-import { TERRAIN_COLORS } from '../../utils/mapRenderer';
+import { TERRAIN_COLORS, SPECIAL_COLORS } from '../../utils/mapRenderer';
 import { useHighlights } from '../../contexts/HighlightContext';
 
 /**
@@ -67,6 +67,40 @@ export function MapLegend(): JSX.Element {
                 <div className="w-2 h-2 rounded-full bg-white"></div>
               </div>
               <span className="text-gray-300 text-xs">Building</span>
+            </div>
+          </div>
+
+          {/* Special Buildings */}
+          <div className="border-t border-gray-600 my-2" />
+          <h4 className="text-white font-bold mb-2 text-xs uppercase tracking-wide">Special</h4>
+          <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
+            <div className="flex items-center gap-2">
+              <div
+                className="w-4 h-4 rounded border border-gray-600"
+                style={{ backgroundColor: SPECIAL_COLORS.temple }}
+              />
+              <span className="text-gray-300 text-xs">Temple</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div
+                className="w-4 h-4 rounded border border-gray-600"
+                style={{ backgroundColor: SPECIAL_COLORS.bank }}
+              />
+              <span className="text-gray-300 text-xs">Bank</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div
+                className="w-4 h-4 rounded border border-gray-600"
+                style={{ backgroundColor: SPECIAL_COLORS.police_station }}
+              />
+              <span className="text-gray-300 text-xs">Police Station</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div
+                className="w-4 h-4 rounded border border-gray-600"
+                style={{ backgroundColor: SPECIAL_COLORS.casino }}
+              />
+              <span className="text-gray-300 text-xs">Casino</span>
             </div>
           </div>
 
