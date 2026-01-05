@@ -135,21 +135,49 @@ export function renderMap(
       ctx.fillStyle = color;
       ctx.fillRect(px, py, tileSize - 1, tileSize - 1);
 
-      // Draw building indicator (small dot) - but not for user-owned or highlighted properties
+      // Draw building indicators
       const building = buildings.get(tile.id);
-      if (building && tileSize >= 8 && !isOwnedByUser && !isHighlighted) {
-        // Draw for-sale highlight (yellow border)
-        if (building.is_for_sale && !building.is_collapsed) {
-          ctx.strokeStyle = '#fbbf24'; // Yellow/gold color
-          ctx.lineWidth = Math.max(1, tileSize / 6);
-          ctx.strokeRect(px + 1, py + 1, tileSize - 3, tileSize - 3);
+      if (building && tileSize >= 8) {
+        // Collapsed buildings: white square with black cross (always shown)
+        if (building.is_collapsed) {
+          const size = tileSize / 2;
+          const cx = px + tileSize / 2;
+          const cy = py + tileSize / 2;
+          // White square
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(cx - size / 2, cy - size / 2, size, size);
+          // Black cross
+          ctx.strokeStyle = '#000000';
+          ctx.lineWidth = Math.max(1, tileSize / 8);
+          ctx.beginPath();
+          ctx.moveTo(cx - size / 3, cy - size / 3);
+          ctx.lineTo(cx + size / 3, cy + size / 3);
+          ctx.moveTo(cx + size / 3, cy - size / 3);
+          ctx.lineTo(cx - size / 3, cy + size / 3);
+          ctx.stroke();
         }
+        // Buildings on fire: white circle (always shown)
+        else if (building.is_on_fire) {
+          ctx.fillStyle = '#ffffff';
+          ctx.beginPath();
+          ctx.arc(px + tileSize / 2, py + tileSize / 2, tileSize / 4, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        // Normal buildings: white circle only for non-owned, non-highlighted properties
+        else if (!isOwnedByUser && !isHighlighted) {
+          // Draw for-sale highlight (yellow border)
+          if (building.is_for_sale) {
+            ctx.strokeStyle = '#fbbf24'; // Yellow/gold color
+            ctx.lineWidth = Math.max(1, tileSize / 6);
+            ctx.strokeRect(px + 1, py + 1, tileSize - 3, tileSize - 3);
+          }
 
-        // Draw building icon (white circle for all buildings including those on fire)
-        ctx.fillStyle = '#ffffff';
-        ctx.beginPath();
-        ctx.arc(px + tileSize / 2, py + tileSize / 2, tileSize / 4, 0, Math.PI * 2);
-        ctx.fill();
+          // Draw building icon (white circle)
+          ctx.fillStyle = '#ffffff';
+          ctx.beginPath();
+          ctx.arc(px + tileSize / 2, py + tileSize / 2, tileSize / 4, 0, Math.PI * 2);
+          ctx.fill();
+        }
       }
     }
   }
