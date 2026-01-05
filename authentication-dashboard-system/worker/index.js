@@ -17,6 +17,7 @@ import {
   buyProperty,
   demolishBuilding,
   takeoverBuilding,
+  buyLandFromOwner,
   getMarketListings
 } from './src/routes/game/market.js';
 import {
@@ -508,6 +509,9 @@ export default {
 
         case path === '/api/game/market/takeover' && method === 'POST':
           return handleMarketAction(request, authService, env, corsHeaders, takeoverBuilding);
+
+        case path === '/api/game/market/buy-land-from-owner' && method === 'POST':
+          return handleMarketAction(request, authService, env, corsHeaders, buyLandFromOwner);
 
         case path === '/api/game/market/listings' && method === 'GET':
           return handleMarketListings(request, env, corsHeaders);

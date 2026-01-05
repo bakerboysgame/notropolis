@@ -744,6 +744,62 @@ export function PropertyModal({
                 );
               })()}
 
+              {/* Buy enemy land without building */}
+              {!building && isEnemyOwned && !isSpecialBuilding && activeCompany && (() => {
+                // Calculate land cost (same as buying from state)
+                let baseCost = 500;
+                const terrainMultipliers: Record<string, number> = {
+                  free_land: 1.0,
+                  dirt_track: 0.8,
+                  trees: 1.2,
+                };
+                baseCost *= terrainMultipliers[tile.terrain_type] || 1.0;
+                const locationMultipliers: Record<string, number> = {
+                  town: 1.0,
+                  city: 5.0,
+                  capital: 20.0,
+                };
+                baseCost *= locationMultipliers[map.location_type] || 1.0;
+                const buyFromOwnerCost = Math.round(baseCost);
+                const canAfford = activeCompany.cash >= buyFromOwnerCost;
+
+                return (
+                  <button
+                    onClick={async () => {
+                      if (!canAfford) {
+                        setActionError('Insufficient funds');
+                        return;
+                      }
+                      setActionLoading(true);
+                      setActionError(null);
+                      try {
+                        const response = await api.post<{
+                          success: boolean;
+                          purchase_price: number;
+                          levelUp?: LevelUpData;
+                        }>('/api/game/market/buy-land-from-owner', {
+                          company_id: activeCompany.id,
+                          tile_id: tile.id,
+                          map_id: mapId,
+                          x,
+                          y,
+                        });
+                        await handleActionSuccess(response.data.levelUp);
+                      } catch (err) {
+                        setActionError(apiHelpers.handleError(err));
+                      } finally {
+                        setActionLoading(false);
+                      }
+                    }}
+                    disabled={actionLoading || !canAfford}
+                    className="w-full py-3 px-4 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    <DollarSign className="w-5 h-5" />
+                    {actionLoading ? 'Buying...' : `Buy Land for $${buyFromOwnerCost.toLocaleString()}`}
+                  </button>
+                );
+              })()}
+
               {/* Special Buildings Info */}
               {tile.special_building === 'bank' && (
                 <div className="p-3 bg-gray-700 rounded text-center">

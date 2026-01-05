@@ -493,6 +493,104 @@ export async function takeoverBuilding(request, env, company) {
 }
 
 /**
+ * POST /api/game/market/buy-land-from-owner
+ * Buy empty land (no building) from another player. Cost is 10x the base land price.
+ * Owner receives the full payment.
+ */
+export async function buyLandFromOwner(request, env, company) {
+  // Check prison status
+  if (company.is_in_prison) {
+    throw new Error(`You are in prison! Pay your fine of $${company.prison_fine?.toLocaleString()} to continue.`);
+  }
+
+  const { tile_id, map_id, x, y } = await request.json();
+
+  if (!tile_id || !map_id || x === undefined || y === undefined) {
+    throw new Error('Missing required fields: tile_id, map_id, x, y');
+  }
+
+  // Get tile with owner info
+  const tile = await env.DB.prepare(`
+    SELECT t.*, m.location_type,
+           gc.id as owner_id, gc.name as owner_name
+    FROM tiles t
+    JOIN maps m ON t.map_id = m.id
+    JOIN game_companies gc ON t.owner_company_id = gc.id
+    WHERE t.id = ?
+  `).bind(tile_id).first();
+
+  // Validations
+  if (!tile) {
+    throw new Error('Tile not found or not owned by anyone');
+  }
+  if (tile.map_id !== map_id || tile.x !== x || tile.y !== y) {
+    throw new Error('Location mismatch');
+  }
+  if (tile.owner_company_id === company.id) {
+    throw new Error('You already own this land');
+  }
+
+  // Check no building exists on this tile
+  const building = await env.DB.prepare(
+    'SELECT id FROM building_instances WHERE tile_id = ?'
+  ).bind(tile_id).first();
+
+  if (building) {
+    throw new Error('Cannot buy land with a building - use Takeover instead');
+  }
+
+  // Calculate purchase cost (same as buying from state)
+  const purchaseCost = calculateLandCost(tile, { location_type: tile.location_type });
+
+  if (company.cash < purchaseCost) {
+    throw new Error(`Insufficient funds. Purchase costs $${purchaseCost.toLocaleString()}`);
+  }
+
+  const originalOwnerId = tile.owner_id;
+  const originalOwnerName = tile.owner_name;
+
+  await env.DB.batch([
+    // Deduct cash from buyer
+    env.DB.prepare(
+      'UPDATE game_companies SET cash = cash - ?, total_actions = total_actions + 1, last_action_at = ?, ticks_since_action = 0 WHERE id = ?'
+    ).bind(purchaseCost, new Date().toISOString(), company.id),
+
+    // Add cash to seller
+    env.DB.prepare(
+      'UPDATE game_companies SET cash = cash + ? WHERE id = ?'
+    ).bind(purchaseCost, originalOwnerId),
+
+    // Transfer tile ownership
+    env.DB.prepare(
+      'UPDATE tiles SET owner_company_id = ?, purchased_at = ? WHERE id = ?'
+    ).bind(company.id, new Date().toISOString(), tile_id),
+
+    // Log buyer transaction
+    env.DB.prepare(`
+      INSERT INTO game_transactions (id, company_id, map_id, action_type, target_company_id, amount)
+      VALUES (?, ?, ?, 'buy_land_from_owner', ?, ?)
+    `).bind(crypto.randomUUID(), company.id, map_id, originalOwnerId, -purchaseCost),
+
+    // Log seller transaction
+    env.DB.prepare(`
+      INSERT INTO game_transactions (id, company_id, map_id, action_type, target_company_id, amount)
+      VALUES (?, ?, ?, 'land_sold_to_player', ?, ?)
+    `).bind(crypto.randomUUID(), originalOwnerId, map_id, company.id, purchaseCost),
+  ]);
+
+  // Check for level-up
+  const levelUp = await postActionCheck(env, company.id, company.level, map_id);
+
+  return {
+    success: true,
+    purchase_price: purchaseCost,
+    previous_owner: { company_id: originalOwnerId, company_name: originalOwnerName },
+    tile: { id: tile_id, x: tile.x, y: tile.y },
+    levelUp
+  };
+}
+
+/**
  * GET /api/game/market/listings?map_id=xxx
  * Get all properties for sale on a map
  */
