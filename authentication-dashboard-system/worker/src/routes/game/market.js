@@ -49,11 +49,11 @@ export async function sellToState(request, env, company) {
   );
 
   await env.DB.batch([
+    // Delete security first (foreign key constraint)
+    env.DB.prepare('DELETE FROM building_security WHERE building_id = ?').bind(building_id),
+
     // Delete building
     env.DB.prepare('DELETE FROM building_instances WHERE id = ?').bind(building_id),
-
-    // Delete security if exists
-    env.DB.prepare('DELETE FROM building_security WHERE building_id = ?').bind(building_id),
 
     // Clear tile ownership
     env.DB.prepare(
@@ -338,11 +338,11 @@ export async function demolishBuilding(request, env, company) {
   }
 
   await env.DB.batch([
+    // Delete security first (foreign key constraint)
+    env.DB.prepare('DELETE FROM building_security WHERE building_id = ?').bind(building_id),
+
     // Delete building
     env.DB.prepare('DELETE FROM building_instances WHERE id = ?').bind(building_id),
-
-    // Delete security
-    env.DB.prepare('DELETE FROM building_security WHERE building_id = ?').bind(building_id),
 
     // Deduct demolition cost (keep tile ownership) and reset tick counter
     env.DB.prepare(
