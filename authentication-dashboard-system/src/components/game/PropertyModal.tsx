@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { X, Building2, DollarSign, Shield, Flame, ShoppingCart, Hammer, Trash2, AlertCircle, MessageSquare, Sparkles, Dices } from 'lucide-react';
 import { useTileDetail } from '../../hooks/useTileDetail';
 import { useActiveCompany } from '../../contexts/CompanyContext';
@@ -42,6 +43,7 @@ export function PropertyModal({
 }: PropertyModalProps): JSX.Element {
   const { data, isLoading, error, refetch } = useTileDetail(mapId, x, y);
   const { activeCompany, refreshCompany } = useActiveCompany();
+  const navigate = useNavigate();
 
   // Sub-modal states
   const [showBuyLandModal, setShowBuyLandModal] = useState(false);
@@ -826,15 +828,13 @@ export function PropertyModal({
               )}
 
               {tile.special_building === 'casino' && (
-                <a
-                  href="https://boss.notropolis.net/casino/"
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <button
+                  onClick={() => navigate('/casino')}
                   className="w-full py-3 px-4 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
                 >
                   <Dices className="w-5 h-5" />
                   Enter Casino
-                </a>
+                </button>
               )}
             </div>
           </div>

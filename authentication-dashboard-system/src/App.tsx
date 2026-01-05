@@ -27,6 +27,7 @@ import { Bank } from './pages/Bank';
 import { MessageBoard } from './pages/MessageBoard';
 import { Temple } from './pages/Temple';
 import { Casino } from './pages/Casino';
+import { CasinoLanding } from './pages/CasinoLanding';
 import { Blackjack } from './pages/Blackjack';
 import { Avatar } from './pages/Avatar';
 import { Achievements } from './pages/Achievements';
@@ -273,6 +274,13 @@ function App() {
               } />
 
               {/* Casino Routes */}
+              <Route path="/casino" element={
+                <ProtectedRoute>
+                  <Layout>
+                    <CasinoLanding />
+                  </Layout>
+                </ProtectedRoute>
+              } />
               <Route path="/casino/roulette" element={
                 <ProtectedRoute>
                   <Layout>
