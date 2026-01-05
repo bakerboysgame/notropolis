@@ -111,6 +111,7 @@ export function useIsometricAssets(): UseIsometricAssetsReturn {
   // Collect all unique sprite URLs needed (depends on published sprites and dirty tricks)
   const spriteUrls = useMemo(() => {
     const urls = new Set<string>();
+    const outlineCount = { found: 0, missing: 0 };
 
     // Add all building type sprites (preload all, not just visible ones)
     // This now uses published sprites where available, fallback otherwise
@@ -119,8 +120,14 @@ export function useIsometricAssets(): UseIsometricAssetsReturn {
       if (url) urls.add(url);
       // Also preload outline sprites for buildings that have them
       const outlineUrl = getBuildingOutlineUrl(buildingType);
-      if (outlineUrl) urls.add(outlineUrl);
+      if (outlineUrl) {
+        urls.add(outlineUrl);
+        outlineCount.found++;
+      } else {
+        outlineCount.missing++;
+      }
     });
+    console.log(`[useIsometricAssets] Outline URLs: ${outlineCount.found} found, ${outlineCount.missing} missing`);
 
     // Add terrain sprites
     Object.values(TERRAIN_SPRITES).forEach((path) => {
