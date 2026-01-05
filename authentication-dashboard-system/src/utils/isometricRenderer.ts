@@ -126,6 +126,15 @@ export function getBuildingSpriteUrl(buildingTypeId: string): string | null {
 }
 
 /**
+ * Get the map scale for a building type (from Asset Manager)
+ * Returns 1.0 if no custom scale is set
+ */
+export function getBuildingMapScale(buildingTypeId: string): number {
+  const published = publishedBuildingSprites[buildingTypeId];
+  return published?.map_scale ?? 1.0;
+}
+
+/**
  * Get the sprite height for a building type
  */
 export function getBuildingSpriteHeight(buildingTypeId: string): number {

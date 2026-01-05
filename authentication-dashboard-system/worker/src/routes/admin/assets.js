@@ -1470,15 +1470,15 @@ const BUILDING_SIZE_CLASSES = {
 // ============================================
 
 const SPRITE_OUTPUT_SIZES = {
-    building_sprite: 512,     // Increased from 320 for crisper sprites
+    building_sprite: 512,     // All sprites now 512px for max quality
     effect: 512,              // Match building size for overlays
-    terrain: 320,
-    terrain_grass_bg: 512,    // grass_bg is a special 512x512 seamless tile
-    vehicle: 256,             // Increased from 128
-    npc: 128,                 // Increased from 64
-    overlay: 256,             // Increased from 128
-    ui: 128,                  // Increased from 64
-    dirty_trick_icon: 256,    // Icon shown in attack modal UI
+    terrain: 512,             // Standardized to 512
+    terrain_grass_bg: 512,    // grass_bg is a 512x512 seamless tile
+    vehicle: 512,             // Standardized to 512
+    npc: 512,                 // Standardized to 512
+    overlay: 512,             // Standardized to 512
+    ui: 512,                  // Standardized to 512
+    dirty_trick_icon: 512,    // Icon shown in attack modal UI
     dirty_trick_overlay: 512  // Overlay shown on damaged buildings
 };
 

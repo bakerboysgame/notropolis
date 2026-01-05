@@ -5,6 +5,7 @@ import {
   TERRAIN_COLORS,
   gridToScreen,
   screenToGrid,
+  getBuildingMapScale,
 } from '../../utils/isometricRenderer';
 import { useHighlights } from '../../contexts/HighlightContext';
 import { hexToRgba } from '../../utils/mapRenderer';
@@ -115,6 +116,14 @@ export function IsometricView({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
+    // Handle high-DPI displays - scale context for crisp rendering
+    const dpr = window.devicePixelRatio || 1;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    // Calculate logical dimensions (CSS pixels, not buffer pixels)
+    const logicalWidth = canvas.width / dpr;
+    const logicalHeight = canvas.height / dpr;
+
     // Enable high-quality image smoothing for AI-generated sprites
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
@@ -122,12 +131,12 @@ export function IsometricView({
     const tileSize = baseTileSize * zoom;
     // Base scale depends on tile size: 64px = 0.2, 128px = 0.4
     const baseScale = baseTileSize / 320;
-    const screenCenterX = canvas.width / 2 + panOffset.x;
-    const screenCenterY = canvas.height / 2 + panOffset.y;
+    const screenCenterX = logicalWidth / 2 + panOffset.x;
+    const screenCenterY = logicalHeight / 2 + panOffset.y;
 
     // Clear canvas
     ctx.fillStyle = '#1a1a2e';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillRect(0, 0, logicalWidth, logicalHeight);
 
     // Draw grass background (tiled, scrolls with map)
     if (grassBackground) {
@@ -137,8 +146,8 @@ export function IsometricView({
       const startY = ((panOffset.y % bgSize) + bgSize) % bgSize - bgSize;
 
       // Tile background across canvas
-      for (let x = startX; x < canvas.width; x += bgSize) {
-        for (let y = startY; y < canvas.height; y += bgSize) {
+      for (let x = startX; x < logicalWidth; x += bgSize) {
+        for (let y = startY; y < logicalHeight; y += bgSize) {
           ctx.drawImage(grassBackground, x, y, bgSize, bgSize);
         }
       }
@@ -158,9 +167,9 @@ export function IsometricView({
       // Skip if off-screen
       if (
         screenX < -tileSize ||
-        screenX > canvas.width + tileSize ||
+        screenX > logicalWidth + tileSize ||
         screenY < -tileSize ||
-        screenY > canvas.height + tileSize
+        screenY > logicalHeight + tileSize
       ) {
         continue;
       }
@@ -191,8 +200,10 @@ export function IsometricView({
       if (tile.special_building) {
         const specialSprite = getSprite(sprites, tile.special_building);
         if (specialSprite) {
-          const spriteWidth = specialSprite.naturalWidth * baseScale * zoom;
-          const spriteHeight = specialSprite.naturalHeight * baseScale * zoom;
+          // Apply per-building map scale from Asset Manager
+          const mapScale = getBuildingMapScale(tile.special_building);
+          const spriteWidth = specialSprite.naturalWidth * baseScale * zoom * mapScale;
+          const spriteHeight = specialSprite.naturalHeight * baseScale * zoom * mapScale;
 
           // Center horizontally on tile, bottom at tile center
           ctx.drawImage(
@@ -224,8 +235,10 @@ export function IsometricView({
         const buildingSprite = getSprite(sprites, effectiveTypeId);
 
         if (buildingSprite) {
-          const spriteWidth = buildingSprite.naturalWidth * baseScale * zoom;
-          const spriteHeight = buildingSprite.naturalHeight * baseScale * zoom;
+          // Apply per-building map scale from Asset Manager
+          const mapScale = getBuildingMapScale(effectiveTypeId);
+          const spriteWidth = buildingSprite.naturalWidth * baseScale * zoom * mapScale;
+          const spriteHeight = buildingSprite.naturalHeight * baseScale * zoom * mapScale;
 
           // Ownership glow (blue halo for user's buildings) or highlight glow
           const isOwned = tile.owner_company_id === activeCompanyId;
@@ -323,8 +336,9 @@ export function IsometricView({
       if (tile.owner_company_id && !building && !tile.special_building) {
         const stakeSprite = getSprite(sprites, 'claim_stake');
         if (stakeSprite) {
-          // Stakes are smaller at 75% of normal building scale
-          const stakeScale = baseScale * 0.75;
+          // Apply per-building map scale from Asset Manager (defaults to 1.0, can be adjusted)
+          const mapScale = getBuildingMapScale('claim_stake');
+          const stakeScale = baseScale * 0.75 * mapScale;
           const spriteWidth = stakeSprite.naturalWidth * stakeScale * zoom;
           const spriteHeight = stakeSprite.naturalHeight * stakeScale * zoom;
 
@@ -402,8 +416,17 @@ export function IsometricView({
       const canvas = canvasRef.current;
       if (!canvas || !canvas.parentElement) return;
 
-      canvas.width = canvas.parentElement.clientWidth;
-      canvas.height = canvas.parentElement.clientHeight;
+      // Handle high-DPI displays (retina) for crisp rendering
+      const dpr = window.devicePixelRatio || 1;
+      const rect = canvas.parentElement.getBoundingClientRect();
+
+      // Set canvas buffer size (actual pixels)
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+
+      // Set CSS display size (logical pixels)
+      canvas.style.width = rect.width + 'px';
+      canvas.style.height = rect.height + 'px';
 
       // Update tile size based on screen width
       const newTileSize = window.innerWidth < BREAKPOINT ? MOBILE_TILE_SIZE : DESKTOP_TILE_SIZE;
