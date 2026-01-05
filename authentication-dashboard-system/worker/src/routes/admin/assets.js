@@ -4841,6 +4841,45 @@ Please address the above feedback in this generation.`;
             });
         }
 
+        // POST /api/admin/assets/clear-all-outlines - Clear all outline URLs to allow regeneration
+        if (action === 'clear-all-outlines' && method === 'POST') {
+            // Get all assets with outlines
+            const assetsWithOutlines = await env.DB.prepare(`
+                SELECT id, outline_url, r2_key_public
+                FROM generated_assets
+                WHERE outline_url IS NOT NULL
+            `).all();
+
+            // Delete outline files from R2
+            for (const asset of assetsWithOutlines.results) {
+                if (asset.r2_key_public) {
+                    const outlineKey = asset.r2_key_public.replace('.webp', '_outline.webp');
+                    try {
+                        await env.R2_PUBLIC.delete(outlineKey);
+                    } catch (err) {
+                        console.warn(`Failed to delete outline: ${outlineKey}`);
+                    }
+                }
+            }
+
+            // Clear outline_url from database
+            await env.DB.prepare(`
+                UPDATE generated_assets
+                SET outline_url = NULL, updated_at = CURRENT_TIMESTAMP
+                WHERE outline_url IS NOT NULL
+            `).run();
+
+            await logAudit(env, 'clear_all_outlines', null, user?.username, {
+                cleared_count: assetsWithOutlines.results.length
+            });
+
+            return Response.json({
+                success: true,
+                cleared: assetsWithOutlines.results.length,
+                message: `Cleared ${assetsWithOutlines.results.length} outlines`
+            });
+        }
+
         // POST /api/admin/assets/reset-prompt/:id - Reset prompt to base
         if (action === 'reset-prompt' && method === 'POST' && param1) {
             const id = param1;

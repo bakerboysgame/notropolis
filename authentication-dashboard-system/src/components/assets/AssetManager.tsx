@@ -939,23 +939,36 @@ function OutlineGeneratorTool() {
     return canvas.toDataURL('image/webp', 0.9);
   }, []);
 
-  // Load image from URL with cache busting to ensure full resolution
-  const loadImage = (url: string): Promise<HTMLImageElement> => {
+  // Load image from URL using fetch + blob to ensure full resolution
+  // This bypasses browser optimizations that may scale down images loaded via new Image()
+  const loadImage = async (url: string): Promise<HTMLImageElement> => {
+    // Fetch the image as a blob to get full resolution
+    const response = await fetch(url, {
+      cache: 'no-store',
+      mode: 'cors'
+    });
+    if (!response.ok) {
+      throw new Error(`Failed to fetch: ${url} (${response.status})`);
+    }
+    const blob = await response.blob();
+    const objectUrl = URL.createObjectURL(blob);
+
     return new Promise((resolve, reject) => {
       const img = new Image();
-      img.crossOrigin = 'anonymous';
       img.onload = () => {
-        // Verify we got a real image
+        URL.revokeObjectURL(objectUrl); // Clean up
         if (img.naturalWidth === 0 || img.naturalHeight === 0) {
           reject(new Error(`Image loaded but has zero dimensions: ${url}`));
           return;
         }
+        console.log(`Loaded ${url}: ${img.naturalWidth}x${img.naturalHeight}`);
         resolve(img);
       };
-      img.onerror = () => reject(new Error(`Failed to load: ${url}`));
-      // Add cache-busting parameter to ensure fresh load
-      const cacheBuster = `?_t=${Date.now()}`;
-      img.src = url + cacheBuster;
+      img.onerror = () => {
+        URL.revokeObjectURL(objectUrl);
+        reject(new Error(`Failed to load blob: ${url}`));
+      };
+      img.src = objectUrl;
     });
   };
 
@@ -1021,6 +1034,33 @@ function OutlineGeneratorTool() {
     await loadSprites();
   };
 
+  // Clear all existing outlines to allow regeneration
+  const clearAllOutlines = async () => {
+    if (!confirm('Are you sure you want to clear all outlines? They will need to be regenerated.')) {
+      return;
+    }
+
+    setProcessing(true);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${config.API_BASE_URL}/api/admin/assets/clear-all-outlines`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      const data = await response.json();
+      if (data.success) {
+        showToast(`Cleared ${data.cleared} outlines`, 'success');
+        await loadSprites();
+      } else {
+        showToast(data.error || 'Failed to clear outlines', 'error');
+      }
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to clear outlines', 'error');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -1035,7 +1075,7 @@ function OutlineGeneratorTool() {
   return (
     <div className="space-y-6">
       {/* Hidden canvas for outline generation */}
-      <canvas ref={canvasRef} className="hidden" />
+      <canvas ref={canvasRef} style={{ position: 'absolute', left: '-9999px', top: '-9999px' }} />
 
       {/* Info */}
       <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
@@ -1065,7 +1105,7 @@ function OutlineGeneratorTool() {
         </div>
       </div>
 
-      {/* Action Button */}
+      {/* Action Buttons */}
       <div className="flex items-center gap-4">
         <button
           onClick={processAllSprites}
@@ -1084,6 +1124,17 @@ function OutlineGeneratorTool() {
             </>
           )}
         </button>
+
+        {withOutline > 0 && (
+          <button
+            onClick={clearAllOutlines}
+            disabled={processing}
+            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+          >
+            <X className="w-4 h-4" />
+            Clear All Outlines
+          </button>
+        )}
 
         {withoutOutline === 0 && (
           <span className="text-green-600 dark:text-green-400 flex items-center gap-1">
