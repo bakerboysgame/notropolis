@@ -1477,7 +1477,9 @@ const SPRITE_OUTPUT_SIZES = {
     vehicle: 128,
     npc: 64,
     overlay: 128,
-    ui: 64
+    ui: 64,
+    dirty_trick_icon: 128,    // Icon shown in attack modal UI
+    dirty_trick_overlay: 256  // Overlay shown on damaged buildings
 };
 
 // ============================================
@@ -1491,7 +1493,9 @@ const DEFAULT_MAP_SCALES = {
     vehicle: 0.4,
     npc: 0.1,
     overlay: 0.4,
-    ui: 0.2
+    ui: 0.2,
+    dirty_trick_icon: 1.0,    // UI icons don't need map scaling
+    dirty_trick_overlay: 0.5  // Building overlays at half scale
 };
 
 // Terrain tile dimensions (isometric diamond)
@@ -6149,7 +6153,55 @@ Please address the above feedback in this generation.`;
                 return Response.json({ success: true, configurations: configurationsWithDefaults });
             }
 
+            // For base_ground, dynamically build list from approved grass_bg sprites
+            if (category === 'base_ground') {
+                // Get all approved grass_bg sprites from generated_assets
+                const approvedSprites = await env.DB.prepare(`
+                    SELECT
+                        ga.id,
+                        ga.asset_key,
+                        ga.r2_url as sprite_url,
+                        ga.created_at
+                    FROM generated_assets ga
+                    WHERE ga.category = 'terrain'
+                      AND ga.asset_key = 'grass_bg'
+                      AND ga.status = 'approved'
+                    ORDER BY ga.created_at DESC
+                `).all();
+
+                // Get current active base_ground configuration
+                const activeConfig = await env.DB.prepare(`
+                    SELECT asset_key, active_sprite_id, is_active
+                    FROM asset_configurations
+                    WHERE category = 'base_ground' AND is_active = TRUE
+                    LIMIT 1
+                `).first();
+
+                // Build configurations from approved sprites
+                const configurations = approvedSprites.results.map((sprite) => ({
+                    id: sprite.id,
+                    category: 'base_ground',
+                    asset_key: `grass_bg_${sprite.id}`,
+                    active_sprite_id: sprite.id,
+                    sprite_url: sprite.sprite_url,
+                    is_active: activeConfig?.active_sprite_id === sprite.id,
+                    available_sprites: 1,
+                    created_at: sprite.created_at
+                }));
+
+                return Response.json({ success: true, configurations });
+            }
+
             // For other categories, use asset_configurations table
+            // Map configuration category to sprite category for the count
+            const spriteCategoryMap = {
+                'npcs': 'npc',
+                'effects': 'effect',
+                'terrain': 'terrain',
+                'tricks': 'overlay',
+            };
+            const spriteCategory = spriteCategoryMap[category] || category;
+
             const configs = await env.DB.prepare(`
                 SELECT
                     ac.*,
@@ -6162,7 +6214,7 @@ Please address the above feedback in this generation.`;
                 LEFT JOIN generated_assets ga ON ac.active_sprite_id = ga.id
                 WHERE ac.category = ?
                 ORDER BY ac.asset_key
-            `).bind(category, category).all();
+            `).bind(spriteCategory, category).all();
 
             // Add default_map_scale and effective_map_scale from code constants
             const configurationsWithDefaults = configs.results.map(config => ({
@@ -6357,6 +6409,24 @@ Please address the above feedback in this generation.`;
                 return Response.json({ error: 'asset_key is required' }, { status: 400 });
             }
 
+            // Extract sprite_id from asset_key (format: grass_bg_{id})
+            const spriteIdMatch = asset_key.match(/grass_bg_(\d+)/);
+            const spriteId = spriteIdMatch ? parseInt(spriteIdMatch[1], 10) : null;
+
+            if (!spriteId) {
+                return Response.json({ error: 'Invalid asset_key format. Expected grass_bg_{id}' }, { status: 400 });
+            }
+
+            // Verify the sprite exists and is approved
+            const sprite = await env.DB.prepare(`
+                SELECT id, r2_url FROM generated_assets
+                WHERE id = ? AND category = 'terrain' AND asset_key = 'grass_bg' AND status = 'approved'
+            `).bind(spriteId).first();
+
+            if (!sprite) {
+                return Response.json({ error: 'Sprite not found or not approved' }, { status: 404 });
+            }
+
             // Clear all active flags for base_ground
             await env.DB.prepare(`
                 UPDATE asset_configurations
@@ -6364,18 +6434,19 @@ Please address the above feedback in this generation.`;
                 WHERE category = 'base_ground'
             `).run();
 
-            // Set the new active one (create if doesn't exist)
+            // Set the new active one with sprite_id (create if doesn't exist)
             await env.DB.prepare(`
-                INSERT INTO asset_configurations (category, asset_key, is_active)
-                VALUES ('base_ground', ?, TRUE)
+                INSERT INTO asset_configurations (category, asset_key, active_sprite_id, is_active)
+                VALUES ('base_ground', ?, ?, TRUE)
                 ON CONFLICT (category, asset_key) DO UPDATE SET
+                    active_sprite_id = ?,
                     is_active = TRUE,
                     updated_at = CURRENT_TIMESTAMP
-            `).bind(asset_key).run();
+            `).bind(asset_key, spriteId, spriteId).run();
 
-            await logAudit(env, 'set_active_base_ground', null, user?.username, { asset_key });
+            await logAudit(env, 'set_active_base_ground', null, user?.username, { asset_key, sprite_id: spriteId });
 
-            return Response.json({ success: true, message: 'Active base ground updated.' });
+            return Response.json({ success: true, message: 'Active base ground updated.', sprite_url: sprite.r2_url });
         }
 
         // GET /api/admin/assets/base-ground/active - Get the current active base ground URL
@@ -6383,6 +6454,7 @@ Please address the above feedback in this generation.`;
             const result = await env.DB.prepare(`
                 SELECT
                     ac.asset_key,
+                    ac.active_sprite_id,
                     ga.r2_url as sprite_url
                 FROM asset_configurations ac
                 LEFT JOIN generated_assets ga ON ac.active_sprite_id = ga.id

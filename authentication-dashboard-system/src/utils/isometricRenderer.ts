@@ -19,7 +19,24 @@ export interface BuildingSprite {
   height: number; // Sprite height in pixels (width = 64)
 }
 
-export const BUILDING_SPRITES: Record<string, BuildingSprite> = {
+// Published building sprites fetched from API (populated at runtime)
+// Map of building_type_id -> { url, map_scale }
+export interface PublishedBuildingSprite {
+  url: string;
+  map_scale?: number;
+}
+export let publishedBuildingSprites: Record<string, PublishedBuildingSprite> = {};
+
+/**
+ * Set the published building sprites (called after fetching from API)
+ */
+export function setPublishedBuildingSprites(sprites: Record<string, PublishedBuildingSprite>) {
+  publishedBuildingSprites = sprites;
+}
+
+// Fallback sprites for buildings that aren't published yet
+// These will be used when a building doesn't have a published sprite in Asset Manager
+export const FALLBACK_BUILDING_SPRITES: Record<string, BuildingSprite> = {
   market_stall: { key: 'market_stall', variant: 3, height: 48 },
   hot_dog_stand: { key: 'hot_dog_stand', variant: 3, height: 48 },
   campsite: { key: 'campsite', variant: 3, height: 48 },
@@ -38,6 +55,9 @@ export const BUILDING_SPRITES: Record<string, BuildingSprite> = {
   demolished: { key: 'demolished', variant: 2, height: 32 },
   claim_stake: { key: 'claim_stake', variant: 2, height: 32 },
 };
+
+// Legacy alias for backwards compatibility
+export const BUILDING_SPRITES = FALLBACK_BUILDING_SPRITES;
 
 // Terrain sprite mapping (trees used as placeholder for road/water/dirt for now)
 export const TERRAIN_SPRITES: Record<string, string> = {
@@ -58,9 +78,17 @@ export const TERRAIN_COLORS: Record<string, string> = {
 
 /**
  * Get the sprite URL for a building type
+ * Prefers published sprites from Asset Manager, falls back to hardcoded variants
  */
 export function getBuildingSpriteUrl(buildingTypeId: string): string | null {
-  const sprite = BUILDING_SPRITES[buildingTypeId];
+  // First check if there's a published sprite from Asset Manager
+  const published = publishedBuildingSprites[buildingTypeId];
+  if (published?.url) {
+    return published.url;
+  }
+
+  // Fall back to hardcoded sprite
+  const sprite = FALLBACK_BUILDING_SPRITES[buildingTypeId];
   if (!sprite) return null;
   return `${SPRITE_BASE_URL}/building_sprite/${sprite.key}_v${sprite.variant}.webp`;
 }

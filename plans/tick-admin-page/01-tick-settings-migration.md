@@ -160,6 +160,33 @@ CREATE TABLE tick_settings (
   forced_buy_multiplier REAL DEFAULT 6.0,
 
   -- ============================================
+  -- CATEGORY SYNERGY SETTINGS
+  -- ============================================
+  -- Positive synergies between complementary categories
+  -- Food ↔ Accommodation: Tourists need to eat / Guests need restaurants
+  synergy_food_accommodation REAL DEFAULT 0.05,
+  -- Retail → Food: Shoppers grab food
+  synergy_retail_food REAL DEFAULT 0.03,
+  -- Leisure → Accommodation: Entertainment draws overnight guests
+  synergy_leisure_accommodation REAL DEFAULT 0.04,
+
+  -- Category competition penalties (same-category negative synergy, range 1)
+  -- Food ↔ Food: Competition for same diners
+  synergy_competition_food REAL DEFAULT 0.04,
+  -- Leisure ↔ Leisure: Competition for gamblers
+  synergy_competition_leisure REAL DEFAULT 0.05,
+  -- Retail ↔ Retail: Competition for shoppers (less direct - different products)
+  synergy_competition_retail REAL DEFAULT 0.03,
+  -- Accommodation ↔ Accommodation: Competition for guests (different markets/price points)
+  synergy_competition_accommodation REAL DEFAULT 0.02,
+
+  -- Synergy range settings
+  -- Range for positive category synergies (tiles)
+  synergy_positive_range INTEGER DEFAULT 2,
+  -- Range for same-category competition (tiles)
+  synergy_competition_range INTEGER DEFAULT 1,
+
+  -- ============================================
   -- METADATA
   -- ============================================
   created_at TEXT DEFAULT CURRENT_TIMESTAMP,
@@ -247,6 +274,17 @@ CREATE TABLE IF NOT EXISTS tick_settings (
   min_listing_price_percent REAL DEFAULT 0.80,
   forced_buy_multiplier REAL DEFAULT 6.0,
 
+  -- CATEGORY SYNERGY SETTINGS
+  synergy_food_accommodation REAL DEFAULT 0.05,
+  synergy_retail_food REAL DEFAULT 0.03,
+  synergy_leisure_accommodation REAL DEFAULT 0.04,
+  synergy_competition_food REAL DEFAULT 0.04,
+  synergy_competition_leisure REAL DEFAULT 0.05,
+  synergy_competition_retail REAL DEFAULT 0.03,
+  synergy_competition_accommodation REAL DEFAULT 0.02,
+  synergy_positive_range INTEGER DEFAULT 2,
+  synergy_competition_range INTEGER DEFAULT 1,
+
   -- METADATA
   created_at TEXT DEFAULT CURRENT_TIMESTAMP,
   updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
@@ -261,7 +299,7 @@ INSERT OR IGNORE INTO tick_settings (id) VALUES ('global');
 
 | Table | Action | Columns |
 |-------|--------|---------|
-| tick_settings | CREATE | 45 columns (42 settings + id + timestamps + updated_by) |
+| tick_settings | CREATE | 54 columns (51 settings + id + timestamps + updated_by) |
 
 ## Test Cases
 
@@ -281,7 +319,7 @@ SELECT id, fire_damage_base, tax_rate_town, adjacency_range FROM tick_settings W
 ### Test 3: All Columns Present
 ```sql
 PRAGMA table_info(tick_settings);
--- Expected: 45 columns returned
+-- Expected: 54 columns returned
 ```
 
 ### Test 4: Default Values Correct
@@ -298,7 +336,7 @@ FROM tick_settings WHERE id = 'global';
 ## Acceptance Checklist
 
 - [ ] Migration file created at `migrations/0054_create_tick_settings.sql`
-- [ ] Table has all 45 columns defined
+- [ ] Table has all 54 columns defined
 - [ ] Default values match current hardcoded values
 - [ ] INSERT OR IGNORE prevents duplicate global rows
 - [ ] Migration runs without errors on fresh database

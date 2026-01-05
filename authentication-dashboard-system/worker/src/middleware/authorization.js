@@ -11,6 +11,17 @@ const ENDPOINT_AUTHORIZATION = [
   // ==================== PUBLIC ASSET ENDPOINTS ====================
   // Reference library images need to be publicly accessible for img src tags
   { pattern: '/api/admin/assets/reference-library/serve/*', roles: null, companyIsolation: false },
+  // Base ground is public (needed before login for map display)
+  { pattern: '/api/assets/base-ground/active', roles: null, companyIsolation: false },
+
+  // ==================== AUTHENTICATED ASSET ENDPOINTS ====================
+  // Game asset endpoints - require JWT (any authenticated user)
+  { pattern: '/api/assets/buildings/published', roles: [], companyIsolation: false },
+  { pattern: '/api/assets/npcs/published', roles: [], companyIsolation: false },
+  { pattern: '/api/assets/terrain/published', roles: [], companyIsolation: false },
+  { pattern: '/api/assets/vehicles/published', roles: [], companyIsolation: false },
+  { pattern: '/api/assets/effects/published', roles: [], companyIsolation: false },
+  { pattern: '/api/assets/dirty-tricks/published', roles: [], companyIsolation: false },
 
   // ==================== MASTER ADMIN ONLY ====================
   { pattern: '/api/health', roles: ['master_admin'], companyIsolation: false },

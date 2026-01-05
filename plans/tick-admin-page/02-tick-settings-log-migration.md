@@ -125,6 +125,7 @@ CREATE INDEX IF NOT EXISTS idx_settings_log_category ON tick_settings_log(catego
 | `land` | base_land_cost, land_multiplier_*, terrain_multiplier_* |
 | `combat` | prison_fine_multiplier, fine_multiplier_town/city/capital, security_bonus_cameras/guard_dogs/security_guards, cleanup_cost_percent |
 | `market` | sell_to_state_percent, min_listing_price_percent, forced_buy_multiplier |
+| `synergy` | synergy_food_accommodation, synergy_retail_food, synergy_leisure_accommodation, synergy_competition_food/leisure/retail/accommodation, synergy_positive_range, synergy_competition_range |
 | `multiple` | When changes span multiple categories |
 
 ## Database Changes

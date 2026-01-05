@@ -2,10 +2,15 @@ import { useState, useEffect, useMemo } from 'react';
 import {
   SPRITE_BASE_URL,
   GRASS_BACKGROUND,
-  BUILDING_SPRITES,
+  FALLBACK_BUILDING_SPRITES,
   TERRAIN_SPRITES,
   getBuildingSpriteUrl,
+  setPublishedBuildingSprites,
+  PublishedBuildingSprite,
 } from '../utils/isometricRenderer';
+
+// API base URL for fetching assets
+const API_BASE_URL = import.meta.env.VITE_API_URL || '';
 
 interface UseIsometricAssetsReturn {
   sprites: Map<string, HTMLImageElement>;
@@ -30,7 +35,7 @@ async function loadImage(url: string): Promise<HTMLImageElement> {
 
 /**
  * Hook to preload all sprites needed for isometric rendering
- * Preloads all building sprites upfront for smooth rendering
+ * Fetches published building sprites from API, falls back to hardcoded for unpublished
  */
 export function useIsometricAssets(): UseIsometricAssetsReturn {
   const [sprites, setSprites] = useState<Map<string, HTMLImageElement>>(new Map());
@@ -38,13 +43,43 @@ export function useIsometricAssets(): UseIsometricAssetsReturn {
   const [isLoading, setIsLoading] = useState(true);
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [publishedSprites, setPublishedSpritesState] = useState<Record<string, PublishedBuildingSprite>>({});
 
-  // Collect all unique sprite URLs needed
+  // Fetch published building sprites from API (requires auth)
+  useEffect(() => {
+    const fetchPublishedSprites = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) {
+          console.warn('No auth token, using fallback building sprites');
+          return;
+        }
+        const response = await fetch(`${API_BASE_URL}/api/assets/buildings/published`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && data.sprites) {
+            setPublishedBuildingSprites(data.sprites);
+            setPublishedSpritesState(data.sprites);
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to fetch published building sprites, using fallbacks');
+      }
+    };
+    fetchPublishedSprites();
+  }, []);
+
+  // Collect all unique sprite URLs needed (depends on published sprites)
   const spriteUrls = useMemo(() => {
     const urls = new Set<string>();
 
     // Add all building type sprites (preload all, not just visible ones)
-    Object.keys(BUILDING_SPRITES).forEach((buildingType) => {
+    // This now uses published sprites where available, fallback otherwise
+    Object.keys(FALLBACK_BUILDING_SPRITES).forEach((buildingType) => {
       const url = getBuildingSpriteUrl(buildingType);
       if (url) urls.add(url);
     });
@@ -55,7 +90,7 @@ export function useIsometricAssets(): UseIsometricAssetsReturn {
     });
 
     return Array.from(urls);
-  }, []);
+  }, [publishedSprites]);
 
   useEffect(() => {
     let cancelled = false;
@@ -69,9 +104,24 @@ export function useIsometricAssets(): UseIsometricAssetsReturn {
       let loadedCount = 0;
       const totalCount = spriteUrls.length + 1; // +1 for grass background
 
-      // Load grass background first
+      // Load grass background - first try to get active base ground from API
       try {
-        const grassImg = await loadImage(`${SPRITE_BASE_URL}/${GRASS_BACKGROUND}`);
+        let grassUrl = `${SPRITE_BASE_URL}/${GRASS_BACKGROUND}`; // Default fallback
+
+        // Try to fetch active base ground from API
+        try {
+          const response = await fetch(`${API_BASE_URL}/api/assets/base-ground/active`);
+          if (response.ok) {
+            const data = await response.json();
+            if (data.success && data.base_ground?.sprite_url) {
+              grassUrl = data.base_ground.sprite_url;
+            }
+          }
+        } catch (apiErr) {
+          console.warn('Failed to fetch active base ground, using default');
+        }
+
+        const grassImg = await loadImage(grassUrl);
         if (!cancelled) {
           setGrassBackground(grassImg);
           loadedCount++;

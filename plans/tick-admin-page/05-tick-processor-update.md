@@ -96,6 +96,15 @@ const DEFAULT_SETTINGS = {
   sell_to_state_percent: 0.50,
   min_listing_price_percent: 0.80,
   forced_buy_multiplier: 6.0,
+
+  // Category Synergies
+  synergy_food_accommodation: 0.05,
+  synergy_retail_food: 0.03,
+  synergy_leisure_accommodation: 0.04,
+  synergy_competition_food: 0.04,
+  synergy_competition_leisure: 0.05,
+  synergy_positive_range: 2,
+  synergy_competition_range: 1,
 };
 ```
 
@@ -379,6 +388,137 @@ export function calculateLandCost(tile, locationContext, settings) {
 
   return Math.round(baseCost * terrainMult * locationMult);
 }
+
+// ===========================================
+// CATEGORY SYNERGY FUNCTIONS
+// ===========================================
+
+/**
+ * Build category synergy map from settings
+ * Converts flat settings to nested structure for efficient lookup
+ */
+function buildCategorySynergies(settings) {
+  return {
+    food: {
+      accommodation: { range: settings.synergy_positive_range, modifier: settings.synergy_food_accommodation },
+      food: { range: settings.synergy_competition_range, modifier: -settings.synergy_competition_food },
+    },
+    accommodation: {
+      food: { range: settings.synergy_positive_range, modifier: settings.synergy_food_accommodation },
+    },
+    retail: {
+      food: { range: settings.synergy_positive_range, modifier: settings.synergy_retail_food },
+    },
+    leisure: {
+      accommodation: { range: settings.synergy_positive_range, modifier: settings.synergy_leisure_accommodation },
+      leisure: { range: settings.synergy_competition_range, modifier: -settings.synergy_competition_leisure },
+    },
+  };
+}
+
+/**
+ * Calculate category synergies from neighboring buildings
+ * Uses settings for synergy values and ranges
+ */
+function calculateCategorySynergies(building, buildingByCoord, x, y, settings) {
+  const CATEGORY_SYNERGIES = buildCategorySynergies(settings);
+  const breakdown = [];
+  let totalModifier = 0;
+  const myCategory = building.category;
+
+  if (!myCategory) return { modifier: 0, breakdown: [] };
+
+  const maxRange = Math.max(settings.synergy_positive_range, settings.synergy_competition_range);
+
+  for (let dx = -maxRange; dx <= maxRange; dx++) {
+    for (let dy = -maxRange; dy <= maxRange; dy++) {
+      if (dx === 0 && dy === 0) continue;
+      const distance = Math.max(Math.abs(dx), Math.abs(dy)); // Chebyshev distance
+
+      const neighbor = buildingByCoord.get(`${x + dx},${y + dy}`);
+      if (!neighbor || neighbor.is_collapsed) continue;
+
+      // Category ↔ Category synergy
+      const synergy = CATEGORY_SYNERGIES[myCategory]?.[neighbor.category];
+      if (synergy && distance <= synergy.range) {
+        totalModifier += synergy.modifier;
+        breakdown.push({
+          source: `${neighbor.category}_synergy`,
+          modifier: synergy.modifier
+        });
+      }
+    }
+  }
+
+  return { modifier: totalModifier, breakdown };
+}
+
+/**
+ * Calculate terrain synergies using building-specific preferences
+ * terrain_synergies is JSON stored per building_type: { road, trees, water, dirt_track, corner_bonus }
+ */
+function calculateTerrainSynergies(building, tileByCoord, x, y) {
+  const breakdown = [];
+  let totalModifier = 0;
+  let roadCount = 0;
+
+  // Parse building's terrain synergies (stored per building type in DB)
+  const synergies = JSON.parse(building.terrain_synergies || '{}');
+
+  // Only check immediate neighbors (range 1)
+  for (let dx = -1; dx <= 1; dx++) {
+    for (let dy = -1; dy <= 1; dy++) {
+      if (dx === 0 && dy === 0) continue;
+
+      const tile = tileByCoord.get(`${x + dx},${y + dy}`);
+      if (!tile) continue;
+
+      const terrainType = tile.terrain_type;
+      const modifier = synergies[terrainType];
+
+      if (modifier && modifier !== 0) {
+        totalModifier += modifier;
+        breakdown.push({
+          source: `terrain_${terrainType}`,
+          modifier: modifier
+        });
+      }
+
+      // Track roads for corner detection
+      if (terrainType === 'road') {
+        roadCount++;
+      }
+    }
+  }
+
+  // Corner plot bonus (2+ adjacent roads)
+  const cornerBonus = synergies.corner_bonus || 0;
+  if (roadCount >= 2 && cornerBonus > 0) {
+    totalModifier += cornerBonus;
+    breakdown.push({
+      source: 'corner_plot',
+      modifier: cornerBonus
+    });
+  }
+
+  return { modifier: totalModifier, breakdown };
+}
+
+// NOTE: Integrate these into calculateBuildingProfit and calculateBuildingValue:
+//
+// function calculateBuildingProfit(building, allBuildings, tiles, settings) {
+//   // ... existing code ...
+//
+//   // NEW: Add category synergies
+//   const categorySynergies = calculateCategorySynergies(building, buildingByCoord, x, y, settings);
+//   totalModifier += categorySynergies.modifier;
+//
+//   // NEW: Add terrain synergies (uses building.terrain_synergies from DB, not settings)
+//   const terrainSynergies = calculateTerrainSynergies(building, tileByCoord, x, y);
+//   totalModifier += terrainSynergies.modifier;
+//
+//   // ... rest of function ...
+// }
 ```
 
 ### attacks.js Changes

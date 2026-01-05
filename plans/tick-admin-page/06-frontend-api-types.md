@@ -203,6 +203,15 @@ export interface TickSettings {
   sell_to_state_percent: number;
   min_listing_price_percent: number;
   forced_buy_multiplier: number;
+
+  // Category synergy settings
+  synergy_food_accommodation: number;
+  synergy_retail_food: number;
+  synergy_leisure_accommodation: number;
+  synergy_competition_food: number;
+  synergy_competition_leisure: number;
+  synergy_positive_range: number;
+  synergy_competition_range: number;
 }
 
 export interface TickSettingsMetadata {
@@ -237,7 +246,7 @@ export interface SettingsLogEntry {
   user_email: string;
   changed_at: string;
   changes: Record<string, SettingChange>;
-  category: 'fire' | 'tax' | 'profit' | 'adjacency' | 'hero' | 'land' | 'combat' | 'market' | 'multiple';
+  category: 'fire' | 'tax' | 'profit' | 'adjacency' | 'hero' | 'land' | 'combat' | 'market' | 'synergy' | 'multiple';
   summary: string;
 }
 
@@ -250,7 +259,7 @@ export interface SettingsLogResponse {
 // SETTING METADATA (for UI)
 // ============================================
 
-export type SettingCategory = 'fire' | 'tax' | 'profit' | 'adjacency' | 'hero' | 'land' | 'combat' | 'market';
+export type SettingCategory = 'fire' | 'tax' | 'profit' | 'adjacency' | 'hero' | 'land' | 'combat' | 'market' | 'synergy';
 
 export interface SettingDefinition {
   key: keyof TickSettings;
@@ -324,6 +333,15 @@ export const SETTING_DEFINITIONS: SettingDefinition[] = [
   { key: 'sell_to_state_percent', label: 'Sell to State %', description: 'Percentage of building value when selling to state', category: 'market', min: 0.1, max: 1, step: 0.05, unit: '%', format: 'percent' },
   { key: 'min_listing_price_percent', label: 'Min Listing Price %', description: 'Minimum listing price as % of building value', category: 'market', min: 0.5, max: 1.5, step: 0.05, unit: '%', format: 'percent' },
   { key: 'forced_buy_multiplier', label: 'Forced Buy Multiplier', description: 'Forced buy price = building_value × this', category: 'market', min: 1, max: 20, step: 0.5, unit: 'x', format: 'decimal' },
+
+  // Category Synergies
+  { key: 'synergy_food_accommodation', label: 'Food ↔ Accommodation', description: 'Synergy bonus between food and accommodation buildings', category: 'synergy', min: 0, max: 0.2, step: 0.01, unit: '%', format: 'percent' },
+  { key: 'synergy_retail_food', label: 'Retail → Food', description: 'Synergy bonus from retail to food buildings', category: 'synergy', min: 0, max: 0.2, step: 0.01, unit: '%', format: 'percent' },
+  { key: 'synergy_leisure_accommodation', label: 'Leisure → Accommodation', description: 'Synergy bonus from leisure to accommodation buildings', category: 'synergy', min: 0, max: 0.2, step: 0.01, unit: '%', format: 'percent' },
+  { key: 'synergy_competition_food', label: 'Food Competition', description: 'Penalty when food buildings are adjacent to each other', category: 'synergy', min: 0, max: 0.2, step: 0.01, unit: '%', format: 'percent' },
+  { key: 'synergy_competition_leisure', label: 'Leisure Competition', description: 'Penalty when leisure buildings are adjacent to each other', category: 'synergy', min: 0, max: 0.2, step: 0.01, unit: '%', format: 'percent' },
+  { key: 'synergy_positive_range', label: 'Positive Synergy Range', description: 'Tile radius for positive category synergies', category: 'synergy', min: 1, max: 5, step: 1, unit: 'tiles', format: 'integer' },
+  { key: 'synergy_competition_range', label: 'Competition Range', description: 'Tile radius for same-category competition penalties', category: 'synergy', min: 1, max: 3, step: 1, unit: 'tiles', format: 'integer' },
 ];
 
 // Group settings by category for UI
@@ -336,6 +354,7 @@ export const SETTINGS_BY_CATEGORY: Record<SettingCategory, SettingDefinition[]> 
   land: SETTING_DEFINITIONS.filter(s => s.category === 'land'),
   combat: SETTING_DEFINITIONS.filter(s => s.category === 'combat'),
   market: SETTING_DEFINITIONS.filter(s => s.category === 'market'),
+  synergy: SETTING_DEFINITIONS.filter(s => s.category === 'synergy'),
 };
 
 export const CATEGORY_LABELS: Record<SettingCategory, { label: string; icon: string }> = {
@@ -347,6 +366,7 @@ export const CATEGORY_LABELS: Record<SettingCategory, { label: string; icon: str
   land: { label: 'Land Costs', icon: '🗺️' },
   combat: { label: 'Combat & Prison', icon: '⚔️' },
   market: { label: 'Market Pricing', icon: '🏪' },
+  synergy: { label: 'Category Synergies', icon: '🔗' },
 };
 ```
 
@@ -505,8 +525,8 @@ console.log('Missing definitions:', missing); // Should be empty
 - [ ] `src/types/tick.ts` created with all interfaces
 - [ ] `src/services/tickAdminApi.ts` created with all methods
 - [ ] All types match API response shapes from Stage 3 & 4
-- [ ] SETTING_DEFINITIONS covers all 31 settings
-- [ ] SETTINGS_BY_CATEGORY correctly groups settings
+- [ ] SETTING_DEFINITIONS covers all 49 settings
+- [ ] SETTINGS_BY_CATEGORY correctly groups settings (9 categories)
 - [ ] TypeScript compiles without errors
 - [ ] API methods handle errors correctly
 - [ ] Pagination types are reusable

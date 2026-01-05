@@ -188,6 +188,17 @@ const SETTING_VALIDATION = {
   sell_to_state_percent: { min: 0.1, max: 1, type: 'decimal' },
   min_listing_price_percent: { min: 0.5, max: 1.5, type: 'decimal' },
   forced_buy_multiplier: { min: 1, max: 20, type: 'decimal' },
+
+  // Category synergy settings
+  synergy_food_accommodation: { min: 0, max: 0.2, type: 'decimal' },
+  synergy_retail_food: { min: 0, max: 0.2, type: 'decimal' },
+  synergy_leisure_accommodation: { min: 0, max: 0.2, type: 'decimal' },
+  synergy_competition_food: { min: 0, max: 0.2, type: 'decimal' },
+  synergy_competition_leisure: { min: 0, max: 0.2, type: 'decimal' },
+  synergy_competition_retail: { min: 0, max: 0.2, type: 'decimal' },
+  synergy_competition_accommodation: { min: 0, max: 0.2, type: 'decimal' },
+  synergy_positive_range: { min: 1, max: 5, type: 'integer' },
+  synergy_competition_range: { min: 1, max: 3, type: 'integer' },
 };
 ```
 
@@ -243,6 +254,16 @@ const DEFAULT_SETTINGS = {
   sell_to_state_percent: 0.50,
   min_listing_price_percent: 0.80,
   forced_buy_multiplier: 6.0,
+  // Category synergy settings
+  synergy_food_accommodation: 0.05,
+  synergy_retail_food: 0.03,
+  synergy_leisure_accommodation: 0.04,
+  synergy_competition_food: 0.04,
+  synergy_competition_leisure: 0.05,
+  synergy_competition_retail: 0.03,
+  synergy_competition_accommodation: 0.02,
+  synergy_positive_range: 2,
+  synergy_competition_range: 1,
 };
 
 // Validation rules (as defined above)
@@ -273,7 +294,10 @@ function determineCategory(settingNames) {
       categories.add('tax');
     } else if (name.includes('profit') || name.includes('earning') || name.includes('maintenance') || name.includes('security_cost') || name.includes('damage_profit')) {
       categories.add('profit');
-    } else if (name.includes('adjacency') || name.includes('neighbor') || name.includes('synergy') || name.includes('premium_terrain') || name.includes('penalty_terrain') || name.includes('competition') || name.includes('building_value')) {
+    } else if (name.startsWith('synergy_')) {
+      // Category synergy settings (synergy_food_accommodation, synergy_retail_food, etc.)
+      categories.add('synergy');
+    } else if (name.includes('adjacency') || name.includes('neighbor') || name.includes('premium_terrain') || name.includes('penalty_terrain') || name.includes('competition') || name.includes('building_value')) {
       categories.add('adjacency');
     } else if (name.includes('hero') || name.includes('streak')) {
       categories.add('hero');

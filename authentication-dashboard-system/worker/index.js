@@ -201,7 +201,7 @@ export default {
     // ==================== GLOBAL API RATE LIMITING ====================
     // Apply rate limiting to all authenticated API requests
     // Public endpoints (health, webhooks) and auth endpoints have their own specific rate limits
-    const publicPaths = ['/api/health', '/api/webhooks', '/api/auth/login', '/api/auth/magic-link'];
+    const publicPaths = ['/api/health', '/api/webhooks', '/api/auth/login', '/api/auth/magic-link', '/api/assets/base-ground/active'];
     const isPublicPath = publicPaths.some(p => path.startsWith(p));
 
     if (!isPublicPath && currentUser) {
@@ -417,6 +417,204 @@ export default {
           imageHeaders.set('Cache-Control', 'public, max-age=86400'); // Cache for 24 hours
 
           return new Response(imageObject.body, { headers: imageHeaders });
+        }
+
+        // PUBLIC: Get active base ground URL (no auth required for game client)
+        case path === '/api/assets/base-ground/active' && method === 'GET': {
+          const result = await env.DB.prepare(`
+            SELECT
+              ac.asset_key,
+              ac.active_sprite_id,
+              ga.r2_url as sprite_url
+            FROM asset_configurations ac
+            LEFT JOIN generated_assets ga ON ac.active_sprite_id = ga.id
+            WHERE ac.category = 'base_ground' AND ac.is_active = TRUE
+            LIMIT 1
+          `).first();
+
+          return new Response(JSON.stringify({
+            success: true,
+            base_ground: result ? {
+              asset_key: result.asset_key,
+              sprite_url: result.sprite_url
+            } : null
+          }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=300' }
+          });
+        }
+
+        // AUTH: Get all published building sprites (requires JWT)
+        case path === '/api/assets/buildings/published' && method === 'GET': {
+          if (!currentUser) {
+            return new Response(JSON.stringify({ success: false, error: 'Authentication required' }), {
+              status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            });
+          }
+          const results = await env.DB.prepare(`
+            SELECT
+              bc.building_type_id as asset_key,
+              ga.r2_url as sprite_url,
+              bc.map_scale
+            FROM building_configurations bc
+            INNER JOIN generated_assets ga ON bc.active_sprite_id = ga.id
+            WHERE bc.is_published = TRUE
+              AND ga.r2_url IS NOT NULL
+          `).all();
+
+          // Convert to a map for easy lookup by the client
+          const sprites = {};
+          for (const row of results.results) {
+            sprites[row.asset_key] = {
+              url: row.sprite_url,
+              map_scale: row.map_scale
+            };
+          }
+
+          return new Response(JSON.stringify({
+            success: true,
+            sprites
+          }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Cache-Control': 'private, max-age=300' }
+          });
+        }
+
+        // ==================== AUTHENTICATED ASSET ENDPOINTS ====================
+        // These require a valid JWT token (for logged-in game users)
+
+        // AUTH: Get all published NPC sprites
+        case path === '/api/assets/npcs/published' && method === 'GET': {
+          if (!currentUser) {
+            return new Response(JSON.stringify({ success: false, error: 'Authentication required' }), {
+              status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            });
+          }
+          const results = await env.DB.prepare(`
+            SELECT ac.asset_key, ga.r2_url as sprite_url, ac.config
+            FROM asset_configurations ac
+            INNER JOIN generated_assets ga ON ac.active_sprite_id = ga.id
+            WHERE ac.category = 'npc' AND ac.is_published = TRUE AND ga.r2_url IS NOT NULL
+          `).all();
+          const sprites = {};
+          for (const row of results.results) {
+            sprites[row.asset_key] = {
+              url: row.sprite_url,
+              config: row.config ? JSON.parse(row.config) : null
+            };
+          }
+          return new Response(JSON.stringify({ success: true, sprites }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Cache-Control': 'private, max-age=300' }
+          });
+        }
+
+        // AUTH: Get all published terrain sprites
+        case path === '/api/assets/terrain/published' && method === 'GET': {
+          if (!currentUser) {
+            return new Response(JSON.stringify({ success: false, error: 'Authentication required' }), {
+              status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            });
+          }
+          const results = await env.DB.prepare(`
+            SELECT ac.asset_key, ga.r2_url as sprite_url, ac.config
+            FROM asset_configurations ac
+            INNER JOIN generated_assets ga ON ac.active_sprite_id = ga.id
+            WHERE ac.category = 'terrain' AND ac.is_published = TRUE AND ga.r2_url IS NOT NULL
+          `).all();
+          const sprites = {};
+          for (const row of results.results) {
+            sprites[row.asset_key] = {
+              url: row.sprite_url,
+              config: row.config ? JSON.parse(row.config) : null
+            };
+          }
+          return new Response(JSON.stringify({ success: true, sprites }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Cache-Control': 'private, max-age=300' }
+          });
+        }
+
+        // AUTH: Get all published vehicle sprites
+        case path === '/api/assets/vehicles/published' && method === 'GET': {
+          if (!currentUser) {
+            return new Response(JSON.stringify({ success: false, error: 'Authentication required' }), {
+              status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            });
+          }
+          const results = await env.DB.prepare(`
+            SELECT ac.asset_key, ga.r2_url as sprite_url, ac.config
+            FROM asset_configurations ac
+            INNER JOIN generated_assets ga ON ac.active_sprite_id = ga.id
+            WHERE ac.category = 'vehicle' AND ac.is_published = TRUE AND ga.r2_url IS NOT NULL
+          `).all();
+          const sprites = {};
+          for (const row of results.results) {
+            sprites[row.asset_key] = {
+              url: row.sprite_url,
+              config: row.config ? JSON.parse(row.config) : null
+            };
+          }
+          return new Response(JSON.stringify({ success: true, sprites }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Cache-Control': 'private, max-age=300' }
+          });
+        }
+
+        // AUTH: Get all published dirty trick assets (icon + overlay for each trick)
+        // Each trick has 2 images: icon (for UI modal) and overlay (for building damage display)
+        case path === '/api/assets/dirty-tricks/published' && method === 'GET': {
+          if (!currentUser) {
+            return new Response(JSON.stringify({ success: false, error: 'Authentication required' }), {
+              status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            });
+          }
+          // Fetch both icons and overlays for dirty tricks
+          const results = await env.DB.prepare(`
+            SELECT ac.category, ac.asset_key, ga.r2_url as sprite_url, ac.config
+            FROM asset_configurations ac
+            INNER JOIN generated_assets ga ON ac.active_sprite_id = ga.id
+            WHERE ac.category IN ('dirty_trick_icon', 'dirty_trick_overlay')
+              AND ac.is_published = TRUE
+              AND ga.r2_url IS NOT NULL
+          `).all();
+
+          // Group by trick type with icon and overlay
+          const tricks = {};
+          for (const row of results.results) {
+            // asset_key is the trick name (graffiti, smoke_bomb, etc.)
+            if (!tricks[row.asset_key]) {
+              tricks[row.asset_key] = { icon: null, overlay: null };
+            }
+            if (row.category === 'dirty_trick_icon') {
+              tricks[row.asset_key].icon = row.sprite_url;
+            } else if (row.category === 'dirty_trick_overlay') {
+              tricks[row.asset_key].overlay = row.sprite_url;
+            }
+          }
+          return new Response(JSON.stringify({ success: true, tricks }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Cache-Control': 'private, max-age=300' }
+          });
+        }
+
+        // AUTH: Get all published effect sprites (general visual effects)
+        case path === '/api/assets/effects/published' && method === 'GET': {
+          if (!currentUser) {
+            return new Response(JSON.stringify({ success: false, error: 'Authentication required' }), {
+              status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            });
+          }
+          const results = await env.DB.prepare(`
+            SELECT ac.asset_key, ga.r2_url as sprite_url, ac.config
+            FROM asset_configurations ac
+            INNER JOIN generated_assets ga ON ac.active_sprite_id = ga.id
+            WHERE ac.category = 'effect' AND ac.is_published = TRUE AND ga.r2_url IS NOT NULL
+          `).all();
+          const sprites = {};
+          for (const row of results.results) {
+            sprites[row.asset_key] = {
+              url: row.sprite_url,
+              config: row.config ? JSON.parse(row.config) : null
+            };
+          }
+          return new Response(JSON.stringify({ success: true, sprites }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Cache-Control': 'private, max-age=300' }
+          });
         }
 
         case path.startsWith('/api/admin/assets'):

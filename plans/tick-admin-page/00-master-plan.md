@@ -4,7 +4,7 @@
 
 **What:** A master-admin-only page at `/admin/tick` with two tabs:
 1. **Tick History** — View historical tick data with drill-down to per-company statistics, charts for trends
-2. **Tick Settings** — Configure all tick-related parameters (fire, tax, adjacency, hero, land costs, combat/prison, market pricing) with change logging
+2. **Tick Settings** — Configure all tick-related parameters (fire, tax, adjacency, hero, land costs, combat/prison, market pricing, category synergies) with change logging
 
 **Why:**
 - The 10-minute tick drives core game mechanics (profit distribution, fire spread, hero eligibility)
@@ -19,7 +19,7 @@
 | History tab loads tick_history | Displays 907+ existing ticks with pagination |
 | Drill-down works | Click tick row → shows company_statistics for that tick |
 | Charts render | Execution time & profit trends using recharts |
-| Settings form saves | All 25+ settings persist to tick_settings table |
+| Settings form saves | All 49 settings persist to tick_settings table |
 | Settings are used | Tick processor reads from DB instead of hardcoded values |
 | Change logging works | tick_settings_log captures who changed what and when |
 | Admin-only access | Non-master_admin users see 403 |
@@ -123,13 +123,15 @@ src/
 └── types/tick.ts
 ```
 
-### Modified Files (6)
+### Modified Files (8)
 ```
 worker/index.js                          # Route registration
 worker/src/tick/processor.js             # Read settings from DB
 worker/src/tick/fireSpread.js            # Use settings object
 worker/src/tick/profitCalculator.js      # Use settings object
-worker/src/adjacencyCalculator.js        # Use settings object
+worker/src/adjacencyCalculator.js        # Use settings object + category synergies
+worker/src/routes/game/attacks.js        # Use combat settings (fines, security bonuses)
+worker/src/utils/marketPricing.js        # Use market settings
 src/App.tsx                              # Add route
 src/components/Sidebar.tsx               # Add nav item
 ```
@@ -137,9 +139,9 @@ src/components/Sidebar.tsx               # Add nav item
 ## Database Schema Summary
 
 ### tick_settings (new)
-- 25+ configurable parameters
+- 49 configurable parameters
 - Single row (id = 'global')
-- Categories: fire, tax, profit, adjacency, hero, land
+- Categories: fire, tax, profit, adjacency, hero, land, combat, market, synergy
 
 ### tick_settings_log (new)
 - Audit log for settings changes
@@ -163,6 +165,8 @@ src/components/Sidebar.tsx               # Add nav item
 - Use existing `ModerationAdminPage.tsx` as template for page structure
 - Use existing tab pattern with purple accent color
 - recharts already installed - use LineChart for trends, BarChart for comparisons
-- Settings form should group by category with collapsible sections
+- Settings form should group by category with collapsible sections (9 categories)
 - All settings need min/max validation to prevent game-breaking values
 - Tick processor should fallback to defaults if DB read fails
+- Category synergy settings integrate with the Building Category & Synergy System plan (see `/Users/riki/.claude/plans/validated-finding-lecun.md`)
+- Terrain synergies are per-building-type (stored in `building_types.terrain_synergies`), not global settings
