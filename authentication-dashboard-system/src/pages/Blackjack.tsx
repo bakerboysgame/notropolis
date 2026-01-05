@@ -3,6 +3,7 @@ import { Navigate, useNavigate } from 'react-router-dom';
 import { ArrowLeft, AlertCircle } from 'lucide-react';
 import { useActiveCompany } from '../contexts/CompanyContext';
 import { api, apiHelpers } from '../services/api';
+import { GameSelector } from '../components/GameSelector';
 
 interface Card {
   suit: string;
@@ -21,6 +22,7 @@ interface GameState {
   payout: number | null;
   canDouble: boolean;
   betAmount?: number;
+  new_balance?: number;
 }
 
 const SUIT_SYMBOLS: Record<string, string> = {
@@ -117,15 +119,12 @@ export function Blackjack(): JSX.Element {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const refreshCompany = async () => {
-    if (!activeCompany) return;
-    try {
-      const response = await api.get(`/api/game/companies/${activeCompany.id}`);
-      if (response.data.success && response.data.company) {
-        setActiveCompany(response.data.company);
-      }
-    } catch {
-      // Ignore
+  const updateBalance = (newBalance: number | undefined) => {
+    if (activeCompany && newBalance !== undefined) {
+      setActiveCompany({
+        ...activeCompany,
+        cash: newBalance,
+      });
     }
   };
 
@@ -159,7 +158,7 @@ export function Blackjack(): JSX.Element {
 
       if (response.data.success) {
         setGame(response.data.data);
-        await refreshCompany();
+        updateBalance(response.data.data.new_balance);
       } else {
         setError(response.data.error || 'Failed to start game');
       }
@@ -184,7 +183,7 @@ export function Blackjack(): JSX.Element {
       if (response.data.success) {
         setGame(response.data.data);
         if (response.data.data.state === 'finished') {
-          await refreshCompany();
+          updateBalance(response.data.data.new_balance);
         }
       } else {
         setError(response.data.error || 'Failed to hit');
@@ -209,7 +208,7 @@ export function Blackjack(): JSX.Element {
 
       if (response.data.success) {
         setGame(response.data.data);
-        await refreshCompany();
+        updateBalance(response.data.data.new_balance);
       } else {
         setError(response.data.error || 'Failed to stand');
       }
@@ -233,7 +232,7 @@ export function Blackjack(): JSX.Element {
 
       if (response.data.success) {
         setGame(response.data.data);
-        await refreshCompany();
+        updateBalance(response.data.data.new_balance);
       } else {
         setError(response.data.error || 'Failed to double');
       }
@@ -260,36 +259,17 @@ export function Blackjack(): JSX.Element {
     <div className="min-h-screen bg-gray-900 p-4 sm:p-6">
       <div className="max-w-2xl mx-auto">
         {/* Header */}
-        <div className="mb-4 sm:mb-6">
+        <div className="flex items-center justify-between mb-4">
           <button
             onClick={() => navigate(`/companies/${activeCompany.id}`)}
-            className="flex items-center gap-2 text-neutral-400 hover:text-white mb-4"
+            className="flex items-center gap-2 text-neutral-400 hover:text-white"
           >
             <ArrowLeft className="w-5 h-5" />
-            Back to {activeCompany.name}
+            Back
           </button>
+          <GameSelector />
         </div>
-
-        {/* Game Selector */}
-        <div className="flex justify-center gap-2 mb-4 sm:mb-6">
-          <button
-            onClick={() => navigate('/casino')}
-            className="px-4 py-2 bg-gray-700 text-gray-300 rounded-lg font-medium hover:bg-gray-600"
-          >
-            Roulette
-          </button>
-          <button
-            className="px-4 py-2 bg-green-600 text-white rounded-lg font-medium"
-          >
-            Blackjack
-          </button>
-        </div>
-
-        {/* Title */}
-        <div className="text-center mb-4 sm:mb-6">
-          <h1 className="text-2xl font-bold text-white mb-2">Blackjack</h1>
-          <p className="text-gray-400">Max bet: $10,000 • Blackjack pays 3:2</p>
-        </div>
+        <p className="text-center text-gray-500 text-sm mb-4">Max bet: $10,000 • Blackjack pays 3:2</p>
 
         {/* Prison Warning */}
         {activeCompany.is_in_prison && (

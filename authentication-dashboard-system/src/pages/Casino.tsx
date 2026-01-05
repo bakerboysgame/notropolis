@@ -4,6 +4,7 @@ import { ArrowLeft, Dice6, AlertCircle } from 'lucide-react';
 import { useActiveCompany } from '../contexts/CompanyContext';
 import { api, apiHelpers } from '../services/api';
 import { Wheel } from 'react-custom-roulette';
+import { GameSelector } from '../components/GameSelector';
 
 const RED_NUMBERS = [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36];
 
@@ -59,25 +60,22 @@ export function Casino(): JSX.Element {
   const [error, setError] = useState<string | null>(null);
   const pendingResultRef = useRef<SpinResult | null>(null);
 
-  const handleSpinComplete = async () => {
+  const handleSpinComplete = () => {
     setMustSpin(false);
     setShowResult(true);
 
     if (pendingResultRef.current) {
       setLastResult(pendingResultRef.current);
-      pendingResultRef.current = null;
 
-      // Update active company with new cash balance
-      if (activeCompany) {
-        try {
-          const companyResponse = await api.get(`/api/game/companies/${activeCompany.id}`);
-          if (companyResponse.data.success && companyResponse.data.company) {
-            setActiveCompany(companyResponse.data.company);
-          }
-        } catch {
-          // Silently fail - balance will update on next action
-        }
+      // Immediately update cash balance from the response
+      if (activeCompany && pendingResultRef.current.new_balance !== undefined) {
+        setActiveCompany({
+          ...activeCompany,
+          cash: pendingResultRef.current.new_balance,
+        });
       }
+
+      pendingResultRef.current = null;
     }
   };
 
@@ -139,36 +137,17 @@ export function Casino(): JSX.Element {
     <div className="min-h-screen bg-gray-900 p-6">
       <div className="max-w-2xl mx-auto">
         {/* Header */}
-        <div className="mb-6">
+        <div className="flex items-center justify-between mb-4">
           <button
             onClick={() => navigate(`/companies/${activeCompany.id}`)}
-            className="flex items-center gap-2 text-neutral-400 hover:text-white mb-4"
+            className="flex items-center gap-2 text-neutral-400 hover:text-white"
           >
             <ArrowLeft className="w-5 h-5" />
-            Back to {activeCompany.name}
+            Back
           </button>
+          <GameSelector />
         </div>
-
-        {/* Game Selector */}
-        <div className="flex justify-center gap-2 mb-6">
-          <button
-            className="px-4 py-2 bg-yellow-600 text-white rounded-lg font-medium"
-          >
-            Roulette
-          </button>
-          <button
-            onClick={() => navigate('/blackjack')}
-            className="px-4 py-2 bg-gray-700 text-gray-300 rounded-lg font-medium hover:bg-gray-600"
-          >
-            Blackjack
-          </button>
-        </div>
-
-        {/* Casino Banner */}
-        <div className="text-center mb-6">
-          <h1 className="text-2xl font-bold text-white mb-2">Roulette</h1>
-          <p className="text-gray-400">Max bet: $10,000</p>
-        </div>
+        <p className="text-center text-gray-500 text-sm mb-4">Max bet: $10,000</p>
 
         {/* Roulette Wheel */}
         <div className="flex justify-center mb-6">

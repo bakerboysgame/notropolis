@@ -66,7 +66,7 @@ const navigation: NavigationItem[] = [
   { name: 'Statistics', href: '/statistics', icon: BarChart3, pageKey: 'statistics', requiresMapLocation: true },
   { name: 'Events', href: '/events', icon: Calendar, pageKey: 'events', requiresMapLocation: true },
   { name: 'Chat', href: '/chat', icon: MessageCircle, pageKey: 'chat', requiresMapLocation: true },
-  { name: 'Casino', href: '/casino', icon: Dices, pageKey: 'casino', requiresMapLocation: true },
+  { name: 'Casino', href: '/casino/roulette', icon: Dices, pageKey: 'casino', requiresMapLocation: true },
 ]
 
 export default function Sidebar() {
@@ -179,7 +179,7 @@ export default function Sidebar() {
   const blurAmount = Math.max(0, (100 - transparency) / 25) // 0-3px blur (very subtle)
 
   // Check if currently on a game page (map or game-related pages like HQ, chat, etc.)
-  const gamePages = ['/map/', '/headquarters', '/statistics', '/events', '/chat', '/enemy-hq/', '/casino']
+  const gamePages = ['/map/', '/headquarters', '/statistics', '/events', '/chat', '/enemy-hq/', '/casino/']
   const isOnMapPage = gamePages.some(page => location.pathname.startsWith(page))
 
   // Combine navigation items based on user role, feature flags, and page access permissions

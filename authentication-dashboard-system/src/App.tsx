@@ -272,17 +272,15 @@ function App() {
                 </ProtectedRoute>
               } />
 
-              {/* Casino Route */}
-              <Route path="/casino" element={
+              {/* Casino Routes */}
+              <Route path="/casino/roulette" element={
                 <ProtectedRoute>
                   <Layout>
                     <Casino />
                   </Layout>
                 </ProtectedRoute>
               } />
-
-              {/* Blackjack Route */}
-              <Route path="/blackjack" element={
+              <Route path="/casino/blackjack" element={
                 <ProtectedRoute>
                   <Layout>
                     <Blackjack />

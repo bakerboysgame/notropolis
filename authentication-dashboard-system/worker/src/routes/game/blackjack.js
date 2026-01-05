@@ -145,6 +145,9 @@ export async function startBlackjackGame(env, company, betAmount) {
     await finishGame(env, company.id, gameId, result, betAmount, payout);
   }
 
+  // Calculate new balance: bet was deducted, payout added if game finished
+  const newBalance = company.cash - betAmount + (gameState === GameState.FINISHED ? payout : 0);
+
   return {
     gameId,
     playerHand,
@@ -155,6 +158,7 @@ export async function startBlackjackGame(env, company, betAmount) {
     result,
     payout: gameState === GameState.FINISHED ? payout : null,
     canDouble: playerHand.length === 2 && betAmount <= company.cash - betAmount,
+    new_balance: newBalance,
   };
 }
 
@@ -197,6 +201,11 @@ export async function blackjackHit(env, company, gameId) {
     await finishGame(env, company.id, gameId, result, game.bet_amount, payout);
   }
 
+  // Get current balance from DB (bet was already deducted at game start)
+  const updatedCompany = await env.DB.prepare(
+    'SELECT cash FROM game_companies WHERE id = ?'
+  ).bind(company.id).first();
+
   return {
     gameId,
     playerHand,
@@ -207,6 +216,7 @@ export async function blackjackHit(env, company, gameId) {
     result,
     payout: state === GameState.FINISHED ? payout : null,
     canDouble: false,
+    new_balance: updatedCompany.cash,
   };
 }
 
@@ -259,6 +269,11 @@ export async function blackjackStand(env, company, gameId) {
 
   await finishGame(env, company.id, gameId, result, game.bet_amount, payout);
 
+  // Get current balance from DB
+  const updatedCompany = await env.DB.prepare(
+    'SELECT cash FROM game_companies WHERE id = ?'
+  ).bind(company.id).first();
+
   return {
     gameId,
     playerHand,
@@ -269,6 +284,7 @@ export async function blackjackStand(env, company, gameId) {
     result,
     payout,
     canDouble: false,
+    new_balance: updatedCompany.cash,
   };
 }
 
@@ -327,6 +343,11 @@ export async function blackjackDouble(env, company, gameId) {
 
     await finishGame(env, company.id, gameId, result, newBetAmount, payout);
 
+    // Get current balance from DB
+    const updatedCompanyBust = await env.DB.prepare(
+      'SELECT cash FROM game_companies WHERE id = ?'
+    ).bind(company.id).first();
+
     return {
       gameId,
       playerHand,
@@ -337,6 +358,7 @@ export async function blackjackDouble(env, company, gameId) {
       result,
       payout,
       canDouble: false,
+      new_balance: updatedCompanyBust.cash,
     };
   }
 
@@ -370,6 +392,11 @@ export async function blackjackDouble(env, company, gameId) {
 
   await finishGame(env, company.id, gameId, result, newBetAmount, payout);
 
+  // Get current balance from DB
+  const updatedCompany = await env.DB.prepare(
+    'SELECT cash FROM game_companies WHERE id = ?'
+  ).bind(company.id).first();
+
   return {
     gameId,
     playerHand,
@@ -380,6 +407,7 @@ export async function blackjackDouble(env, company, gameId) {
     result,
     payout,
     canDouble: false,
+    new_balance: updatedCompany.cash,
   };
 }
 
