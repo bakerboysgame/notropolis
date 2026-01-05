@@ -85,20 +85,23 @@ export function LevelUpModal({ isOpen, onClose, newLevel, unlocks }: LevelUpModa
                 <div>
                   <p className="text-xs text-neutral-500 mb-2">Dirty Tricks</p>
                   <div className="flex flex-wrap gap-2">
-                    {unlocks.tricks.map((trick) => (
-                      <div
-                        key={trick.id}
-                        className="flex items-center gap-2 px-3 py-2 bg-red-900/30 border border-red-500/30 rounded-lg"
-                      >
-                        <span className="text-xl">💣</span>
-                        <div>
-                          <p className="text-red-300 font-medium text-sm">{trick.name}</p>
-                          {trick.description && (
-                            <p className="text-red-400/70 text-xs">{trick.description}</p>
-                          )}
+                    {unlocks.tricks.map((trick) => {
+                      const trickInfo = DIRTY_TRICKS[trick.id as TrickType];
+                      return (
+                        <div
+                          key={trick.id}
+                          className="flex items-center gap-2 px-3 py-2 bg-red-900/30 border border-red-500/30 rounded-lg"
+                        >
+                          <span className="text-xl">{trickInfo?.icon || '💣'}</span>
+                          <div>
+                            <p className="text-red-300 font-medium text-sm">{trick.name}</p>
+                            {trick.description && (
+                              <p className="text-red-400/70 text-xs">{trick.description}</p>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )}
