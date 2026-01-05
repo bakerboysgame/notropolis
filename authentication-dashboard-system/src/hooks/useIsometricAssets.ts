@@ -183,6 +183,9 @@ export function useIsometricAssets(): UseIsometricAssetsReturn {
       }
 
       // Load all sprite images in parallel with progress tracking
+      const outlineUrls = spriteUrls.filter(url => url.includes('_outline'));
+      console.log(`[useIsometricAssets] Loading ${spriteUrls.length} sprites (${outlineUrls.length} outlines)`);
+
       const loadPromises = spriteUrls.map(async (url) => {
         try {
           const img = await loadImage(url);
@@ -200,6 +203,8 @@ export function useIsometricAssets(): UseIsometricAssetsReturn {
       await Promise.all(loadPromises);
 
       if (!cancelled) {
+        const loadedOutlines = Array.from(loaded.keys()).filter(url => url.includes('_outline')).length;
+        console.log(`[useIsometricAssets] Loaded ${loaded.size} sprites (${loadedOutlines} outlines)`);
         setSprites(loaded);
         setIsLoading(false);
       }
