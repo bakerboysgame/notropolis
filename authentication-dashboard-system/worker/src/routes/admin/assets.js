@@ -116,7 +116,7 @@ async function resizeViaCloudflare(env, imageBuffer, tempKey, width, height) {
                     height: height,
                     fit: 'scale-down',  // Scale down to fit, don't upscale
                     format: 'webp',
-                    quality: 85
+                    quality: 95  // High quality for crisp sprites
                 }
             }
         });
@@ -1470,16 +1470,16 @@ const BUILDING_SIZE_CLASSES = {
 // ============================================
 
 const SPRITE_OUTPUT_SIZES = {
-    building_sprite: 320,
-    effect: 320,
+    building_sprite: 512,     // Increased from 320 for crisper sprites
+    effect: 512,              // Match building size for overlays
     terrain: 320,
-    terrain_grass_bg: 512,  // grass_bg is a special 512x512 seamless tile
-    vehicle: 128,
-    npc: 64,
-    overlay: 128,
-    ui: 64,
-    dirty_trick_icon: 128,    // Icon shown in attack modal UI
-    dirty_trick_overlay: 256  // Overlay shown on damaged buildings
+    terrain_grass_bg: 512,    // grass_bg is a special 512x512 seamless tile
+    vehicle: 256,             // Increased from 128
+    npc: 128,                 // Increased from 64
+    overlay: 256,             // Increased from 128
+    ui: 128,                  // Increased from 64
+    dirty_trick_icon: 256,    // Icon shown in attack modal UI
+    dirty_trick_overlay: 512  // Overlay shown on damaged buildings
 };
 
 // ============================================

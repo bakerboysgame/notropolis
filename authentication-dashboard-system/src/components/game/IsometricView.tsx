@@ -233,13 +233,13 @@ export function IsometricView({
             ? getCompanyHighlight(tile.owner_company_id) : null;
 
           if (isOwned) {
-            ctx.shadowColor = 'rgba(59, 130, 246, 0.8)';
-            ctx.shadowBlur = 12 * zoom;
+            ctx.shadowColor = 'rgba(59, 130, 246, 1.0)';
+            ctx.shadowBlur = 20 * zoom;
             ctx.shadowOffsetX = 0;
             ctx.shadowOffsetY = 0;
           } else if (highlightColor) {
-            ctx.shadowColor = hexToRgba(highlightColor, 0.8);
-            ctx.shadowBlur = 12 * zoom;
+            ctx.shadowColor = hexToRgba(highlightColor, 1.0);
+            ctx.shadowBlur = 20 * zoom;
             ctx.shadowOffsetX = 0;
             ctx.shadowOffsetY = 0;
           }
@@ -334,13 +334,13 @@ export function IsometricView({
             ? getCompanyHighlight(tile.owner_company_id) : null;
 
           if (isOwned) {
-            ctx.shadowColor = 'rgba(59, 130, 246, 0.8)';
-            ctx.shadowBlur = 12 * zoom;
+            ctx.shadowColor = 'rgba(59, 130, 246, 1.0)';
+            ctx.shadowBlur = 20 * zoom;
             ctx.shadowOffsetX = 0;
             ctx.shadowOffsetY = 0;
           } else if (stakeHighlightColor) {
-            ctx.shadowColor = hexToRgba(stakeHighlightColor, 0.8);
-            ctx.shadowBlur = 12 * zoom;
+            ctx.shadowColor = hexToRgba(stakeHighlightColor, 1.0);
+            ctx.shadowBlur = 20 * zoom;
             ctx.shadowOffsetX = 0;
             ctx.shadowOffsetY = 0;
           }
