@@ -3,9 +3,24 @@ import { Navigate, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Dice6, AlertCircle } from 'lucide-react';
 import { useActiveCompany } from '../contexts/CompanyContext';
 import { api, apiHelpers } from '../services/api';
-import { RouletteWheel } from '../components/RouletteWheel';
+import { Wheel } from 'react-custom-roulette';
 
 const RED_NUMBERS = [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36];
+
+// European roulette wheel order
+const WHEEL_ORDER = [
+  0, 32, 15, 19, 4, 21, 2, 25, 17, 34, 6, 27, 13, 36, 11, 30, 8, 23, 10,
+  5, 24, 16, 33, 1, 20, 14, 31, 9, 22, 18, 29, 7, 28, 12, 35, 3, 26
+];
+
+// Create wheel data with proper colors
+const wheelData = WHEEL_ORDER.map((num) => ({
+  option: String(num),
+  style: {
+    backgroundColor: num === 0 ? '#16a34a' : RED_NUMBERS.includes(num) ? '#dc2626' : '#1f2937',
+    textColor: 'white',
+  },
+}));
 
 interface SpinResult {
   result: number;
@@ -36,15 +51,15 @@ export function Casino(): JSX.Element {
   const navigate = useNavigate();
   const [betAmount, setBetAmount] = useState('1000');
   const [betType, setBetType] = useState<BetType>('red');
-  const [spinning, setSpinning] = useState(false);
-  const [wheelResult, setWheelResult] = useState<number | null>(null);
+  const [mustSpin, setMustSpin] = useState(false);
+  const [prizeNumber, setPrizeNumber] = useState(0);
   const [lastResult, setLastResult] = useState<SpinResult | null>(null);
   const [showResult, setShowResult] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const pendingResultRef = useRef<SpinResult | null>(null);
 
   const handleSpinComplete = async () => {
-    setSpinning(false);
+    setMustSpin(false);
     setShowResult(true);
 
     if (pendingResultRef.current) {
@@ -66,7 +81,7 @@ export function Casino(): JSX.Element {
   };
 
   const handleSpin = async () => {
-    if (!activeCompany) return;
+    if (!activeCompany || mustSpin) return;
 
     const amount = parseInt(betAmount);
     if (isNaN(amount) || amount <= 0) {
@@ -84,7 +99,6 @@ export function Casino(): JSX.Element {
       return;
     }
 
-    setSpinning(true);
     setError(null);
     setShowResult(false);
     setLastResult(null);
@@ -99,15 +113,15 @@ export function Casino(): JSX.Element {
       if (response.data.success) {
         // Store the result and trigger wheel animation
         pendingResultRef.current = response.data.data;
-        setWheelResult(response.data.data.result);
-        // The wheel animation will call handleSpinComplete when done
+        // Find the index of the result in the wheel order
+        const resultIndex = WHEEL_ORDER.indexOf(response.data.data.result);
+        setPrizeNumber(resultIndex);
+        setMustSpin(true);
       } else {
         setError(response.data.error || 'Spin failed');
-        setSpinning(false);
       }
     } catch (err) {
       setError(apiHelpers.handleError(err));
-      setSpinning(false);
     }
   };
 
@@ -140,11 +154,25 @@ export function Casino(): JSX.Element {
         </div>
 
         {/* Roulette Wheel */}
-        <RouletteWheel
-          result={wheelResult}
-          spinning={spinning}
-          onSpinComplete={handleSpinComplete}
-        />
+        <div className="flex justify-center mb-6">
+          <Wheel
+            mustStartSpinning={mustSpin}
+            prizeNumber={prizeNumber}
+            data={wheelData}
+            onStopSpinning={handleSpinComplete}
+            backgroundColors={['#dc2626', '#1f2937']}
+            textColors={['white']}
+            outerBorderColor="#d4a574"
+            outerBorderWidth={8}
+            innerBorderColor="#2d1810"
+            innerBorderWidth={15}
+            innerRadius={20}
+            radiusLineColor="#d4a574"
+            radiusLineWidth={1}
+            fontSize={12}
+            spinDuration={0.5}
+          />
+        </div>
 
         {/* Prison Warning */}
         {activeCompany.is_in_prison && (
@@ -245,11 +273,11 @@ export function Casino(): JSX.Element {
 
             <button
               onClick={handleSpin}
-              disabled={spinning || betValue > activeCompany.cash || betValue <= 0}
+              disabled={mustSpin || betValue > activeCompany.cash || betValue <= 0}
               className="w-full py-4 bg-yellow-600 text-white font-bold rounded-lg hover:bg-yellow-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-lg"
             >
               <Dice6 className="w-6 h-6" />
-              {spinning ? 'Spinning...' : 'Spin!'}
+              {mustSpin ? 'Spinning...' : 'Spin!'}
             </button>
           </div>
         )}
