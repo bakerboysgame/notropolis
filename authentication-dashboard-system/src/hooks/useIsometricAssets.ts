@@ -8,9 +8,10 @@ import {
   setPublishedBuildingSprites,
   PublishedBuildingSprite,
 } from '../utils/isometricRenderer';
+import { config } from '../config/environment';
 
-// API base URL for fetching assets
-const API_BASE_URL = import.meta.env.VITE_API_URL || '';
+// API base URL for fetching assets - use same config as rest of app
+const API_BASE_URL = config.API_BASE_URL;
 
 interface UseIsometricAssetsReturn {
   sprites: Map<string, HTMLImageElement>;
