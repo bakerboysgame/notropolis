@@ -939,14 +939,23 @@ function OutlineGeneratorTool() {
     return canvas.toDataURL('image/webp', 0.9);
   }, []);
 
-  // Load image from URL
+  // Load image from URL with cache busting to ensure full resolution
   const loadImage = (url: string): Promise<HTMLImageElement> => {
     return new Promise((resolve, reject) => {
       const img = new Image();
       img.crossOrigin = 'anonymous';
-      img.onload = () => resolve(img);
+      img.onload = () => {
+        // Verify we got a real image
+        if (img.naturalWidth === 0 || img.naturalHeight === 0) {
+          reject(new Error(`Image loaded but has zero dimensions: ${url}`));
+          return;
+        }
+        resolve(img);
+      };
       img.onerror = () => reject(new Error(`Failed to load: ${url}`));
-      img.src = url;
+      // Add cache-busting parameter to ensure fresh load
+      const cacheBuster = `?_t=${Date.now()}`;
+      img.src = url + cacheBuster;
     });
   };
 
