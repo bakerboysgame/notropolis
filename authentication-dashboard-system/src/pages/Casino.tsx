@@ -228,6 +228,17 @@ export function Casino(): JSX.Element {
         {/* Betting */}
         {!activeCompany.is_in_prison && (
           <div className="bg-gray-800 rounded-lg p-4 mb-6 border border-gray-700">
+            <button
+              onClick={handleSpin}
+              disabled={mustSpin || betValue > activeCompany.cash || betValue <= 0}
+              className="w-full py-4 bg-yellow-600 text-white font-bold rounded-lg hover:bg-yellow-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-lg mb-4"
+            >
+              <Dice6 className="w-6 h-6" />
+              {mustSpin ? 'Spinning...' : 'Spin!'}
+            </button>
+
+            {error && <p className="text-red-400 text-sm mb-4">{error}</p>}
+
             <div className="mb-4">
               <label className="block text-gray-400 text-sm mb-2">Bet Amount <span className="text-gray-500">(max 9,999 per bet)</span></label>
               <input
@@ -311,17 +322,6 @@ export function Casino(): JSX.Element {
                 </p>
               </div>
             )}
-
-            {error && <p className="text-red-400 text-sm mb-4">{error}</p>}
-
-            <button
-              onClick={handleSpin}
-              disabled={mustSpin || betValue > activeCompany.cash || betValue <= 0}
-              className="w-full py-4 bg-yellow-600 text-white font-bold rounded-lg hover:bg-yellow-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-lg"
-            >
-              <Dice6 className="w-6 h-6" />
-              {mustSpin ? 'Spinning...' : 'Spin!'}
-            </button>
           </div>
         )}
 

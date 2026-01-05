@@ -338,7 +338,17 @@ export function Blackjack(): JSX.Element {
             {!game ? (
               // Betting controls
               <>
-                <div className="mb-4">
+                <button
+                  onClick={handleDeal}
+                  disabled={loading || betValue > activeCompany.cash || betValue <= 0}
+                  className="w-full py-4 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed text-lg mb-4"
+                >
+                  {loading ? 'Dealing...' : 'Deal'}
+                </button>
+
+                {error && <p className="text-red-400 text-sm mb-4">{error}</p>}
+
+                <div>
                   <label className="block text-gray-400 text-sm mb-2">Bet Amount</label>
                   <input
                     type="number"
@@ -350,16 +360,6 @@ export function Blackjack(): JSX.Element {
                     disabled={loading}
                   />
                 </div>
-
-                {error && <p className="text-red-400 text-sm mb-4">{error}</p>}
-
-                <button
-                  onClick={handleDeal}
-                  disabled={loading || betValue > activeCompany.cash || betValue <= 0}
-                  className="w-full py-4 bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed text-lg"
-                >
-                  {loading ? 'Dealing...' : 'Deal'}
-                </button>
               </>
             ) : game.state === 'player_turn' ? (
               // Game controls
