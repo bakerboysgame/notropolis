@@ -27,6 +27,7 @@ import { Bank } from './pages/Bank';
 import { MessageBoard } from './pages/MessageBoard';
 import { Temple } from './pages/Temple';
 import { Casino } from './pages/Casino';
+import { Blackjack } from './pages/Blackjack';
 import { Avatar } from './pages/Avatar';
 import { Achievements } from './pages/Achievements';
 import { Statistics } from './pages/Statistics';
@@ -276,6 +277,15 @@ function App() {
                 <ProtectedRoute>
                   <Layout>
                     <Casino />
+                  </Layout>
+                </ProtectedRoute>
+              } />
+
+              {/* Blackjack Route */}
+              <Route path="/blackjack" element={
+                <ProtectedRoute>
+                  <Layout>
+                    <Blackjack />
                   </Layout>
                 </ProtectedRoute>
               } />

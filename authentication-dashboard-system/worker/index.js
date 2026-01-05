@@ -82,6 +82,13 @@ import { getMapStatistics, getCompanyStatistics, getCompanyProperties } from './
 import { getMapEvents, getMapCompanies } from './src/routes/game/events.js';
 import { handleHeartbeat } from './src/routes/game/heartbeat.js';
 import { handleAssetRoutes } from './src/routes/admin/assets.js';
+import {
+  startBlackjackGame,
+  blackjackHit,
+  blackjackStand,
+  blackjackDouble,
+  getBlackjackGame
+} from './src/routes/game/blackjack.js';
 
 // Helper to get active company from request (used by social endpoints)
 // For GET requests, reads company_id from query params
@@ -698,6 +705,49 @@ export default {
         case path === '/api/game/casino/roulette' && method === 'POST': {
           const company = await getActiveCompany(authService, env, request, requestBody);
           const result = await playRoulette(env, company, requestBody.bet_amount, requestBody.bet_type, requestBody.bet_value);
+          return new Response(JSON.stringify({ success: true, data: result }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        // ==================== BLACKJACK ENDPOINTS ====================
+        case path === '/api/game/casino/blackjack/start' && method === 'POST': {
+          const company = await getActiveCompany(authService, env, request, requestBody);
+          const result = await startBlackjackGame(env, company, requestBody.bet_amount);
+          return new Response(JSON.stringify({ success: true, data: result }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        case path === '/api/game/casino/blackjack/hit' && method === 'POST': {
+          const company = await getActiveCompany(authService, env, request, requestBody);
+          const result = await blackjackHit(env, company, requestBody.game_id);
+          return new Response(JSON.stringify({ success: true, data: result }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        case path === '/api/game/casino/blackjack/stand' && method === 'POST': {
+          const company = await getActiveCompany(authService, env, request, requestBody);
+          const result = await blackjackStand(env, company, requestBody.game_id);
+          return new Response(JSON.stringify({ success: true, data: result }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        case path === '/api/game/casino/blackjack/double' && method === 'POST': {
+          const company = await getActiveCompany(authService, env, request, requestBody);
+          const result = await blackjackDouble(env, company, requestBody.game_id);
+          return new Response(JSON.stringify({ success: true, data: result }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        case path === '/api/game/casino/blackjack/game' && method === 'GET': {
+          const company = await getActiveCompany(authService, env, request);
+          const url = new URL(request.url);
+          const gameId = url.searchParams.get('game_id');
+          const result = await getBlackjackGame(env, company, gameId);
           return new Response(JSON.stringify({ success: true, data: result }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }
           });

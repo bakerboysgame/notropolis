@@ -51,6 +51,7 @@ export function Casino(): JSX.Element {
   const navigate = useNavigate();
   const [betAmount, setBetAmount] = useState('1000');
   const [betType, setBetType] = useState<BetType>('red');
+  const [straightNumber, setStraightNumber] = useState<number>(0);
   const [mustSpin, setMustSpin] = useState(false);
   const [prizeNumber, setPrizeNumber] = useState(0);
   const [lastResult, setLastResult] = useState<SpinResult | null>(null);
@@ -108,6 +109,7 @@ export function Casino(): JSX.Element {
         company_id: activeCompany.id,
         bet_amount: amount,
         bet_type: betType,
+        ...(betType === 'straight' && { bet_value: straightNumber }),
       });
 
       if (response.data.success) {
@@ -147,9 +149,24 @@ export function Casino(): JSX.Element {
           </button>
         </div>
 
+        {/* Game Selector */}
+        <div className="flex justify-center gap-2 mb-6">
+          <button
+            className="px-4 py-2 bg-yellow-600 text-white rounded-lg font-medium"
+          >
+            Roulette
+          </button>
+          <button
+            onClick={() => navigate('/blackjack')}
+            className="px-4 py-2 bg-gray-700 text-gray-300 rounded-lg font-medium hover:bg-gray-600"
+          >
+            Blackjack
+          </button>
+        </div>
+
         {/* Casino Banner */}
         <div className="text-center mb-6">
-          <h1 className="text-2xl font-bold text-white mb-2">Casino Roulette</h1>
+          <h1 className="text-2xl font-bold text-white mb-2">Roulette</h1>
           <p className="text-gray-400">Max bet: $10,000</p>
         </div>
 
@@ -233,7 +250,7 @@ export function Casino(): JSX.Element {
         {!activeCompany.is_in_prison && (
           <div className="bg-gray-800 rounded-lg p-4 mb-6 border border-gray-700">
             <div className="mb-4">
-              <label className="block text-gray-400 text-sm mb-2">Bet Amount</label>
+              <label className="block text-gray-400 text-sm mb-2">Bet Amount <span className="text-gray-500">(max 9,999 per bet)</span></label>
               <input
                 type="number"
                 value={betAmount}
@@ -267,7 +284,54 @@ export function Casino(): JSX.Element {
                   </button>
                 ))}
               </div>
+              <button
+                onClick={() => setBetType('straight')}
+                className={`w-full mt-2 p-3 rounded text-sm font-medium transition-colors border-2 border-green-600 ${
+                  betType === 'straight'
+                    ? 'bg-green-600 text-white'
+                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                }`}
+              >
+                Straight (Single Number) - 36x Payout
+              </button>
             </div>
+
+            {/* Number selector for straight bets */}
+            {betType === 'straight' && (
+              <div className="mb-4">
+                <label className="block text-gray-400 text-sm mb-2">Select Number (0-36)</label>
+                <div className="grid grid-cols-10 gap-1">
+                  {Array.from({ length: 37 }, (_, i) => i).map((num) => (
+                    <button
+                      key={num}
+                      onClick={() => setStraightNumber(num)}
+                      className={`p-2 rounded text-xs font-bold transition-colors ${
+                        straightNumber === num
+                          ? 'ring-2 ring-yellow-400 ring-offset-1 ring-offset-gray-800'
+                          : ''
+                      } ${
+                        num === 0
+                          ? 'bg-green-600 text-white hover:bg-green-500'
+                          : RED_NUMBERS.includes(num)
+                          ? 'bg-red-600 text-white hover:bg-red-500'
+                          : 'bg-gray-800 text-white hover:bg-gray-700 border border-gray-600'
+                      }`}
+                    >
+                      {num}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-center text-gray-400 text-sm mt-2">
+                  Selected: <span className={`font-bold ${
+                    straightNumber === 0
+                      ? 'text-green-400'
+                      : RED_NUMBERS.includes(straightNumber)
+                      ? 'text-red-400'
+                      : 'text-gray-300'
+                  }`}>{straightNumber}</span>
+                </p>
+              </div>
+            )}
 
             {error && <p className="text-red-400 text-sm mb-4">{error}</p>}
 
