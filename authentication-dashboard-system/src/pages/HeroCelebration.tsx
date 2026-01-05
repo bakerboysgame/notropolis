@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { Trophy, MapPin, DollarSign, Send, Loader2 } from 'lucide-react';
+import { Trophy, MapPin, DollarSign, Send, Loader2, Book, ArrowRight } from 'lucide-react';
 import { api } from '../services/api';
 import { useActiveCompany } from '../contexts/CompanyContext';
 import { formatHeroAmount, getLocationDisplayName } from '../utils/heroRequirements';
@@ -24,6 +24,18 @@ interface AvailableMap {
   active_companies: number;
 }
 
+interface HeroMessage {
+  id: string;
+  company_name: string;
+  boss_name: string;
+  map_name: string;
+  location_type: string;
+  message: string;
+  offshore_amount: number;
+  hero_path: string;
+  created_at: string;
+}
+
 export function HeroCelebration() {
   const navigate = useNavigate();
   const { companyId } = useParams<{ companyId: string }>();
@@ -34,10 +46,12 @@ export function HeroCelebration() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [step, setStep] = useState<'message' | 'location'>('message');
+  const [step, setStep] = useState<'message' | 'townHall' | 'location'>('message');
   const [availableMaps, setAvailableMaps] = useState<AvailableMap[]>([]);
   const [isLoadingMaps, setIsLoadingMaps] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
+  const [heroMessages, setHeroMessages] = useState<HeroMessage[]>([]);
+  const [isLoadingMessages, setIsLoadingMessages] = useState(false);
 
   useEffect(() => {
     const fetchCelebrationStatus = async () => {
@@ -83,6 +97,18 @@ export function HeroCelebration() {
     }
   };
 
+  const fetchHeroMessages = async (mapId: string) => {
+    try {
+      setIsLoadingMessages(true);
+      const response = await api.get(`/api/game/hero/messages?map_id=${mapId}`);
+      setHeroMessages(response.data.messages || []);
+    } catch (err) {
+      console.error('Failed to fetch hero messages:', err);
+    } finally {
+      setIsLoadingMessages(false);
+    }
+  };
+
   const handleSubmitMessage = async () => {
     if (!message.trim()) {
       setError('Please enter a message');
@@ -95,9 +121,11 @@ export function HeroCelebration() {
 
       await api.post('/api/game/hero/leave-message', { message: message.trim(), company_id: companyId });
 
-      // Move to location selection
-      setStep('location');
-      await fetchAvailableLocations();
+      // Move to town hall book view
+      setStep('townHall');
+      if (celebration?.mapId) {
+        await fetchHeroMessages(celebration.mapId);
+      }
       await refreshCompany();
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to save message';
@@ -105,6 +133,11 @@ export function HeroCelebration() {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleContinueToLocations = async () => {
+    setStep('location');
+    await fetchAvailableLocations();
   };
 
   const handleJoinLocation = async (mapId: string) => {
@@ -264,6 +297,62 @@ export function HeroCelebration() {
               </button>
             </div>
           </>
+        ) : step === 'townHall' ? (
+          <>
+            {/* Town Hall Book */}
+            <div className="text-center mb-8">
+              <Book className="w-16 h-16 text-yellow-500 mx-auto mb-4" />
+              <h1 className="text-3xl font-bold text-white mb-2">
+                {celebration?.mapName} Hall of Heroes
+              </h1>
+              <p className="text-neutral-400">
+                Your message has been immortalized. Here are all the legends who conquered this land.
+              </p>
+            </div>
+
+            {isLoadingMessages ? (
+              <div className="text-center py-12">
+                <Loader2 className="w-10 h-10 animate-spin text-primary-500 mx-auto" />
+                <p className="mt-4 text-neutral-400">Loading messages...</p>
+              </div>
+            ) : (
+              <div className="space-y-4 mb-8">
+                {heroMessages.map((msg) => (
+                  <div
+                    key={msg.id}
+                    className="bg-neutral-800/50 rounded-xl p-5 border border-neutral-700"
+                  >
+                    <div className="flex items-start justify-between mb-3">
+                      <div>
+                        <h3 className="text-lg font-bold text-white">{msg.boss_name}</h3>
+                        <p className="text-sm text-neutral-400">{msg.company_name}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-green-400 font-bold">{formatHeroAmount(msg.offshore_amount)}</p>
+                        <p className="text-xs text-neutral-500">
+                          {new Date(msg.created_at).toLocaleDateString()}
+                        </p>
+                      </div>
+                    </div>
+                    <p className="text-neutral-300 italic">"{msg.message}"</p>
+                  </div>
+                ))}
+                {heroMessages.length === 0 && (
+                  <div className="text-center py-8 text-neutral-500">
+                    You're the first to leave a mark here!
+                  </div>
+                )}
+              </div>
+            )}
+
+            <button
+              onClick={handleContinueToLocations}
+              className="w-full py-3 bg-primary-600 text-white rounded-lg font-medium hover:bg-primary-700 flex items-center justify-center gap-2"
+            >
+              <ArrowRight className="w-5 h-5" />
+              Choose Your Next Destination
+            </button>
+          </>
         ) : (
           <>
             {/* Location Selection */}
@@ -272,7 +361,7 @@ export function HeroCelebration() {
                 Choose Your Next Destination
               </h1>
               <p className="text-neutral-400">
-                Your message has been saved. Now select a new location to continue your empire.
+                Select a new location to continue your empire.
               </p>
             </div>
 

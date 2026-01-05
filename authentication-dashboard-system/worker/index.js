@@ -7988,8 +7988,11 @@ async function handleGetBuildingTypes(request, authService, env, corsHeaders) {
     const url = new URL(request.url);
     const mapId = url.searchParams.get('map_id');
 
+    // Exclude visual-only building types (demolished rubble, claim stakes)
     const result = await env.DB.prepare(`
-      SELECT * FROM building_types ORDER BY level_required ASC, cost ASC
+      SELECT * FROM building_types
+      WHERE id NOT IN ('demolished', 'claim_stake')
+      ORDER BY level_required ASC, cost ASC
     `).all();
 
     let buildingTypes = result.results || [];

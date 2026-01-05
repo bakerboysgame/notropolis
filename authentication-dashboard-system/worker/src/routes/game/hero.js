@@ -600,6 +600,10 @@ export async function leaveHeroMessage(request, env, company) {
 
   const details = heroTransaction?.details ? JSON.parse(heroTransaction.details) : {};
 
+  // Ensure hero_path is valid (constraint only allows 'netWorth', 'cash', 'land')
+  const validPaths = ['netWorth', 'cash', 'land'];
+  const heroPath = validPaths.includes(details.path) ? details.path : 'netWorth';
+
   // Insert the hero message
   await env.DB.prepare(`
     INSERT INTO hero_messages (id, company_id, company_name, boss_name, map_id, map_name, location_type, message, offshore_amount, hero_path)
@@ -614,7 +618,7 @@ export async function leaveHeroMessage(request, env, company) {
     mapDetails.location_type,
     trimmedMessage,
     heroTransaction?.amount || 0,
-    details.path || 'netWorth'
+    heroPath
   ).run();
 
   // Clear the celebration pending flag

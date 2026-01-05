@@ -86,6 +86,11 @@ export function IsometricView({
   const [baseTileSize, setBaseTileSize] = useState(
     typeof window !== 'undefined' && window.innerWidth < BREAKPOINT ? MOBILE_TILE_SIZE : DESKTOP_TILE_SIZE
   );
+  const [hoveredBuilding, setHoveredBuilding] = useState<{
+    building: BuildingInstance & { name?: string; building_type_id?: string };
+    screenX: number;
+    screenY: number;
+  } | null>(null);
 
   // Create offscreen canvas for tinting outlines (lazy init)
   const getTintCanvas = useCallback(() => {
@@ -292,11 +297,13 @@ export function IsometricView({
               const outlineHeight = outlineSprite.naturalHeight * outlineScale;
               const expansionScaled = OUTLINE_EXPANSION * outlineScale;
 
-              // Position outline so sprite center aligns (outline has extra padding)
+              // Position outline so its inner sprite area aligns with the sprite
+              // Sprite top-left is at (screenX - spriteWidth/2, screenY - spriteHeight + tileSize/2)
+              // Outline needs to be offset by -expansionScaled on both axes
               ctx.drawImage(
                 tintedOutline,
-                screenX - outlineWidth / 2,
-                screenY - outlineHeight + tileSize / 2 + expansionScaled,
+                screenX - spriteWidth / 2 - expansionScaled,
+                screenY - spriteHeight + tileSize / 2 - expansionScaled,
                 outlineWidth,
                 outlineHeight
               );
@@ -387,10 +394,11 @@ export function IsometricView({
               const outlineHeight = outlineSprite.naturalHeight * outlineScale;
               const expansionScaled = OUTLINE_EXPANSION * outlineScale;
 
+              // Position outline so its inner sprite area aligns with the stake
               ctx.drawImage(
                 tintedOutline,
-                screenX - outlineWidth / 2,
-                screenY - outlineHeight + tileSize / 2 + expansionScaled,
+                screenX - spriteWidth / 2 - expansionScaled,
+                screenY - spriteHeight + tileSize / 2 - expansionScaled,
                 outlineWidth,
                 outlineHeight
               );
@@ -481,7 +489,43 @@ export function IsometricView({
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isDragging) return;
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect) return;
+
+    // Update hover state when not dragging
+    if (!isDragging) {
+      const screenCenterX = rect.width / 2 + panOffset.x;
+      const screenCenterY = rect.height / 2 + panOffset.y;
+
+      const { gridX, gridY } = screenToGrid(
+        e.clientX - rect.left,
+        e.clientY - rect.top,
+        screenCenterX,
+        screenCenterY,
+        zoom,
+        baseTileSize
+      );
+
+      const x = clampCoordinate(centerTile.x + gridX, 0, map.width - 1);
+      const y = clampCoordinate(centerTile.y + gridY, 0, map.height - 1);
+
+      const tile = tileMap.get(`${x},${y}`);
+      if (tile) {
+        const building = buildingMap.get(tile.id);
+        if (building) {
+          setHoveredBuilding({
+            building,
+            screenX: e.clientX - rect.left,
+            screenY: e.clientY - rect.top,
+          });
+        } else {
+          setHoveredBuilding(null);
+        }
+      } else {
+        setHoveredBuilding(null);
+      }
+      return;
+    }
 
     const dx = e.clientX - dragStart.x;
     const dy = e.clientY - dragStart.y;
