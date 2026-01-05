@@ -78,19 +78,18 @@ export const TERRAIN_COLORS: Record<string, string> = {
 
 /**
  * Get the sprite URL for a building type
- * Prefers published sprites from Asset Manager, falls back to hardcoded variants
+ * Only returns published sprites from Asset Manager, returns null otherwise
+ * (null triggers white circle placeholder in renderer)
  */
 export function getBuildingSpriteUrl(buildingTypeId: string): string | null {
-  // First check if there's a published sprite from Asset Manager
+  // Only use published sprites from Asset Manager
   const published = publishedBuildingSprites[buildingTypeId];
   if (published?.url) {
     return published.url;
   }
 
-  // Fall back to hardcoded sprite
-  const sprite = FALLBACK_BUILDING_SPRITES[buildingTypeId];
-  if (!sprite) return null;
-  return `${SPRITE_BASE_URL}/building_sprite/${sprite.key}_v${sprite.variant}.webp`;
+  // No published sprite - return null to show placeholder
+  return null;
 }
 
 /**
