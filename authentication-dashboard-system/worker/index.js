@@ -454,6 +454,7 @@ export default {
             SELECT
               bc.building_type_id as asset_key,
               ga.r2_url as sprite_url,
+              ga.outline_url,
               bc.map_scale
             FROM building_configurations bc
             INNER JOIN generated_assets ga ON bc.active_sprite_id = ga.id
@@ -466,6 +467,7 @@ export default {
           for (const row of results.results) {
             sprites[row.asset_key] = {
               url: row.sprite_url,
+              outline_url: row.outline_url,
               map_scale: row.map_scale
             };
           }

@@ -243,7 +243,7 @@ export function useMapBuilder(mapId?: string): UseMapBuilderReturn {
     if (!state.map) return;
 
     const { selectedTool, brushSize } = state;
-    const isSpecialBuilding = ['temple', 'bank', 'police_station'].includes(selectedTool as string);
+    const isSpecialBuilding = ['temple', 'bank', 'police_station', 'casino'].includes(selectedTool as string);
 
     // Calculate brush area
     const halfBrush = Math.floor(brushSize / 2);

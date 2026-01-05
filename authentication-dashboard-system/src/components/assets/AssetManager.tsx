@@ -1,6 +1,6 @@
 // src/components/assets/AssetManager.tsx
-import { useState, useEffect } from 'react';
-import { Loader2, ImageOff, Settings, Check, X, DollarSign, Package, Maximize2 } from 'lucide-react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { Loader2, ImageOff, Settings, Check, X, DollarSign, Package, Maximize2, Wand2, CheckCircle, AlertCircle } from 'lucide-react';
 import { clsx } from 'clsx';
 import {
   assetApi,
@@ -11,6 +11,7 @@ import {
   ASSET_MANAGER_CATEGORIES,
 } from '../../services/assetApi';
 import { useToast } from '../ui/Toast';
+import { config } from '../../config/environment';
 
 // Component to load sprite images
 function SpriteImage({ asset, alt, className }: { asset: Asset | { public_url?: string; id?: string }; alt: string; className?: string }) {
@@ -858,6 +859,316 @@ function BaseGroundList() {
   );
 }
 
+// Outline Generator Tool - generates outline silhouettes for building highlights
+interface SpriteForOutline {
+  id: number;
+  category: string;
+  asset_key: string;
+  variant: number;
+  r2_url: string;
+  outline_url: string | null;
+}
+
+function OutlineGeneratorTool() {
+  const { showToast } = useToast();
+  const [sprites, setSprites] = useState<SpriteForOutline[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [processing, setProcessing] = useState(false);
+  const [progress, setProgress] = useState({ current: 0, total: 0, currentAsset: '' });
+  const [results, setResults] = useState<{ id: number; asset_key: string; success: boolean; error?: string }[]>([]);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  const OUTLINE_SIZE = 12; // pixels of outline expansion
+
+  useEffect(() => {
+    loadSprites();
+  }, []);
+
+  const loadSprites = async () => {
+    setLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${config.API_BASE_URL}/api/admin/assets/sprites-for-outline`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      const data = await response.json();
+      if (data.success) {
+        setSprites(data.sprites);
+      } else {
+        showToast(data.error || 'Failed to load sprites', 'error');
+      }
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to load sprites', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Generate outline from sprite image
+  const generateOutline = useCallback((img: HTMLImageElement): string => {
+    const canvas = canvasRef.current!;
+    const ctx = canvas.getContext('2d')!;
+
+    // Set canvas size to accommodate outline
+    canvas.width = img.naturalWidth + OUTLINE_SIZE * 2;
+    canvas.height = img.naturalHeight + OUTLINE_SIZE * 2;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Draw the sprite at multiple offsets to create expanded outline
+    const steps = 16;
+    for (let i = 0; i < steps; i++) {
+      const angle = (i / steps) * Math.PI * 2;
+      const ox = Math.cos(angle) * OUTLINE_SIZE;
+      const oy = Math.sin(angle) * OUTLINE_SIZE;
+      ctx.drawImage(img, OUTLINE_SIZE + ox, OUTLINE_SIZE + oy);
+    }
+
+    // Fill the drawn area with white using source-in
+    ctx.globalCompositeOperation = 'source-in';
+    ctx.fillStyle = 'white';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.globalCompositeOperation = 'source-over';
+
+    // Cut out the original sprite shape to leave just the outline
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.drawImage(img, OUTLINE_SIZE, OUTLINE_SIZE);
+    ctx.globalCompositeOperation = 'source-over';
+
+    // Return as WebP base64
+    return canvas.toDataURL('image/webp', 0.9);
+  }, []);
+
+  // Load image from URL
+  const loadImage = (url: string): Promise<HTMLImageElement> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => resolve(img);
+      img.onerror = () => reject(new Error(`Failed to load: ${url}`));
+      img.src = url;
+    });
+  };
+
+  // Process all sprites without outlines
+  const processAllSprites = async () => {
+    const spritesToProcess = sprites.filter(s => !s.outline_url);
+    if (spritesToProcess.length === 0) {
+      showToast('All sprites already have outlines', 'info');
+      return;
+    }
+
+    setProcessing(true);
+    setProgress({ current: 0, total: spritesToProcess.length, currentAsset: '' });
+    setResults([]);
+
+    const newResults: typeof results = [];
+    const token = localStorage.getItem('token');
+
+    for (let i = 0; i < spritesToProcess.length; i++) {
+      const sprite = spritesToProcess[i];
+      setProgress({ current: i + 1, total: spritesToProcess.length, currentAsset: sprite.asset_key });
+
+      try {
+        // Load the sprite image
+        const img = await loadImage(sprite.r2_url);
+
+        // Generate outline
+        const outlineData = generateOutline(img);
+
+        // Upload to backend
+        const response = await fetch(`${config.API_BASE_URL}/api/admin/assets/upload-outline/${sprite.id}`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ outline_data: outlineData }),
+        });
+
+        const data = await response.json();
+        if (data.success) {
+          newResults.push({ id: sprite.id, asset_key: sprite.asset_key, success: true });
+        } else {
+          newResults.push({ id: sprite.id, asset_key: sprite.asset_key, success: false, error: data.error });
+        }
+      } catch (err) {
+        newResults.push({
+          id: sprite.id,
+          asset_key: sprite.asset_key,
+          success: false,
+          error: err instanceof Error ? err.message : 'Unknown error',
+        });
+      }
+    }
+
+    setResults(newResults);
+    setProcessing(false);
+
+    const successful = newResults.filter(r => r.success).length;
+    showToast(`Generated ${successful}/${spritesToProcess.length} outlines`, successful === spritesToProcess.length ? 'success' : 'warning');
+
+    // Reload sprites to update status
+    await loadSprites();
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
+      </div>
+    );
+  }
+
+  const withOutline = sprites.filter(s => s.outline_url).length;
+  const withoutOutline = sprites.filter(s => !s.outline_url).length;
+
+  return (
+    <div className="space-y-6">
+      {/* Hidden canvas for outline generation */}
+      <canvas ref={canvasRef} className="hidden" />
+
+      {/* Info */}
+      <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
+        <h4 className="font-medium text-blue-800 dark:text-blue-200 flex items-center gap-2">
+          <Wand2 className="w-5 h-5" />
+          Outline Generator
+        </h4>
+        <p className="text-sm text-blue-600 dark:text-blue-300 mt-1">
+          Generates pre-rendered outline silhouettes for building sprites. These are used for
+          ownership highlights (blue glow) and company tracking colors without expensive runtime filters.
+        </p>
+      </div>
+
+      {/* Stats */}
+      <div className="grid grid-cols-3 gap-4">
+        <div className="bg-gray-50 dark:bg-gray-900 p-4 rounded-lg text-center">
+          <div className="text-2xl font-bold text-gray-900 dark:text-gray-100">{sprites.length}</div>
+          <div className="text-sm text-gray-500">Total Sprites</div>
+        </div>
+        <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg text-center">
+          <div className="text-2xl font-bold text-green-600 dark:text-green-400">{withOutline}</div>
+          <div className="text-sm text-green-600 dark:text-green-400">With Outline</div>
+        </div>
+        <div className="bg-yellow-50 dark:bg-yellow-900/20 p-4 rounded-lg text-center">
+          <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{withoutOutline}</div>
+          <div className="text-sm text-yellow-600 dark:text-yellow-400">Need Outline</div>
+        </div>
+      </div>
+
+      {/* Action Button */}
+      <div className="flex items-center gap-4">
+        <button
+          onClick={processAllSprites}
+          disabled={processing || withoutOutline === 0}
+          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+        >
+          {processing ? (
+            <>
+              <Loader2 className="w-4 h-4 animate-spin" />
+              Processing...
+            </>
+          ) : (
+            <>
+              <Wand2 className="w-4 h-4" />
+              Generate {withoutOutline} Outlines
+            </>
+          )}
+        </button>
+
+        {withoutOutline === 0 && (
+          <span className="text-green-600 dark:text-green-400 flex items-center gap-1">
+            <CheckCircle className="w-4 h-4" />
+            All sprites have outlines
+          </span>
+        )}
+      </div>
+
+      {/* Progress */}
+      {processing && (
+        <div className="bg-gray-50 dark:bg-gray-900 p-4 rounded-lg">
+          <div className="flex justify-between text-sm mb-2">
+            <span className="text-gray-600 dark:text-gray-400">Processing: {progress.currentAsset}</span>
+            <span className="text-gray-600 dark:text-gray-400">{progress.current}/{progress.total}</span>
+          </div>
+          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+            <div
+              className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+              style={{ width: `${(progress.current / progress.total) * 100}%` }}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Results */}
+      {results.length > 0 && !processing && (
+        <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+          <div className="bg-gray-50 dark:bg-gray-900 px-4 py-2 border-b border-gray-200 dark:border-gray-700">
+            <span className="font-medium text-gray-900 dark:text-gray-100">Results</span>
+          </div>
+          <div className="max-h-64 overflow-y-auto">
+            {results.map((r) => (
+              <div
+                key={r.id}
+                className={clsx(
+                  'px-4 py-2 flex items-center justify-between border-b border-gray-100 dark:border-gray-800 last:border-0',
+                  r.success ? 'bg-green-50 dark:bg-green-900/10' : 'bg-red-50 dark:bg-red-900/10'
+                )}
+              >
+                <span className="text-sm text-gray-900 dark:text-gray-100">{r.asset_key}</span>
+                {r.success ? (
+                  <CheckCircle className="w-4 h-4 text-green-600" />
+                ) : (
+                  <span className="text-sm text-red-600 flex items-center gap-1">
+                    <AlertCircle className="w-4 h-4" />
+                    {r.error}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Sprite List Preview */}
+      <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+        <div className="bg-gray-50 dark:bg-gray-900 px-4 py-2 border-b border-gray-200 dark:border-gray-700">
+          <span className="font-medium text-gray-900 dark:text-gray-100">Published Building Sprites</span>
+        </div>
+        <div className="max-h-96 overflow-y-auto">
+          <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2 p-4">
+            {sprites.map((sprite) => (
+              <div
+                key={sprite.id}
+                className={clsx(
+                  'relative p-2 rounded-lg border',
+                  sprite.outline_url
+                    ? 'border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-900/10'
+                    : 'border-yellow-300 dark:border-yellow-700 bg-yellow-50 dark:bg-yellow-900/10'
+                )}
+              >
+                <img
+                  src={sprite.r2_url}
+                  alt={sprite.asset_key}
+                  className="w-full aspect-square object-contain"
+                />
+                <div className="text-xs text-center mt-1 truncate text-gray-600 dark:text-gray-400">
+                  {sprite.asset_key}
+                </div>
+                {sprite.outline_url && (
+                  <div className="absolute top-1 right-1">
+                    <CheckCircle className="w-3 h-3 text-green-600" />
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Main Asset Manager component with tabs
 export function AssetManager() {
   const [activeTab, setActiveTab] = useState<string>('buildings');
@@ -888,6 +1199,19 @@ export function AssetManager() {
             {cat.label}
           </button>
         ))}
+        {/* Tools tab for outline generation etc */}
+        <button
+          onClick={() => setActiveTab('tools')}
+          className={clsx(
+            'py-3 px-4 text-sm font-medium whitespace-nowrap transition-colors flex items-center gap-1',
+            activeTab === 'tools'
+              ? 'border-b-2 border-blue-500 text-blue-600 dark:text-blue-400'
+              : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+          )}
+        >
+          <Wand2 className="w-4 h-4" />
+          Tools
+        </button>
       </div>
 
       {/* Content */}
@@ -897,6 +1221,7 @@ export function AssetManager() {
         {activeTab === 'dirty_tricks' && <GenericAssetList category="effects" />}
         {activeTab === 'terrain' && <GenericAssetList category="terrain" />}
         {activeTab === 'base_ground' && <BaseGroundList />}
+        {activeTab === 'tools' && <OutlineGeneratorTool />}
       </div>
     </div>
   );

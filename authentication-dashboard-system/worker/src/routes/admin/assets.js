@@ -4760,6 +4760,87 @@ Please address the above feedback in this generation.`;
             });
         }
 
+        // POST /api/admin/assets/upload-outline/:id - Upload pre-generated outline for a sprite
+        // Receives base64 WebP data and stores it alongside the sprite
+        if (action === 'upload-outline' && method === 'POST' && param1) {
+            const assetId = parseInt(param1);
+            const { outline_data } = await request.json();
+
+            if (!outline_data) {
+                return Response.json({ success: false, error: 'Missing outline_data' }, { status: 400 });
+            }
+
+            // Get the asset to find its public key pattern
+            const asset = await env.DB.prepare(`
+                SELECT id, category, asset_key, variant, r2_key_public
+                FROM generated_assets
+                WHERE id = ?
+            `).bind(assetId).first();
+
+            if (!asset) {
+                return Response.json({ success: false, error: 'Asset not found' }, { status: 404 });
+            }
+
+            if (!asset.r2_key_public) {
+                return Response.json({ success: false, error: 'Asset has no public sprite' }, { status: 400 });
+            }
+
+            // Convert base64 to buffer
+            const base64Data = outline_data.replace(/^data:image\/webp;base64,/, '');
+            const outlineBuffer = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
+
+            // Generate outline key based on sprite key
+            const outlineKey = asset.r2_key_public.replace('.webp', '_outline.webp');
+
+            // Upload to R2
+            await env.R2_PUBLIC.put(outlineKey, outlineBuffer, {
+                httpMetadata: { contentType: 'image/webp' }
+            });
+
+            const outlineUrl = `${R2_PUBLIC_URL}/${outlineKey}`;
+
+            // Update database
+            await env.DB.prepare(`
+                UPDATE generated_assets
+                SET outline_url = ?, updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+            `).bind(outlineUrl, assetId).run();
+
+            await logAudit(env, 'upload_outline', assetId, user?.username, {
+                outline_key: outlineKey,
+                outline_url: outlineUrl,
+                size_bytes: outlineBuffer.length
+            });
+
+            return Response.json({
+                success: true,
+                outline_url: outlineUrl,
+                outline_key: outlineKey
+            });
+        }
+
+        // GET /api/admin/assets/sprites-for-outline - Get all published building sprites that need outlines
+        if (action === 'sprites-for-outline' && method === 'GET') {
+            const sprites = await env.DB.prepare(`
+                SELECT ga.id, ga.category, ga.asset_key, ga.variant, ga.r2_url, ga.outline_url
+                FROM generated_assets ga
+                JOIN asset_configurations ac ON ga.category = ac.category AND ga.asset_key = ac.asset_key
+                WHERE ga.category = 'building_sprite'
+                  AND ga.status = 'approved'
+                  AND ac.is_published = TRUE
+                  AND ga.r2_url IS NOT NULL
+                ORDER BY ga.asset_key, ga.variant
+            `).all();
+
+            return Response.json({
+                success: true,
+                sprites: sprites.results,
+                total: sprites.results.length,
+                with_outline: sprites.results.filter(s => s.outline_url).length,
+                without_outline: sprites.results.filter(s => !s.outline_url).length
+            });
+        }
+
         // POST /api/admin/assets/reset-prompt/:id - Reset prompt to base
         if (action === 'reset-prompt' && method === 'POST' && param1) {
             const id = param1;

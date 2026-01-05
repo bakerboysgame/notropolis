@@ -239,19 +239,6 @@ export function IsometricView({
           const spriteWidth = buildingSprite.naturalWidth * baseScale * zoom * mapScale;
           const spriteHeight = buildingSprite.naturalHeight * baseScale * zoom * mapScale;
 
-          // Ownership glow (blue halo for user's buildings) or highlight glow
-          const isOwned = tile.owner_company_id === activeCompanyId;
-          const highlightColor = !isOwned && tile.owner_company_id
-            ? getCompanyHighlight(tile.owner_company_id) : null;
-
-          const glowColor = isOwned ? 'rgb(59, 130, 246)' : highlightColor || null;
-
-          // Apply stacked drop-shadow filter for thick solid outline
-          if (glowColor) {
-            const outlineSize = Math.round(4 * zoom);
-            ctx.filter = `drop-shadow(0 0 ${outlineSize}px ${glowColor}) drop-shadow(0 0 ${outlineSize}px ${glowColor}) drop-shadow(0 0 ${outlineSize}px ${glowColor})`;
-          }
-
           // Building sprite centered horizontally, bottom at tile bottom
           ctx.drawImage(
             buildingSprite,
@@ -260,11 +247,6 @@ export function IsometricView({
             spriteWidth,
             spriteHeight
           );
-
-          // Reset filter
-          if (glowColor) {
-            ctx.filter = 'none';
-          }
 
           // Damage overlay (darken based on damage)
           if (building.damage_percent > 0 && !building.is_collapsed) {
@@ -277,11 +259,10 @@ export function IsometricView({
             );
           }
 
-          // Fire effect - use published overlay sprite if available, fallback to orange tint
+          // Fire effect - use published overlay sprite
           if (building.is_on_fire) {
-            const fireOverlay = getDirtyTrickOverlay(sprites, 'arson');
+            const fireOverlay = getDirtyTrickOverlay(sprites, 'fire');
             if (fireOverlay) {
-              // Draw the published fire overlay sprite
               const overlayScale = baseScale * zoom;
               const overlayWidth = fireOverlay.naturalWidth * overlayScale;
               const overlayHeight = fireOverlay.naturalHeight * overlayScale;
@@ -294,35 +275,25 @@ export function IsometricView({
                 overlayHeight
               );
               ctx.globalAlpha = 1.0;
-            } else {
-              // Fallback: orange tint overlay
-              ctx.fillStyle = 'rgba(255, 100, 0, 0.4)';
-              ctx.fillRect(
-                screenX - spriteWidth / 2,
-                screenY - spriteHeight + tileSize / 2,
-                spriteWidth,
-                spriteHeight
-              );
             }
           }
 
-          // For sale indicator (golden glow)
+          // For sale indicator - use published overlay sprite
           if (building.is_for_sale) {
-            ctx.strokeStyle = '#fbbf24';
-            ctx.lineWidth = 2 * zoom;
-            ctx.strokeRect(
-              screenX - spriteWidth / 2 - 2,
-              screenY - spriteHeight + tileSize / 2 - 2,
-              spriteWidth + 4,
-              spriteHeight + 4
-            );
+            const forSaleOverlay = getDirtyTrickOverlay(sprites, 'for_sale');
+            if (forSaleOverlay) {
+              const overlayScale = baseScale * zoom;
+              const overlayWidth = forSaleOverlay.naturalWidth * overlayScale;
+              const overlayHeight = forSaleOverlay.naturalHeight * overlayScale;
+              ctx.drawImage(
+                forSaleOverlay,
+                screenX - overlayWidth / 2,
+                screenY - overlayHeight + tileSize / 2,
+                overlayWidth,
+                overlayHeight
+              );
+            }
           }
-        } else {
-          // Fallback: draw a simple building indicator
-          ctx.fillStyle = building.is_on_fire ? '#ef4444' : '#ffffff';
-          ctx.beginPath();
-          ctx.arc(screenX, screenY - tileSize / 4, tileSize / 4, 0, Math.PI * 2);
-          ctx.fill();
         }
       }
 
@@ -345,7 +316,7 @@ export function IsometricView({
 
           // Apply stacked drop-shadow filter for thick solid outline
           if (stakeGlowColor) {
-            const outlineSize = Math.round(4 * zoom);
+            const outlineSize = Math.round(12 * zoom);
             ctx.filter = `drop-shadow(0 0 ${outlineSize}px ${stakeGlowColor}) drop-shadow(0 0 ${outlineSize}px ${stakeGlowColor}) drop-shadow(0 0 ${outlineSize}px ${stakeGlowColor})`;
           }
 
