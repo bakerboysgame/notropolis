@@ -541,6 +541,8 @@ export async function getCelebrationStatus(request, env, company) {
   return {
     success: true,
     hasPendingCelebration: true,
+    companyName: company.name,
+    companyId: company.id,
     celebration: {
       mapId: company.hero_from_map_id,
       mapName: mapDetails?.name || 'Unknown Location',

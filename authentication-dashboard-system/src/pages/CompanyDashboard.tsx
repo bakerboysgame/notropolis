@@ -150,7 +150,7 @@ export function CompanyDashboard() {
       {/* Top Navigation - Go to Map button, Celebration, or Back to Companies */}
       {company.hero_celebration_pending ? (
         <button
-          onClick={() => navigate('/hero-celebration')}
+          onClick={() => navigate(`/hero-celebration/${company.id}`)}
           className="w-full flex items-center justify-center gap-3 px-6 py-4 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg mb-6 transition-colors shadow-lg animate-pulse"
         >
           <Map className="w-6 h-6" />

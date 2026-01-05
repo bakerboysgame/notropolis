@@ -64,7 +64,7 @@ interface IsometricViewProps {
  * Shows a ~15x15 tile area with building sprites
  */
 // Outline expansion size (must match OutlineGeneratorTool OUTLINE_SIZE)
-const OUTLINE_EXPANSION = 12;
+const OUTLINE_EXPANSION = 24;
 
 export function IsometricView({
   map,
@@ -371,17 +371,30 @@ export function IsometricView({
           const spriteWidth = stakeSprite.naturalWidth * stakeScale * zoom;
           const spriteHeight = stakeSprite.naturalHeight * stakeScale * zoom;
 
-          // Blue glow for user's own claim stakes, or highlight color for tracked companies
+          // Blue outline for user's own claim stakes, or highlight color for tracked companies
           const isOwned = tile.owner_company_id === activeCompanyId;
           const stakeHighlightColor = !isOwned
             ? getCompanyHighlight(tile.owner_company_id) : null;
+          const stakeOutlineColor = isOwned ? 'rgba(59, 130, 246, 0.9)' : stakeHighlightColor;
 
-          const stakeGlowColor = isOwned ? 'rgb(59, 130, 246)' : stakeHighlightColor || null;
+          // Draw outline behind claim stake if applicable
+          if (stakeOutlineColor) {
+            const outlineSprite = getBuildingOutline(sprites, 'claim_stake');
+            if (outlineSprite) {
+              const tintedOutline = tintOutline(outlineSprite, stakeOutlineColor);
+              const outlineScale = stakeScale * zoom;
+              const outlineWidth = outlineSprite.naturalWidth * outlineScale;
+              const outlineHeight = outlineSprite.naturalHeight * outlineScale;
+              const expansionScaled = OUTLINE_EXPANSION * outlineScale;
 
-          // Apply stacked drop-shadow filter for thick solid outline
-          if (stakeGlowColor) {
-            const outlineSize = Math.round(12 * zoom);
-            ctx.filter = `drop-shadow(0 0 ${outlineSize}px ${stakeGlowColor}) drop-shadow(0 0 ${outlineSize}px ${stakeGlowColor}) drop-shadow(0 0 ${outlineSize}px ${stakeGlowColor})`;
+              ctx.drawImage(
+                tintedOutline,
+                screenX - outlineWidth / 2,
+                screenY - outlineHeight + tileSize / 2 + expansionScaled,
+                outlineWidth,
+                outlineHeight
+              );
+            }
           }
 
           ctx.drawImage(
@@ -391,11 +404,6 @@ export function IsometricView({
             spriteWidth,
             spriteHeight
           );
-
-          // Reset filter
-          if (stakeGlowColor) {
-            ctx.filter = 'none';
-          }
         }
       }
 

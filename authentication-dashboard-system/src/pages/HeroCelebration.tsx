@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { Trophy, MapPin, DollarSign, Send, Loader2 } from 'lucide-react';
 import { api } from '../services/api';
 import { useActiveCompany } from '../contexts/CompanyContext';
@@ -26,8 +26,10 @@ interface AvailableMap {
 
 export function HeroCelebration() {
   const navigate = useNavigate();
-  const { activeCompany, refreshCompany } = useActiveCompany();
+  const { companyId } = useParams<{ companyId: string }>();
+  const { refreshCompany } = useActiveCompany();
   const [celebration, setCelebration] = useState<CelebrationData | null>(null);
+  const [companyName, setCompanyName] = useState<string>('');
   const [message, setMessage] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -39,11 +41,14 @@ export function HeroCelebration() {
 
   useEffect(() => {
     const fetchCelebrationStatus = async () => {
-      if (!activeCompany) return;
+      if (!companyId) {
+        navigate('/companies');
+        return;
+      }
 
       try {
         setIsLoading(true);
-        const response = await api.get('/api/game/hero/celebration-status');
+        const response = await api.get(`/api/game/hero/celebration-status?company_id=${companyId}`);
         const data = response.data;
 
         if (!data.hasPendingCelebration) {
@@ -53,6 +58,7 @@ export function HeroCelebration() {
         }
 
         setCelebration(data.celebration);
+        setCompanyName(data.companyName || '');
       } catch (err) {
         console.error('Failed to fetch celebration status:', err);
         setError('Failed to load celebration data');
@@ -62,12 +68,12 @@ export function HeroCelebration() {
     };
 
     fetchCelebrationStatus();
-  }, [activeCompany, navigate]);
+  }, [companyId, navigate]);
 
   const fetchAvailableLocations = async () => {
     try {
       setIsLoadingMaps(true);
-      const response = await api.get('/api/game/hero/available-locations');
+      const response = await api.get(`/api/game/hero/available-locations?company_id=${companyId}`);
       setAvailableMaps(response.data.maps || []);
     } catch (err) {
       console.error('Failed to fetch locations:', err);
@@ -87,7 +93,7 @@ export function HeroCelebration() {
       setIsSubmitting(true);
       setError(null);
 
-      await api.post('/api/game/hero/leave-message', { message: message.trim() });
+      await api.post('/api/game/hero/leave-message', { message: message.trim(), company_id: companyId });
 
       // Move to location selection
       setStep('location');
@@ -106,7 +112,7 @@ export function HeroCelebration() {
       setIsJoining(true);
       setError(null);
 
-      await api.post('/api/game/hero/join-location', { map_id: mapId });
+      await api.post('/api/game/hero/join-location', { map_id: mapId, company_id: companyId });
 
       await refreshCompany();
       navigate(`/map/${mapId}`);
@@ -174,7 +180,7 @@ export function HeroCelebration() {
               </div>
 
               <h1 className="text-4xl font-bold text-white mb-2">
-                Congratulations!
+                Congratulations{companyName ? `, ${companyName}` : ''}!
               </h1>
               <p className="text-xl text-yellow-500 font-medium mb-4">
                 You've Hero'd Out of {celebration.mapName}!

@@ -316,7 +316,7 @@ function App() {
               } />
 
               {/* Hero Celebration Route */}
-              <Route path="/hero-celebration" element={
+              <Route path="/hero-celebration/:companyId" element={
                 <ProtectedRoute>
                   <Layout>
                     <HeroCelebration />

@@ -762,7 +762,7 @@ export default {
           return handleHeroGetAction(request, authService, env, corsHeaders, getAvailableLocations);
 
         case path === '/api/game/hero/celebration-status' && method === 'GET':
-          return handleHeroGetAction(request, authService, env, corsHeaders, getCelebrationStatus);
+          return handleCelebrationStatusAction(request, authService, env, corsHeaders, getCelebrationStatus);
 
         case path === '/api/game/hero/leave-message' && method === 'POST':
           return handleMarketAction(request, authService, env, corsHeaders, leaveHeroMessage);
@@ -8318,9 +8318,90 @@ async function handleHeroGetAction(request, authService, env, corsHeaders, actio
     const companyId = url.searchParams.get('company_id');
 
     // Get company and verify ownership
-    const company = await env.DB.prepare(`
-      SELECT * FROM game_companies WHERE id = ? AND user_id = ?
-    `).bind(companyId || user.id, user.id).first();
+    let company;
+    if (companyId) {
+      // If company_id provided, look up by id and verify ownership
+      company = await env.DB.prepare(`
+        SELECT * FROM game_companies WHERE id = ? AND user_id = ?
+      `).bind(companyId, user.id).first();
+    } else {
+      // If no company_id, get the user's company (first one found)
+      company = await env.DB.prepare(`
+        SELECT * FROM game_companies WHERE user_id = ? LIMIT 1
+      `).bind(user.id).first();
+    }
+
+    if (!company) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Company not found'
+      }), {
+        status: 404,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Call the action function
+    const result = await actionFn(request, env, company);
+
+    return new Response(JSON.stringify(result), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+
+  } catch (error) {
+    return new Response(JSON.stringify({
+      success: false,
+      error: error.message
+    }), {
+      status: 400,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+}
+
+/**
+ * Handler for celebration status - prioritizes companies with pending celebration
+ */
+async function handleCelebrationStatusAction(request, authService, env, corsHeaders, actionFn) {
+  const authHeader = request.headers.get('Authorization');
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return new Response(JSON.stringify({
+      success: false,
+      error: 'Unauthorized'
+    }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+
+  const token = authHeader.split(' ')[1];
+
+  try {
+    const { user } = await authService.getUserFromToken(token);
+
+    // Get company_id from query params for GET requests
+    const url = new URL(request.url);
+    const companyId = url.searchParams.get('company_id');
+
+    // Get company - prioritize ones with pending celebration
+    let company;
+    if (companyId) {
+      company = await env.DB.prepare(`
+        SELECT * FROM game_companies WHERE id = ? AND user_id = ?
+      `).bind(companyId, user.id).first();
+    } else {
+      // First try to find a company with pending celebration
+      company = await env.DB.prepare(`
+        SELECT * FROM game_companies WHERE user_id = ? AND hero_celebration_pending = 1 LIMIT 1
+      `).bind(user.id).first();
+
+      // If no pending celebration, fall back to any company
+      if (!company) {
+        company = await env.DB.prepare(`
+          SELECT * FROM game_companies WHERE user_id = ? LIMIT 1
+        `).bind(user.id).first();
+      }
+    }
 
     if (!company) {
       return new Response(JSON.stringify({

@@ -878,7 +878,7 @@ function OutlineGeneratorTool() {
   const [results, setResults] = useState<{ id: number; asset_key: string; success: boolean; error?: string }[]>([]);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  const OUTLINE_SIZE = 12; // pixels of outline expansion
+  const OUTLINE_SIZE = 24; // pixels of outline expansion (doubled for visibility)
 
   useEffect(() => {
     loadSprites();
