@@ -6266,7 +6266,7 @@ async function handleUpdateTiles(request, authService, env, corsHeaders) {
     }
 
     const validTerrainTypes = ['free_land', 'water', 'road', 'dirt_track', 'trees'];
-    const validSpecialBuildings = ['temple', 'bank', 'police_station', null];
+    const validSpecialBuildings = ['temple', 'bank', 'police_station', 'casino', null];
 
     // Check for special building constraints (max 1 of each type per map)
     const specialBuildingsToAdd = tiles

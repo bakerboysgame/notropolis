@@ -35,7 +35,7 @@ interface UseMapBuilderReturn extends MapBuilderState {
   setZoom: (zoom: number) => void;
   setOffset: (offset: { x: number; y: number }) => void;
   // Get special buildings info
-  specialBuildings: { temple: { x: number; y: number } | null; bank: { x: number; y: number } | null; police_station: { x: number; y: number } | null };
+  specialBuildings: { temple: { x: number; y: number } | null; bank: { x: number; y: number } | null; police_station: { x: number; y: number } | null; casino: { x: number; y: number } | null };
 }
 
 export interface CreateMapRequest {
@@ -83,11 +83,13 @@ export function useMapBuilder(mapId?: string): UseMapBuilderReturn {
       temple: null as { x: number; y: number } | null,
       bank: null as { x: number; y: number } | null,
       police_station: null as { x: number; y: number } | null,
+      casino: null as { x: number; y: number } | null,
     };
     state.tiles.forEach(t => {
       if (t.special_building === 'temple') result.temple = { x: t.x, y: t.y };
       if (t.special_building === 'bank') result.bank = { x: t.x, y: t.y };
       if (t.special_building === 'police_station') result.police_station = { x: t.x, y: t.y };
+      if (t.special_building === 'casino') result.casino = { x: t.x, y: t.y };
     });
     return result;
   }, [state.tiles]);

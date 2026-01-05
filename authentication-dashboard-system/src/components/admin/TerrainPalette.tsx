@@ -19,7 +19,8 @@ const TERRAIN_TOOLS: Tool[] = [
 const SPECIAL_BUILDING_TOOLS: Tool[] = [
   { id: 'temple', label: 'Temple', color: '#FFD700', special: true },
   { id: 'bank', label: 'Bank', color: '#C0C0C0', special: true },
-  { id: 'police_station', label: 'Police Station', color: '#0000FF', special: true },
+  { id: 'police_station', label: 'Police Station', color: '#22d3ee', special: true },
+  { id: 'casino', label: 'Casino', color: '#a855f7', special: true },
 ];
 
 interface TerrainPaletteProps {
@@ -31,6 +32,7 @@ interface TerrainPaletteProps {
     temple: { x: number; y: number } | null;
     bank: { x: number; y: number } | null;
     police_station: { x: number; y: number } | null;
+    casino: { x: number; y: number } | null;
   };
 }
 
@@ -41,7 +43,7 @@ export function TerrainPalette({
   onBrushSizeChange,
   specialBuildings,
 }: TerrainPaletteProps) {
-  const isSpecialTool = ['temple', 'bank', 'police_station'].includes(selectedTool as string);
+  const isSpecialTool = ['temple', 'bank', 'police_station', 'casino'].includes(selectedTool as string);
 
   return (
     <div className="w-56 bg-neutral-900 border-r border-neutral-700 p-4 flex flex-col gap-4 overflow-y-auto">

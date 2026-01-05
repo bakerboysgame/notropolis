@@ -18,7 +18,8 @@ import {
   Shield,
   Image,
   AlertCircle,
-  LucideIcon
+  LucideIcon,
+  Dices
 } from 'lucide-react'
 import { api, apiHelpers } from '../services/api'
 import { clsx } from 'clsx'
@@ -65,6 +66,7 @@ const navigation: NavigationItem[] = [
   { name: 'Statistics', href: '/statistics', icon: BarChart3, pageKey: 'statistics', requiresMapLocation: true },
   { name: 'Events', href: '/events', icon: Calendar, pageKey: 'events', requiresMapLocation: true },
   { name: 'Chat', href: '/chat', icon: MessageCircle, pageKey: 'chat', requiresMapLocation: true },
+  { name: 'Casino', href: '/casino', icon: Dices, pageKey: 'casino', requiresMapLocation: true },
 ]
 
 export default function Sidebar() {

@@ -41,7 +41,7 @@ export interface GameMap {
 }
 
 export type TerrainType = 'free_land' | 'water' | 'road' | 'dirt_track' | 'trees';
-export type SpecialBuilding = 'temple' | 'bank' | 'police_station' | null;
+export type SpecialBuilding = 'temple' | 'bank' | 'police_station' | 'casino' | null;
 
 export interface Tile {
   id: string;

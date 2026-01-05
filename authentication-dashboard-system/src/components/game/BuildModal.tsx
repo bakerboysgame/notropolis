@@ -167,101 +167,111 @@ export function BuildModal({
         )}
 
         <div className="grid md:grid-cols-2 gap-4">
-          {/* Building list */}
+          {/* Building list OR Variant selection */}
           <div>
-            <h3 className="text-sm text-gray-400 mb-2">Available Buildings</h3>
-            <div className="space-y-2 max-h-96 overflow-y-auto">
-              {loadingTypes ? (
-                <div className="p-4 text-center text-gray-400">Loading buildings...</div>
-              ) : buildingTypes.length === 0 ? (
-                <div className="p-4 text-center text-gray-400">No buildings available</div>
-              ) : (
-                buildingTypes.map(type => {
-                  const isLocked = activeCompanyLevel < type.level_required;
-                  const noLicensesRemaining = type.requires_license && type.licenses_remaining === 0;
-                  const isDisabled = isLocked || noLicensesRemaining;
-                  const isSelected = selectedType === type.id;
-
-                  return (
-                    <div
-                      key={type.id}
-                      onClick={() => !isDisabled && setSelectedType(type.id)}
-                      className={`p-3 rounded cursor-pointer transition-colors ${
-                        isDisabled
-                          ? 'bg-gray-700/50 cursor-not-allowed opacity-50'
-                          : isSelected
-                          ? 'bg-blue-600'
-                          : 'bg-gray-700 hover:bg-gray-600'
-                      }`}
-                    >
-                      <div className="flex justify-between items-start">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            <span className="font-bold text-white">{type.name}</span>
-                            {type.requires_license && type.max_per_map && (
-                              <span className={`text-xs px-2 py-0.5 rounded border ${
-                                noLicensesRemaining
-                                  ? 'bg-red-900/50 text-red-400 border-red-700'
-                                  : 'bg-purple-900/50 text-purple-400 border-purple-700'
-                              }`}>
-                                {type.licenses_remaining}/{type.max_per_map} licenses
-                              </span>
-                            )}
-                            {isLocked && (
-                              <Lock className="w-4 h-4 text-gray-500" />
-                            )}
-                          </div>
-                          <div className="text-sm mt-1">
-                            <span className="text-gray-400">Base profit:</span>{' '}
-                            <span className="text-green-400">${type.base_profit}/tick</span>
-                          </div>
-                          {isLocked && (
-                            <div className="text-xs text-gray-500 mt-1">
-                              Requires Level {type.level_required}
-                            </div>
-                          )}
-                          {noLicensesRemaining && !isLocked && (
-                            <div className="text-xs text-red-400 mt-1">
-                              No licenses available
-                            </div>
-                          )}
-                        </div>
-                        <div className="text-right">
-                          <div className="text-yellow-400 font-mono">${type.cost.toLocaleString()}</div>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-
-            {/* Variant selection - shown when a building type with variants is selected */}
-            {selectedType && availableVariants && availableVariants.length > 0 && (
-              <div className="mt-4">
-                <h3 className="text-sm text-gray-400 mb-2">Select Specialty</h3>
-                <div className="grid grid-cols-3 gap-2">
+            {/* Show variant selection when a variant-requiring building is selected */}
+            {selectedType && availableVariants && availableVariants.length > 0 ? (
+              <>
+                <div className="flex items-center gap-2 mb-2">
+                  <button
+                    onClick={() => setSelectedType(null)}
+                    className="text-gray-400 hover:text-white text-sm flex items-center gap-1"
+                  >
+                    ← Back
+                  </button>
+                  <h3 className="text-sm text-gray-400">Select {selectedBuilding?.name} Specialty</h3>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
                   {availableVariants.map(variant => (
                     <button
                       key={variant.id}
                       onClick={() => setSelectedVariant(variant.id)}
-                      className={`p-2 rounded text-center transition-colors ${
+                      className={`p-3 rounded text-center transition-colors ${
                         selectedVariant === variant.id
                           ? 'bg-purple-600 border border-purple-400'
                           : 'bg-gray-700 hover:bg-gray-600 border border-gray-600'
                       }`}
                     >
-                      <span className="text-xl">{variant.icon}</span>
-                      <p className="text-xs text-white mt-1">{variant.name}</p>
+                      <span className="text-2xl">{variant.icon}</span>
+                      <p className="text-sm text-white mt-1">{variant.name}</p>
                     </button>
                   ))}
                 </div>
                 {needsVariant && !selectedVariant && (
-                  <p className="text-xs text-yellow-400 mt-2">
+                  <p className="text-xs text-yellow-400 mt-3">
                     Select a specialty to build this {selectedBuilding?.name}
                   </p>
                 )}
-              </div>
+              </>
+            ) : (
+              <>
+                <h3 className="text-sm text-gray-400 mb-2">Available Buildings</h3>
+                <div className="space-y-2 max-h-96 overflow-y-auto">
+                  {loadingTypes ? (
+                    <div className="p-4 text-center text-gray-400">Loading buildings...</div>
+                  ) : buildingTypes.length === 0 ? (
+                    <div className="p-4 text-center text-gray-400">No buildings available</div>
+                  ) : (
+                    buildingTypes.map(type => {
+                      const isLocked = activeCompanyLevel < type.level_required;
+                      const noLicensesRemaining = type.requires_license && type.licenses_remaining === 0;
+                      const isDisabled = isLocked || noLicensesRemaining;
+                      const isSelected = selectedType === type.id;
+
+                      return (
+                        <div
+                          key={type.id}
+                          onClick={() => !isDisabled && setSelectedType(type.id)}
+                          className={`p-3 rounded cursor-pointer transition-colors ${
+                            isDisabled
+                              ? 'bg-gray-700/50 cursor-not-allowed opacity-50'
+                              : isSelected
+                              ? 'bg-blue-600'
+                              : 'bg-gray-700 hover:bg-gray-600'
+                          }`}
+                        >
+                          <div className="flex justify-between items-start">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <span className="font-bold text-white">{type.name}</span>
+                                {type.requires_license && type.max_per_map && (
+                                  <span className={`text-xs px-2 py-0.5 rounded border ${
+                                    noLicensesRemaining
+                                      ? 'bg-red-900/50 text-red-400 border-red-700'
+                                      : 'bg-purple-900/50 text-purple-400 border-purple-700'
+                                  }`}>
+                                    {type.licenses_remaining}/{type.max_per_map} licenses
+                                  </span>
+                                )}
+                                {isLocked && (
+                                  <Lock className="w-4 h-4 text-gray-500" />
+                                )}
+                              </div>
+                              <div className="text-sm mt-1">
+                                <span className="text-gray-400">Base profit:</span>{' '}
+                                <span className="text-green-400">${type.base_profit}/tick</span>
+                              </div>
+                              {isLocked && (
+                                <div className="text-xs text-gray-500 mt-1">
+                                  Requires Level {type.level_required}
+                                </div>
+                              )}
+                              {noLicensesRemaining && !isLocked && (
+                                <div className="text-xs text-red-400 mt-1">
+                                  No licenses available
+                                </div>
+                              )}
+                            </div>
+                            <div className="text-right">
+                              <div className="text-yellow-400 font-mono">${type.cost.toLocaleString()}</div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </>
             )}
           </div>
 
