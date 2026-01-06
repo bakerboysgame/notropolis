@@ -5,25 +5,18 @@ import { DEPTH_Y_MULT } from '../gameConfig';
 import {
   getBuildingUrl,
   getBuildingTextureKey,
-  getOutlineUrl,
-  getOutlineTextureKey,
   getDemolishedUrl,
   DEMOLISHED_TEXTURE_KEY,
 } from '../utils/assetLoader';
 
 // Building depth offset over terrain
 const BUILDING_DEPTH_OFFSET = 100;
-// Outline depth offset (behind building sprite)
-const OUTLINE_DEPTH_OFFSET = -1;
-// Ownership outline tint color (Tailwind blue-500)
-const OWNERSHIP_TINT = 0x3b82f6;
-// Scale factor for R2 sprites (512px -> ~126px for 2x2 building)
+// Scale factor for pogicity sprites (512px -> fits 2x2 tile footprint ~126px)
 const BUILDING_SPRITE_SCALE = 0.25;
 
 export class BuildingRenderer {
   private scene: Phaser.Scene;
   private sprites: Map<string, Phaser.GameObjects.Image> = new Map();
-  private outlines: Map<string, Phaser.GameObjects.Image> = new Map();
   private activeCompanyId: string = '';
   private loadedBuildingTypes: Set<string> = new Set();
 
@@ -43,20 +36,14 @@ export class BuildingRenderer {
       loadStarted = true;
     }
 
-    // Load building and outline textures
+    // Load building textures
     for (const typeId of buildingTypeIds) {
       if (this.loadedBuildingTypes.has(typeId)) continue;
 
       const buildingKey = getBuildingTextureKey(typeId);
-      const outlineKey = getOutlineTextureKey(typeId);
 
       if (!this.scene.textures.exists(buildingKey)) {
         this.scene.load.image(buildingKey, getBuildingUrl(typeId));
-        loadStarted = true;
-      }
-
-      if (!this.scene.textures.exists(outlineKey)) {
-        this.scene.load.image(outlineKey, getOutlineUrl(typeId));
         loadStarted = true;
       }
 
@@ -70,7 +57,7 @@ export class BuildingRenderer {
   }
 
   /**
-   * Set the active company ID for ownership outline display
+   * Set the active company ID for ownership display
    */
   setActiveCompany(companyId: string): void {
     this.activeCompanyId = companyId;
@@ -123,18 +110,10 @@ export class BuildingRenderer {
       // Apply damage tint
       this.applyDamageTint(sprite, building.damage_percent);
 
-      // Handle ownership outline
+      // Apply ownership tint (blue tint for owned buildings)
       const isOwned = building.company_id === this.activeCompanyId;
-      if (isOwned && !building.is_collapsed) {
-        this.updateOutline(
-          building.id,
-          building.building_type_id,
-          screenX,
-          screenY,
-          depth + OUTLINE_DEPTH_OFFSET
-        );
-      } else {
-        this.removeOutline(building.id);
+      if (isOwned && !building.is_collapsed && building.damage_percent === 0) {
+        sprite.setTint(0x8888ff); // Light blue tint for ownership
       }
     }
 
@@ -143,7 +122,6 @@ export class BuildingRenderer {
       if (!currentIds.has(id)) {
         sprite.destroy();
         this.sprites.delete(id);
-        this.removeOutline(id);
       }
     }
   }
@@ -165,60 +143,13 @@ export class BuildingRenderer {
   }
 
   /**
-   * Update or create ownership outline for a building
-   */
-  private updateOutline(
-    buildingId: string,
-    buildingTypeId: string,
-    x: number,
-    y: number,
-    depth: number
-  ): void {
-    const outlineKey = getOutlineTextureKey(buildingTypeId);
-
-    // Skip if outline texture not loaded
-    if (!this.scene.textures.exists(outlineKey)) {
-      return;
-    }
-
-    let outline = this.outlines.get(buildingId);
-    if (!outline) {
-      outline = this.scene.add.image(x, y, outlineKey);
-      outline.setOrigin(0.5, 1); // Match building anchor
-      outline.setScale(BUILDING_SPRITE_SCALE);
-      this.outlines.set(buildingId, outline);
-    }
-
-    outline.setPosition(x, y);
-    outline.setDepth(depth);
-    outline.setTint(OWNERSHIP_TINT);
-    outline.setVisible(true);
-  }
-
-  /**
-   * Remove ownership outline for a building
-   */
-  private removeOutline(buildingId: string): void {
-    const outline = this.outlines.get(buildingId);
-    if (outline) {
-      outline.destroy();
-      this.outlines.delete(buildingId);
-    }
-  }
-
-  /**
-   * Clear all building sprites and outlines
+   * Clear all building sprites
    */
   clear(): void {
     for (const sprite of this.sprites.values()) {
       sprite.destroy();
     }
     this.sprites.clear();
-
-    for (const outline of this.outlines.values()) {
-      outline.destroy();
-    }
-    this.outlines.clear();
   }
 
   /**

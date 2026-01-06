@@ -1,16 +1,7 @@
 import { useState, useRef } from 'react';
 import { PhaserGame, PhaserGameHandle } from '../components/game/phaser/PhaserGame';
 import type { GameMap, Tile, BuildingInstance, TerrainType } from '../types/game';
-
-// Available building types from R2
-const BUILDING_TYPES = [
-  'bank_v9',
-  'burger_bar_v10',
-  'campsite_v4',
-  'casino_v5',
-  'bank_v8',
-  'burger_bar_v4',
-];
+import { AVAILABLE_BUILDING_TYPES } from '../components/game/phaser/utils/assetLoader';
 
 // Mock map data
 const mockMap: GameMap = {
@@ -81,7 +72,7 @@ export function PhaserTest() {
   const [characterCount, setCharacterCount] = useState(0);
   const [carCount, setCarCount] = useState(0);
   const [buildings, setBuildings] = useState<BuildingInstance[]>(initialBuildings);
-  const [selectedBuildingType, setSelectedBuildingType] = useState(BUILDING_TYPES[0]);
+  const [selectedBuildingType, setSelectedBuildingType] = useState(AVAILABLE_BUILDING_TYPES[0]);
   const [placementMode, setPlacementMode] = useState(true);
   const [buildingIdCounter, setBuildingIdCounter] = useState(1);
   const gameRef = useRef<PhaserGameHandle>(null);
@@ -206,9 +197,9 @@ export function PhaserTest() {
             onChange={(e) => setSelectedBuildingType(e.target.value)}
             className="bg-gray-800 text-white px-2 py-1 rounded text-xs w-full"
           >
-            {BUILDING_TYPES.map((type) => (
+            {AVAILABLE_BUILDING_TYPES.map((type) => (
               <option key={type} value={type}>
-                {type}
+                {type.replace(/_/g, ' ')}
               </option>
             ))}
           </select>
