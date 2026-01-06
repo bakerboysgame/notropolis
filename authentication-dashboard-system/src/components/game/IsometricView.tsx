@@ -9,9 +9,9 @@ import {
 } from '../../utils/isometricRenderer';
 import { useHighlights } from '../../contexts/HighlightContext';
 
-// Responsive tile size: 64px for mobile/tablet, 128px for desktop
+// Responsive tile size: 64px for mobile/tablet, 85px for desktop (2/3 of 128)
 const MOBILE_TILE_SIZE = 64;
-const DESKTOP_TILE_SIZE = 128;
+const DESKTOP_TILE_SIZE = 85;
 const BREAKPOINT = 1024; // lg breakpoint
 const VIEWPORT_TILES = 15; // Show ~15x15 tiles in view
 
@@ -217,7 +217,7 @@ export function IsometricView({
           ctx.drawImage(
             terrainSprite,
             screenX - spriteWidth / 2,
-            screenY - spriteHeight / 2,
+            screenY - spriteHeight + tileSize / 2,
             spriteWidth,
             spriteHeight
           );
@@ -238,11 +238,11 @@ export function IsometricView({
           const spriteWidth = specialSprite.naturalWidth * baseScale * zoom * mapScale;
           const spriteHeight = specialSprite.naturalHeight * baseScale * zoom * mapScale;
 
-          // Center sprite on tile
+          // Center horizontally on tile, bottom at tile center
           ctx.drawImage(
             specialSprite,
             screenX - spriteWidth / 2,
-            screenY - spriteHeight / 2,
+            screenY - spriteHeight + tileSize / 2,
             spriteWidth,
             spriteHeight
           );
@@ -287,31 +287,28 @@ export function IsometricView({
               // Tint the white outline with the highlight color
               const tintedOutline = tintOutline(outlineSprite, outlineColor);
 
-              // Outline has OUTLINE_SIZE padding around sprite, so position it
-              // so the inner sprite area aligns with where the sprite will be drawn
+              // Scale outline same as sprite
               const outlineScale = baseScale * zoom * mapScale;
               const outlineWidth = outlineSprite.naturalWidth * outlineScale;
               const outlineHeight = outlineSprite.naturalHeight * outlineScale;
-              const outlinePaddingX = (outlineWidth - spriteWidth) / 2;
-              const outlinePaddingY = (outlineHeight - spriteHeight) / 2;
 
-              // Sprite top-left is at (screenX - spriteWidth/2, screenY - spriteHeight/2)
-              // Outline top-left should be offset by -padding from sprite top-left
+              // Center outline on same center point as sprite
+              // Sprite center: (screenX, screenY - spriteHeight/2 + tileSize/2)
               ctx.drawImage(
                 tintedOutline,
-                screenX - spriteWidth / 2 - outlinePaddingX,
-                screenY - spriteHeight / 2 - outlinePaddingY,
+                screenX - outlineWidth / 2,
+                screenY - spriteHeight / 2 + tileSize / 2 - outlineHeight / 2,
                 outlineWidth,
                 outlineHeight
               );
             }
           }
 
-          // Building sprite centered on tile
+          // Building sprite centered horizontally, bottom at tile bottom
           ctx.drawImage(
             buildingSprite,
             screenX - spriteWidth / 2,
-            screenY - spriteHeight / 2,
+            screenY - spriteHeight + tileSize / 2,
             spriteWidth,
             spriteHeight
           );
@@ -321,7 +318,7 @@ export function IsometricView({
             ctx.fillStyle = `rgba(0, 0, 0, ${building.damage_percent / 200})`;
             ctx.fillRect(
               screenX - spriteWidth / 2,
-              screenY - spriteHeight / 2,
+              screenY - spriteHeight + tileSize / 2,
               spriteWidth,
               spriteHeight
             );
@@ -338,7 +335,7 @@ export function IsometricView({
               ctx.drawImage(
                 fireOverlay,
                 screenX - overlayWidth / 2,
-                screenY - overlayHeight / 2,
+                screenY - overlayHeight + tileSize / 2,
                 overlayWidth,
                 overlayHeight
               );
@@ -356,7 +353,7 @@ export function IsometricView({
               ctx.drawImage(
                 forSaleOverlay,
                 screenX - overlayWidth / 2,
-                screenY - overlayHeight / 2,
+                screenY - overlayHeight + tileSize / 2,
                 overlayWidth,
                 overlayHeight
               );
@@ -389,13 +386,12 @@ export function IsometricView({
               const outlineScale = stakeScale * zoom;
               const outlineWidth = outlineSprite.naturalWidth * outlineScale;
               const outlineHeight = outlineSprite.naturalHeight * outlineScale;
-              const outlinePaddingX = (outlineWidth - spriteWidth) / 2;
-              const outlinePaddingY = (outlineHeight - spriteHeight) / 2;
 
+              // Center outline on same center point as stake sprite
               ctx.drawImage(
                 tintedOutline,
-                screenX - spriteWidth / 2 - outlinePaddingX,
-                screenY - spriteHeight / 2 - outlinePaddingY,
+                screenX - outlineWidth / 2,
+                screenY - spriteHeight / 2 + tileSize / 2 - outlineHeight / 2,
                 outlineWidth,
                 outlineHeight
               );
@@ -405,7 +401,7 @@ export function IsometricView({
           ctx.drawImage(
             stakeSprite,
             screenX - spriteWidth / 2,
-            screenY - spriteHeight / 2,
+            screenY - spriteHeight + tileSize / 2,
             spriteWidth,
             spriteHeight
           );
