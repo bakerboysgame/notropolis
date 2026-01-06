@@ -200,6 +200,9 @@ export class MainScene extends Phaser.Scene {
       const center = gridToScreen(centerTile.x, centerTile.y);
       this.cameras.main.centerOn(center.x, center.y);
     }
+
+    // Force Phaser to update the display after all sprites are created
+    this.scene.manager.update(Date.now(), 16);
   }
 
   /**
