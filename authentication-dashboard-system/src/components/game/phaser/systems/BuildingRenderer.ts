@@ -18,7 +18,7 @@ import {
 export class BuildingRenderer {
   private scene: Phaser.Scene;
   private sprites: Map<string, SliceSprites> = new Map();
-  private activeCompanyId: string = '';
+  // private activeCompanyId: string = ''; // Disabled - ownership tint removed
   private loadedBuildingTypes: Set<string> = new Set();
 
   constructor(scene: Phaser.Scene) {
@@ -58,10 +58,10 @@ export class BuildingRenderer {
   }
 
   /**
-   * Set the active company ID for ownership display
+   * Set the active company ID for ownership display (disabled - ownership tint removed)
    */
-  setActiveCompany(companyId: string): void {
-    this.activeCompanyId = companyId;
+  setActiveCompany(_companyId: string): void {
+    // this.activeCompanyId = _companyId;
   }
 
   /**
