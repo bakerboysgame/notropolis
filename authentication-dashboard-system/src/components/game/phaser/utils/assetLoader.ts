@@ -1,4 +1,9 @@
 import { TerrainType } from '../../../../types/game';
+import {
+  getBuildingMetadata,
+  getBuildingFootprint,
+  getBuildingRenderSize
+} from '../../../../config/buildingMetadata';
 
 // Local terrain tiles (pogicity-style isometric diamonds)
 const LOCAL_TERRAIN_MAPPING: Record<TerrainType, string> = {
@@ -99,3 +104,78 @@ export const DEMOLISHED_TEXTURE_KEY = 'building_demolished';
 
 // Export available building types for UI
 export const AVAILABLE_BUILDING_TYPES = Object.keys(LOCAL_BUILDING_MAPPING);
+
+// ============================================
+// SPRITE URL CACHE (populated from Asset Manager API)
+// ============================================
+
+// Cache of building sprite URLs from Asset Manager
+// Key: building_type_id, Value: sprite URL (may require auth to load)
+const buildingSpriteCache: Map<string, string> = new Map();
+
+// Cache of blob URLs for Phaser (created from authenticated fetch)
+// Key: building_type_id, Value: blob URL that can be used directly
+const buildingBlobCache: Map<string, string> = new Map();
+
+/**
+ * Set sprite URL for a building type (called when loading from Asset Manager API)
+ */
+export function setBuildingSpriteUrl(buildingTypeId: string, url: string): void {
+  buildingSpriteCache.set(buildingTypeId, url);
+}
+
+/**
+ * Set blob URL for a building type (for Phaser loading after authenticated fetch)
+ */
+export function setBuildingBlobUrl(buildingTypeId: string, blobUrl: string): void {
+  buildingBlobCache.set(buildingTypeId, blobUrl);
+}
+
+/**
+ * Populate sprite cache from Asset Manager API response
+ * Call this when game loads with data from authenticated API call
+ * Format matches /api/assets/buildings/published response
+ */
+export function populateBuildingSpriteCache(
+  sprites: Record<string, { url: string; outline_url?: string }>
+): void {
+  for (const [buildingTypeId, sprite] of Object.entries(sprites)) {
+    if (sprite.url) {
+      buildingSpriteCache.set(buildingTypeId, sprite.url);
+    }
+  }
+}
+
+/**
+ * Get building sprite URL (with Asset Manager cache priority)
+ * Priority: 1) Blob cache (ready for Phaser), 2) Asset Manager URL, 3) Local fallback, 4) Default
+ *
+ * NOTE: R2 URLs require authentication. For Phaser, use blob cache after
+ * fetching with auth and converting to blob.
+ */
+export function getBuildingSpriteUrl(buildingTypeId: string): string {
+  // First check blob cache (already authenticated and ready for Phaser)
+  const blobUrl = buildingBlobCache.get(buildingTypeId);
+  if (blobUrl) return blobUrl;
+
+  // Check Asset Manager cache (may need auth to load)
+  const cachedUrl = buildingSpriteCache.get(buildingTypeId);
+  if (cachedUrl) return cachedUrl;
+
+  // Fall back to getBuildingUrl which checks local mapping
+  return getBuildingUrl(buildingTypeId);
+}
+
+/**
+ * Clear blob cache (call on logout or when sprites are republished)
+ */
+export function clearBuildingBlobCache(): void {
+  // Revoke all blob URLs to free memory
+  for (const blobUrl of buildingBlobCache.values()) {
+    URL.revokeObjectURL(blobUrl);
+  }
+  buildingBlobCache.clear();
+}
+
+// Export metadata helpers
+export { getBuildingMetadata, getBuildingFootprint, getBuildingRenderSize };

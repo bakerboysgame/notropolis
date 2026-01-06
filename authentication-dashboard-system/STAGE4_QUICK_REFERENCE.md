@@ -6,6 +6,7 @@
 - Worker API: https://api.notropolis.net
 - Frontend: https://boss.notropolis.net
 - **Movement Speeds:** Characters at 10%, Vehicles at 15% of original (slower, more realistic)
+- **Depth Sorting:** Fixed - entities now properly render behind/in front of buildings based on position
 
 ## 🎮 Testing with UI Controls (Recommended)
 

@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { loadGifAsAnimation, playGifAnimation } from '../GifLoader';
 import { gridToScreen } from '../utils/coordinates';
-import { DEPTH_Y_MULT } from '../gameConfig';
+import { depthFromSortPoint } from '../gameConfig';
 
 type Direction = 'up' | 'down' | 'left' | 'right';
 
@@ -105,7 +105,8 @@ export class CharacterSystem {
     const sprite = this.scene.add.sprite(x, y, textureKey);
     sprite.setOrigin(0.5, 1); // Anchor at bottom center for proper positioning
     sprite.setScale(0.5); // Scale down the sprites
-    sprite.setDepth((gridX + gridY) * DEPTH_Y_MULT + 5000); // High offset to render above terrain/buildings
+    // Use screen Y for depth sorting - allows characters to render behind/in front of buildings naturally
+    sprite.setDepth(depthFromSortPoint(x, y, 0.2));
 
     // Start animation
     playGifAnimation(sprite, textureKey);
@@ -165,8 +166,8 @@ export class CharacterSystem {
     const { x, y } = gridToScreen(char.gridX, char.gridY);
     char.sprite.setPosition(x, y);
 
-    // Update depth for correct draw order
-    char.sprite.setDepth((char.gridX + char.gridY) * DEPTH_Y_MULT + 5000);
+    // Update depth for correct draw order (based on screen Y position)
+    char.sprite.setDepth(depthFromSortPoint(x, y, 0.2));
 
     // Update animation to match direction
     const animKey = `banana_${char.direction}`;

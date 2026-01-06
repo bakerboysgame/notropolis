@@ -3,7 +3,30 @@
 **Status:** ✅ COMPLETE & DEPLOYED
 **Date:** January 6, 2026
 **Production URL:** https://boss.notropolis.net
-**Latest Update:** Movement speeds reduced (Characters: 10%, Vehicles: 15% of original)
+**Latest Update:** Fixed depth sorting for proper rendering with buildings
+
+---
+
+## 🔧 Critical Fix: Depth Sorting
+
+**Problem Identified**: Characters and vehicles were using fixed high depth offsets (+5000, +6000), causing them to **always render on top of buildings**, even when they should appear behind buildings (e.g., when walking north of a building).
+
+**Root Cause**: Using grid-based depth calculation with large offsets prevented proper isometric sorting.
+
+**Solution Implemented**: Ported pogocity's screen-based depth sorting system:
+- Added `depthFromSortPoint(sortX, sortY, layerOffset)` to [gameConfig.ts:20](src/components/game/phaser/gameConfig.ts#L20)
+- Formula: `sortY * DEPTH_Y_MULT + sortX + layerOffset`
+- Uses **screen Y coordinate** (not grid) for natural depth ordering
+- Layer offsets for micro-layering:
+  - Vehicles: 0.1 (render slightly behind characters)
+  - Characters: 0.2 (render slightly in front of vehicles)
+- Updated [CharacterSystem.ts:109](src/components/game/phaser/systems/CharacterSystem.ts#L109) and [CharacterSystem.ts:170](src/components/game/phaser/systems/CharacterSystem.ts#L170)
+- Updated [VehicleSystem.ts:141](src/components/game/phaser/systems/VehicleSystem.ts#L141) and [VehicleSystem.ts:230](src/components/game/phaser/systems/VehicleSystem.ts#L230)
+
+**Result**: Characters and vehicles now **properly sort with buildings** based on their isometric position:
+- When south of a building → render in front ✓
+- When north of a building → render behind ✓
+- Creates correct visual depth for entities moving between buildings ✓
 
 ---
 
@@ -103,7 +126,7 @@ gifuct-js (npm package)
 - **Sprite Management:** Each character has a Phaser sprite with GIF animation
 - **Movement:** Characters pick random targets and walk toward them
 - **Animation:** 4 directional GIF animations (banana_up/down/left/right)
-- **Depth Sorting:** Uses `(gridX + gridY) * DEPTH_Y_MULT + 150` for proper layering
+- **Depth Sorting:** Uses `depthFromSortPoint(screenX, screenY, 0.2)` for proper isometric layering
 - **Bounds:** Constrained to map bounds with margin
 
 ### Vehicle System Architecture
@@ -112,6 +135,7 @@ gifuct-js (npm package)
 - **Turning Logic:** Checks adjacent tiles, picks random valid road direction
 - **Dead-End Handling:** Teleports to new road position if stuck
 - **Vehicle Types:** Supports taxi and jeep with directional sprites
+- **Depth Sorting:** Uses `depthFromSortPoint(screenX, screenY, 0.1)` for proper isometric layering
 
 ### Performance Characteristics
 - **Target:** Smooth performance with 20+ entities
@@ -127,12 +151,12 @@ gifuct-js (npm package)
 ✅ **Successfully Deployed to Production**
 
 ### Deployment Details:
-- **Frontend URL:** https://60b7efac.notropolis-dashboard.pages.dev (boss.notropolis.net)
+- **Frontend URL:** https://c21853eb.notropolis-dashboard.pages.dev (boss.notropolis.net)
 - **Worker API:** https://api.notropolis.net
-- **Build:** ✓ 1569 modules transformed, 4.10s
+- **Build:** ✓ 1569 modules transformed, 5.56s
 - **Upload:** 312 files, 2 new files deployed
-- **Deployment Time:** January 6, 2026 14:25 UTC
-- **Latest Update:** Reduced movement speeds (Characters: 10%, Vehicles: 15% of original)
+- **Deployment Time:** January 6, 2026 (latest)
+- **Latest Update:** Fixed depth sorting for proper rendering with buildings
 
 ### What Was Deployed:
 - Character GIF files in `/Characters/` ✓

@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { Tile } from '../../../../types/game';
 import { gridToScreen } from '../utils/coordinates';
-import { DEPTH_Y_MULT } from '../gameConfig';
+import { depthFromSortPoint } from '../gameConfig';
 
 type Direction = 'up' | 'down' | 'left' | 'right';
 type VehicleType = 'taxi' | 'jeep';
@@ -137,7 +137,8 @@ export class VehicleSystem {
     const sprite = this.scene.add.sprite(x, y, textureKey);
     sprite.setOrigin(0.5, 0.5);
     sprite.setScale(0.4);
-    sprite.setDepth((gridX + gridY) * DEPTH_Y_MULT + 6000); // High offset to render above terrain/buildings/characters
+    // Use screen Y for depth sorting - allows vehicles to render behind/in front of buildings naturally
+    sprite.setDepth(depthFromSortPoint(x, y, 0.1));
 
     const vehicle: Vehicle = {
       id,
@@ -225,8 +226,8 @@ export class VehicleSystem {
     const { x, y } = gridToScreen(vehicle.gridX, vehicle.gridY);
     vehicle.sprite.setPosition(x, y);
 
-    // Update depth for correct draw order
-    vehicle.sprite.setDepth((vehicle.gridX + vehicle.gridY) * DEPTH_Y_MULT + 6000);
+    // Update depth for correct draw order (based on screen Y position)
+    vehicle.sprite.setDepth(depthFromSortPoint(x, y, 0.1));
   }
 
   /**
