@@ -20,23 +20,30 @@ const mockMap: GameMap = {
   is_active: true,
 };
 
-// Generate 200×200 map with random terrain
+// Generate 200×200 map with road grid and random terrain
 function generateMockTiles(): Tile[] {
   const tiles: Tile[] = [];
 
   for (let y = 0; y < 200; y++) {
     for (let x = 0; x < 200; x++) {
-      // Random terrain with weighted distribution
       let terrainType: TerrainType = 'free_land';
-      const rand = Math.random();
 
-      if (rand < 0.5) terrainType = 'free_land';      // 50%
-      else if (rand < 0.6) terrainType = 'road';      // 10%
-      else if (rand < 0.7) terrainType = 'trees';     // 10%
-      else if (rand < 0.8) terrainType = 'dirt_track'; // 10%
-      else if (rand < 0.85) terrainType = 'water';    // 5%
-      else if (rand < 0.9) terrainType = 'snow';      // 5%
-      else terrainType = 'sand';                      // 10%
+      // Create road grid every 20 tiles (5 notropolis tiles)
+      const isHorizontalRoad = y % 20 === 0 || y % 20 === 1;
+      const isVerticalRoad = x % 20 === 0 || x % 20 === 1;
+
+      if (isHorizontalRoad || isVerticalRoad) {
+        terrainType = 'road';
+      } else {
+        // Random terrain for non-road tiles
+        const rand = Math.random();
+        if (rand < 0.6) terrainType = 'free_land';      // 60%
+        else if (rand < 0.7) terrainType = 'trees';     // 10%
+        else if (rand < 0.8) terrainType = 'dirt_track'; // 10%
+        else if (rand < 0.85) terrainType = 'water';    // 5%
+        else if (rand < 0.92) terrainType = 'snow';     // 7%
+        else terrainType = 'sand';                      // 8%
+      }
 
       tiles.push({
         id: `tile-${x}-${y}`,
