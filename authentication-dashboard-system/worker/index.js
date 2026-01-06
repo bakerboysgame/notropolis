@@ -134,8 +134,23 @@ export default {
     const method = request.method;
     
     // Enhanced CORS headers for SaaS dashboard
+    // Allow localhost for development
+    const origin = request.headers.get('Origin');
+    const allowedOrigins = [
+      'https://boss.notropolis.net',
+      'https://bossmode.notropolis.net',
+      'http://localhost:3006',
+      'http://localhost:3000',
+      'http://localhost:3001',
+      'http://localhost:3002',
+      'http://localhost:3003',
+      'http://localhost:3004',
+      'http://localhost:3005'
+    ];
+    const corsOrigin = (origin && allowedOrigins.includes(origin)) ? origin : (env.CORS_ORIGIN || 'https://boss.notropolis.net');
+
     const corsHeaders = {
-      'Access-Control-Allow-Origin': env.CORS_ORIGIN || 'https://bossmode.notropolis.net',
+      'Access-Control-Allow-Origin': corsOrigin,
       'Access-Control-Allow-Methods': 'GET, POST, PATCH, PUT, DELETE, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type, Authorization',
       'Access-Control-Allow-Credentials': 'true',
