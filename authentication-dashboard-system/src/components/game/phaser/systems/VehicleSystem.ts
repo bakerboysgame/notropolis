@@ -137,7 +137,7 @@ export class VehicleSystem {
     const sprite = this.scene.add.sprite(x, y, textureKey);
     sprite.setOrigin(0.5, 0.5);
     sprite.setScale(0.4);
-    sprite.setDepth((gridX + gridY) * DEPTH_Y_MULT + 160);
+    sprite.setDepth((gridX + gridY) * DEPTH_Y_MULT + 6000); // High offset to render above terrain/buildings/characters
 
     const vehicle: Vehicle = {
       id,
@@ -226,7 +226,7 @@ export class VehicleSystem {
     vehicle.sprite.setPosition(x, y);
 
     // Update depth for correct draw order
-    vehicle.sprite.setDepth((vehicle.gridX + vehicle.gridY) * DEPTH_Y_MULT + 160);
+    vehicle.sprite.setDepth((vehicle.gridX + vehicle.gridY) * DEPTH_Y_MULT + 6000);
   }
 
   /**

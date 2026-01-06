@@ -11,7 +11,7 @@ export function screenToGrid(screenX: number, screenY: number): { x: number; y: 
   const halfW = TILE_WIDTH / 2;
   const halfH = TILE_HEIGHT / 2;
   return {
-    x: Math.floor((screenX / halfW + screenY / halfH) / 2),
-    y: Math.floor((screenY / halfH - screenX / halfW) / 2),
+    x: Math.round((screenX / halfW + screenY / halfH) / 2),
+    y: Math.round((screenY / halfH - screenX / halfW) / 2),
   };
 }

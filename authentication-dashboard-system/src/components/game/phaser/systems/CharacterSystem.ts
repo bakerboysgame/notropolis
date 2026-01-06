@@ -105,7 +105,7 @@ export class CharacterSystem {
     const sprite = this.scene.add.sprite(x, y, textureKey);
     sprite.setOrigin(0.5, 1); // Anchor at bottom center for proper positioning
     sprite.setScale(0.5); // Scale down the sprites
-    sprite.setDepth((gridX + gridY) * DEPTH_Y_MULT + 150);
+    sprite.setDepth((gridX + gridY) * DEPTH_Y_MULT + 5000); // High offset to render above terrain/buildings
 
     // Start animation
     playGifAnimation(sprite, textureKey);
@@ -166,7 +166,7 @@ export class CharacterSystem {
     char.sprite.setPosition(x, y);
 
     // Update depth for correct draw order
-    char.sprite.setDepth((char.gridX + char.gridY) * DEPTH_Y_MULT + 150);
+    char.sprite.setDepth((char.gridX + char.gridY) * DEPTH_Y_MULT + 5000);
 
     // Update animation to match direction
     const animKey = `banana_${char.direction}`;

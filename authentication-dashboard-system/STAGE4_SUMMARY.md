@@ -2,7 +2,8 @@
 
 **Status:** ✅ COMPLETE & DEPLOYED
 **Date:** January 6, 2026
-**Deployment:** https://4b763299.notropolis-dashboard.pages.dev
+**Production URL:** https://boss.notropolis.net
+**Latest Update:** Movement speeds reduced (Characters: 10%, Vehicles: 15% of original)
 
 ---
 
@@ -115,8 +116,8 @@ gifuct-js (npm package)
 ### Performance Characteristics
 - **Target:** Smooth performance with 20+ entities
 - **Update Frequency:** 60 FPS (Phaser default)
-- **Character Speed:** ~2 tiles per second
-- **Vehicle Speed:** ~5 tiles per second
+- **Character Speed:** 0.002 grid units/ms (~0.2 tiles per second)
+- **Vehicle Speed:** 0.0075 grid units/ms (~0.75 tiles per second)
 - **Memory:** Object pooling not implemented (fine for <100 entities)
 
 ---
@@ -126,11 +127,12 @@ gifuct-js (npm package)
 ✅ **Successfully Deployed to Production**
 
 ### Deployment Details:
-- **Frontend URL:** https://4b763299.notropolis-dashboard.pages.dev
+- **Frontend URL:** https://60b7efac.notropolis-dashboard.pages.dev (boss.notropolis.net)
 - **Worker API:** https://api.notropolis.net
-- **Build:** ✓ 1569 modules transformed, 4.05s
+- **Build:** ✓ 1569 modules transformed, 4.10s
 - **Upload:** 312 files, 2 new files deployed
-- **Deployment Time:** January 6, 2026 14:20 UTC
+- **Deployment Time:** January 6, 2026 14:25 UTC
+- **Latest Update:** Reduced movement speeds (Characters: 10%, Vehicles: 15% of original)
 
 ### What Was Deployed:
 - Character GIF files in `/Characters/` ✓
@@ -139,11 +141,13 @@ gifuct-js (npm package)
 - UI controls with real-time counters ✓
 
 ### Test in Production:
-1. Navigate to https://4b763299.notropolis-dashboard.pages.dev
+1. Navigate to https://boss.notropolis.net
 2. Go to a map in zoomed view
 3. Look for the "NPCs & Vehicles" panel in bottom-left corner
 4. Click buttons to spawn characters and vehicles
 5. Watch the counters update in real-time
+6. Characters now move at slower pace (~0.2 tiles/sec)
+7. Vehicles move at slower pace (~0.75 tiles/sec)
 
 ---
 

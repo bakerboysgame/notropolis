@@ -15,14 +15,15 @@ Stage 4 implementation includes:
 
 ✅ **Deployed to production:**
 - Worker API: https://api.notropolis.net
-- Frontend: https://4b763299.notropolis-dashboard.pages.dev
+- Frontend: https://boss.notropolis.net
 
 ## How to Test
 
-1. Navigate to your production site
+1. Navigate to https://boss.notropolis.net
 2. Go to a game map (e.g., /map/{your-map-id})
 3. Click any tile to enter zoomed (isometric) view
 4. Look for the **"NPCs & Vehicles"** control panel in the bottom-left corner
+5. Movement speeds have been reduced for more realistic pacing
 
 ## Testing via UI Controls (Recommended)
 

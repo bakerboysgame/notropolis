@@ -4,17 +4,19 @@
 
 ✅ **Deployed to production:**
 - Worker API: https://api.notropolis.net
-- Frontend: https://4b763299.notropolis-dashboard.pages.dev
+- Frontend: https://boss.notropolis.net
+- **Movement Speeds:** Characters at 10%, Vehicles at 15% of original (slower, more realistic)
 
 ## 🎮 Testing with UI Controls (Recommended)
 
-1. Open the map in zoomed view
-2. Find the **"NPCs & Vehicles"** panel in bottom-left corner
-3. Use the buttons:
-   - 🚶 **Character** - Spawn a walking character
-   - 🚗 **Vehicle** - Spawn a car on a road
+1. Navigate to https://boss.notropolis.net
+2. Open the map in zoomed view
+3. Find the **"NPCs & Vehicles"** panel in bottom-left corner
+4. Use the buttons:
+   - 🚶 **Character** - Spawn a walking character (slower pace)
+   - 🚗 **Vehicle** - Spawn a car on a road (slower pace)
    - **Clear All** - Remove all entities
-4. Watch the counters update in real-time
+5. Watch the counters update in real-time
 
 ## 🧪 Testing Commands (Browser Console - Advanced)
 
