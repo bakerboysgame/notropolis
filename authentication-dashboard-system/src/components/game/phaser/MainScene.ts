@@ -159,20 +159,21 @@ export class MainScene extends Phaser.Scene {
   /**
    * Apply scene data to renderers
    */
-  private applySceneData(): void {
+  private async applySceneData(): Promise<void> {
     if (!this.sceneData) return;
 
     // Ensure building textures are preloaded (in case setSceneData was called before preload)
     if (this.buildingRenderer) {
       const buildingTypeIds = [...new Set(this.sceneData.buildings.map((b) => b.building_type_id))];
-      this.buildingRenderer.preloadTextures(buildingTypeIds);
+      // Wait for textures to finish loading before rendering buildings
+      await this.buildingRenderer.preloadTextures(buildingTypeIds);
       this.buildingRenderer.setActiveCompany(this.sceneData.activeCompanyId);
     }
 
     // Update terrain
     this.terrainRenderer.updateTiles(this.sceneData.tiles);
 
-    // Update buildings
+    // Update buildings (textures are now guaranteed to be loaded)
     this.buildingRenderer.updateBuildings(this.sceneData.buildings, this.tileMap);
 
     // Update effects (fire, for-sale)

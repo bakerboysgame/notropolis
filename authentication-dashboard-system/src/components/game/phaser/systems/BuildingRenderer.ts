@@ -27,34 +27,44 @@ export class BuildingRenderer {
 
   /**
    * Preload building textures. Call dynamically when buildings array changes.
+   * @returns Promise that resolves when all textures are loaded
    */
-  preloadTextures(buildingTypeIds: string[]): void {
-    let loadStarted = false;
+  preloadTextures(buildingTypeIds: string[]): Promise<void> {
+    return new Promise((resolve) => {
+      let loadStarted = false;
 
-    // Load demolished texture
-    if (!this.scene.textures.exists(DEMOLISHED_TEXTURE_KEY)) {
-      this.scene.load.image(DEMOLISHED_TEXTURE_KEY, getDemolishedUrl());
-      loadStarted = true;
-    }
-
-    // Load building textures
-    for (const typeId of buildingTypeIds) {
-      if (this.loadedBuildingTypes.has(typeId)) continue;
-
-      const buildingKey = getBuildingTextureKey(typeId);
-
-      if (!this.scene.textures.exists(buildingKey)) {
-        this.scene.load.image(buildingKey, getBuildingUrl(typeId));
+      // Load demolished texture
+      if (!this.scene.textures.exists(DEMOLISHED_TEXTURE_KEY)) {
+        this.scene.load.image(DEMOLISHED_TEXTURE_KEY, getDemolishedUrl());
         loadStarted = true;
       }
 
-      this.loadedBuildingTypes.add(typeId);
-    }
+      // Load building textures
+      for (const typeId of buildingTypeIds) {
+        if (this.loadedBuildingTypes.has(typeId)) continue;
 
-    // Start loading if new assets were queued
-    if (loadStarted) {
-      this.scene.load.start();
-    }
+        const buildingKey = getBuildingTextureKey(typeId);
+
+        if (!this.scene.textures.exists(buildingKey)) {
+          this.scene.load.image(buildingKey, getBuildingUrl(typeId));
+          loadStarted = true;
+        }
+
+        this.loadedBuildingTypes.add(typeId);
+      }
+
+      // Start loading if new assets were queued
+      if (loadStarted) {
+        // Listen for load complete event once
+        this.scene.load.once('complete', () => {
+          resolve();
+        });
+        this.scene.load.start();
+      } else {
+        // No loading needed, resolve immediately
+        resolve();
+      }
+    });
   }
 
   /**
