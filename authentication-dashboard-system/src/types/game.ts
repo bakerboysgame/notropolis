@@ -40,7 +40,7 @@ export interface GameMap {
   is_active: boolean;
 }
 
-export type TerrainType = 'free_land' | 'water' | 'road' | 'dirt_track' | 'trees';
+export type TerrainType = 'free_land' | 'water' | 'road' | 'dirt_track' | 'trees' | 'snow' | 'sand' | 'mountain';
 export type SpecialBuilding = 'temple' | 'bank' | 'police_station' | 'casino' | null;
 
 export interface Tile {
@@ -49,6 +49,7 @@ export interface Tile {
   x: number;
   y: number;
   terrain_type: TerrainType;
+  terrain_variant?: string | null;
   special_building: SpecialBuilding;
   owner_company_id: string | null;
   purchased_at: string | null;

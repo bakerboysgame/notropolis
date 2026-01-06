@@ -7,6 +7,9 @@ const LOCAL_TERRAIN_MAPPING: Record<TerrainType, string> = {
   water: '/Tiles/1x1snow_tile_1.png', // use snow as water placeholder
   dirt_track: '/Tiles/1x1tile.png',
   trees: '/Tiles/1x1grass.png', // trees render on grass base
+  snow: '/Tiles/1x1snow_tile_1.png',
+  sand: '/Tiles/1x1tile.png', // placeholder
+  mountain: '/Tiles/1x1grass.png', // placeholder
 };
 
 // Local pogicity building mapping (building_type_id -> local path)

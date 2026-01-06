@@ -1160,6 +1160,7 @@ const TERRAIN_FEATURES = {
     trees: `Trees on grass base.`,
     mountain: `Rocky mountain terrain.`,
     sand: `Sandy beach/desert tile.`,
+    snow: `Snow/ice terrain tile. Seamless white texture with subtle blue shadows.`,
 
     // Reference sheet descriptions (simple)
     water: `Water tiles reference sheet. Show: 1 full water tile, 4 edge tiles (shore on one side), 4 outer corners (shore on two sides), 4 inner corners (small shore in one corner).`,
@@ -1171,6 +1172,28 @@ const TERRAIN_FEATURES = {
     dirt_base: `Brown dirt path through green grass. Path is 40% of tile width.`,
     water_edge_base: `Blue water with sandy shore strip where it meets land.`
 };
+
+const TERRAIN_VARIANTS = {
+  road: ['straight_ns', 'straight_ew', 'corner_ne', 'corner_nw', 'corner_se', 'corner_sw',
+         'tjunction_n', 'tjunction_e', 'tjunction_s', 'tjunction_w', 'crossroad',
+         'deadend_n', 'deadend_e', 'deadend_s', 'deadend_w']
+};
+
+const TERRAIN_REFERENCE_SYSTEM_PROMPT = `
+You are creating isometric terrain tiles for a 2D city-builder game.
+
+CRITICAL SPECIFICATIONS:
+- Shape: Isometric diamond (rhombus)
+- Dimensions: 63x32 pixels (2:1 aspect ratio isometric projection)
+- Angle: ~27° isometric projection (standard for 2:1 tiles)
+- Background: Transparent (PNG with alpha channel)
+- Style: Match the uploaded reference image exactly
+
+For road/path tiles:
+- Path exits at exactly CENTER of each tile edge (50% point)
+- Path covers approximately 40-50% of tile width
+- Connect seamlessly with adjacent road tiles
+`;
 
 // ============================================================================
 // TERRAIN VARIATION AUTO-GENERATION MAPPINGS

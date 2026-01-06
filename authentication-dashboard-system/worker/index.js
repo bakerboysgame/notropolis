@@ -6544,7 +6544,7 @@ async function handleUpdateTiles(request, authService, env, corsHeaders) {
       });
     }
 
-    const validTerrainTypes = ['free_land', 'water', 'road', 'dirt_track', 'trees'];
+    const validTerrainTypes = ['free_land', 'water', 'road', 'dirt_track', 'trees', 'snow', 'sand', 'mountain'];
     const validSpecialBuildings = ['temple', 'bank', 'police_station', 'casino', null];
 
     // Check for special building constraints (max 1 of each type per map)
