@@ -101,10 +101,9 @@ export class BuildingRenderer {
       const footprint = metadata.footprint;
       const renderSize = metadata.renderSize || footprint;
 
-      // Calculate front corner position (origin + footprint - 1)
-      const frontX = tilePos.x + footprint.width - 1;
-      const frontY = tilePos.y + footprint.height - 1;
-      const { x: screenX, y: screenY } = gridToScreen(frontX, frontY);
+      // Buildings are placed on single tiles in Notropolis (multi-tile placement deferred)
+      // Render at the tile position directly, not offset by footprint
+      const { x: screenX, y: screenY } = gridToScreen(tilePos.x, tilePos.y);
       const bottomY = screenY + TILE_HEIGHT;
 
       // Calculate tint based on damage and ownership
@@ -128,7 +127,7 @@ export class BuildingRenderer {
           screenY: bottomY,
           footprint,
           renderSize,
-          baseDepth: (frontX + frontY) * DEPTH_Y_MULT,
+          baseDepth: (tilePos.x + tilePos.y) * DEPTH_Y_MULT,
           tint,
         });
 
