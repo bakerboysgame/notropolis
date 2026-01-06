@@ -1,13 +1,14 @@
 # Stage 4: Characters & Vehicles - Implementation Summary
 
-**Status:** ✅ COMPLETE
+**Status:** ✅ COMPLETE & DEPLOYED
 **Date:** January 6, 2026
+**Deployment:** https://4b763299.notropolis-dashboard.pages.dev
 
 ---
 
 ## What Was Implemented
 
-Stage 4 successfully implements animated characters and road-following vehicles in the Phaser game engine:
+Stage 4 successfully implements animated characters and road-following vehicles in the Phaser game engine with UI controls:
 
 ### 1. **GIF Animation Loader** ([GifLoader.ts](src/components/game/phaser/GifLoader.ts))
 - Ported from pogicity-reference
@@ -40,7 +41,16 @@ Stage 4 successfully implements animated characters and road-following vehicles 
 - Map bounds automatically set for character movement
 - Systems update every frame at 60 FPS
 
-### 5. **Exposed Test API** ([PhaserGame.tsx](src/components/game/phaser/PhaserGame.tsx))
+### 5. **UI Controls** ([GameMap.tsx](src/pages/GameMap.tsx))
+- Control panel in bottom-left corner of zoomed view
+- Real-time entity counters (characters and vehicles)
+- Three action buttons:
+  - 🚶 **Character** - Spawn walking NPCs
+  - 🚗 **Vehicle** - Spawn cars on roads
+  - **Clear All** - Remove all entities
+- Styled with Tailwind CSS, semi-transparent background with backdrop blur
+
+### 6. **Exposed Test API** ([PhaserGame.tsx](src/components/game/phaser/PhaserGame.tsx))
 - Scene exposed as `window.__phaserScene` for console testing
 - Six public methods available via ref:
   - `spawnCharacter()` - Spawn a walking NPC
@@ -68,6 +78,7 @@ STAGE4_SUMMARY.md                                     (this file)
 src/components/game/phaser/MainScene.ts              (added system initialization)
 src/components/game/phaser/PhaserGame.tsx            (added window exposure)
 src/components/game/phaser/systems/CharacterSystem.ts (updated GIF paths)
+src/pages/GameMap.tsx                                 (added UI controls)
 ```
 
 ### Assets Copied:
@@ -110,42 +121,29 @@ gifuct-js (npm package)
 
 ---
 
-## Deployment Instructions
+## Deployment Status
 
-### 1. Build for Production
-```bash
-cd authentication-dashboard-system
-npm run build
-```
+✅ **Successfully Deployed to Production**
 
-Expected output:
-```
-✓ 1569 modules transformed
-✓ built in ~4-5 seconds
-```
+### Deployment Details:
+- **Frontend URL:** https://4b763299.notropolis-dashboard.pages.dev
+- **Worker API:** https://api.notropolis.net
+- **Build:** ✓ 1569 modules transformed, 4.05s
+- **Upload:** 312 files, 2 new files deployed
+- **Deployment Time:** January 6, 2026 14:20 UTC
 
-### 2. Deploy Built Files
-Deploy the `dist/` folder to your production server. The build includes:
-- Character GIF files in `/Characters/`
-- Vehicle sprites in `/cars/`
-- All system code bundled into main JS
+### What Was Deployed:
+- Character GIF files in `/Characters/` ✓
+- Vehicle sprites in `/cars/` ✓
+- All system code bundled into main JS ✓
+- UI controls with real-time counters ✓
 
-### 3. Verify Assets
-Ensure these paths are accessible after deployment:
-```
-/Characters/banana_walk_up.gif
-/Characters/banana_walk_down.gif
-/Characters/banana_walk_left.gif
-/Characters/banana_walk_right.gif
-/cars/taxin.png, taxis.png, taxie.png, taxiw.png
-/cars/jeepn.png, jeeps.png, jeepe.png, jeepw.png
-```
-
-### 4. Test in Production
-1. Navigate to a map in zoomed view
-2. Open browser console (F12)
-3. Look for message: "MainScene exposed as window.__phaserScene"
-4. Run test commands (see [STAGE4_TESTING.md](STAGE4_TESTING.md))
+### Test in Production:
+1. Navigate to https://4b763299.notropolis-dashboard.pages.dev
+2. Go to a map in zoomed view
+3. Look for the "NPCs & Vehicles" panel in bottom-left corner
+4. Click buttons to spawn characters and vehicles
+5. Watch the counters update in real-time
 
 ---
 

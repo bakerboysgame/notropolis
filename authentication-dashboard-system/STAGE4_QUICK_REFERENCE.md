@@ -2,12 +2,21 @@
 
 ## 🚀 Deployment
 
-```bash
-npm run build
-# Deploy dist/ folder to production
-```
+✅ **Deployed to production:**
+- Worker API: https://api.notropolis.net
+- Frontend: https://4b763299.notropolis-dashboard.pages.dev
 
-## 🧪 Testing Commands (Browser Console)
+## 🎮 Testing with UI Controls (Recommended)
+
+1. Open the map in zoomed view
+2. Find the **"NPCs & Vehicles"** panel in bottom-left corner
+3. Use the buttons:
+   - 🚶 **Character** - Spawn a walking character
+   - 🚗 **Vehicle** - Spawn a car on a road
+   - **Clear All** - Remove all entities
+4. Watch the counters update in real-time
+
+## 🧪 Testing Commands (Browser Console - Advanced)
 
 ### Verify Scene Loaded
 ```javascript

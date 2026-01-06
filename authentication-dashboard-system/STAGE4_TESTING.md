@@ -9,24 +9,57 @@ Stage 4 implementation includes:
 - **CharacterSystem.ts**: Manages walking NPCs with 4-direction animations
 - **VehicleSystem.ts**: Manages cars that follow road tiles
 - **MainScene.ts**: Integrated both systems into the game loop
+- **UI Controls**: Buttons in bottom-left corner for spawning characters/vehicles
 
-## Prerequisites
+## Deployment Status
 
-1. Deploy to production:
-   ```bash
-   npm run build
-   # Deploy the built files to production
-   ```
+✅ **Deployed to production:**
+- Worker API: https://api.notropolis.net
+- Frontend: https://4b763299.notropolis-dashboard.pages.dev
 
-2. Navigate to a game map in zoomed (isometric) view
-   - Open your production site
-   - Navigate to a map (e.g., /map/{your-map-id})
-   - Click any tile to enter zoomed view (if not already there)
-   - The browser console will show test commands when the scene loads
+## How to Test
 
-## Testing via Browser Console
+1. Navigate to your production site
+2. Go to a game map (e.g., /map/{your-map-id})
+3. Click any tile to enter zoomed (isometric) view
+4. Look for the **"NPCs & Vehicles"** control panel in the bottom-left corner
 
-Since the PhaserGame component exposes methods via ref, we can access them through the browser console for testing.
+## Testing via UI Controls (Recommended)
+
+The easiest way to test is using the built-in UI controls:
+
+### UI Control Panel
+
+In zoomed (isometric) view, you'll see a control panel in the bottom-left corner:
+
+**"NPCs & Vehicles" Panel:**
+- 🚶 **Character** button - Spawns a walking character
+- 🚗 **Vehicle** button - Spawns a car on a road
+- **Clear All** button - Removes all characters and vehicles
+- **Counter display** - Shows current counts: "Characters: X  Vehicles: Y"
+
+### Test Steps with UI:
+
+1. **Test Character Spawning:**
+   - Click the "🚶 Character" button 5 times
+   - Watch characters appear and start walking around
+   - Observe the counter update: "Characters: 5"
+
+2. **Test Vehicle Spawning:**
+   - Click the "🚗 Vehicle" button 3 times
+   - Watch cars appear on roads
+   - Observe the counter update: "Vehicles: 3"
+
+3. **Test Clear All:**
+   - Click the "Clear All" button
+   - All characters and vehicles should disappear
+   - Counters should reset to 0
+
+---
+
+## Testing via Browser Console (Advanced)
+
+For advanced testing, you can also use the browser console:
 
 ### Access the Phaser Game Instance
 

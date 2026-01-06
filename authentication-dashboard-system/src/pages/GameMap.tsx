@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useSearchParams, Navigate } from 'react-router-dom';
 import { useActiveCompany } from '../contexts/CompanyContext';
 import { useGameMap } from '../hooks/useGameMap';
 import { MapCanvas } from '../components/game/MapCanvas';
-import { PhaserGame } from '../components/game/phaser/PhaserGame';
+import { PhaserGame, PhaserGameHandle } from '../components/game/phaser/PhaserGame';
 import { PropertyModal } from '../components/game/PropertyModal';
 import { MapLegend } from '../components/game/MapLegend';
 import { MapControls } from '../components/game/MapControls';
@@ -62,6 +62,33 @@ export function GameMap(): JSX.Element {
   // Overview mode state
   const [zoom, setZoom] = useState(1);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
+
+  // Stage 4: Character & Vehicle controls
+  const gameRef = useRef<PhaserGameHandle>(null);
+  const [characterCount, setCharacterCount] = useState(0);
+  const [vehicleCount, setVehicleCount] = useState(0);
+
+  // Update counts when spawning/clearing
+  const updateCounts = () => {
+    setCharacterCount(gameRef.current?.getCharacterCount() ?? 0);
+    setVehicleCount(gameRef.current?.getCarCount() ?? 0);
+  };
+
+  const handleSpawnCharacter = () => {
+    const success = gameRef.current?.spawnCharacter();
+    if (success) updateCounts();
+  };
+
+  const handleSpawnCar = () => {
+    const success = gameRef.current?.spawnCar();
+    if (success) updateCounts();
+  };
+
+  const handleClearAll = () => {
+    gameRef.current?.clearCharacters();
+    gameRef.current?.clearCars();
+    updateCounts();
+  };
 
   // Redirect if no active company
   if (!activeCompany) {
@@ -176,6 +203,7 @@ export function GameMap(): JSX.Element {
         // ZOOMED MODE - Isometric view (full screen)
         <div className="h-full w-full relative overflow-hidden">
           <PhaserGame
+            ref={gameRef}
             map={map}
             tiles={tiles}
             buildings={buildings}
@@ -196,6 +224,44 @@ export function GameMap(): JSX.Element {
               centerTile={zoomCenter || { x: Math.floor(map.width / 2), y: Math.floor(map.height / 2) }}
               onNavigate={setZoomCenter}
             />
+          </div>
+
+          {/* Stage 4: Character & Vehicle Controls */}
+          <div className="absolute bottom-4 left-4 z-10 flex flex-col gap-2 bg-gray-800/90 rounded-lg p-3 backdrop-blur-sm">
+            <div className="text-white text-sm font-semibold mb-1">NPCs & Vehicles</div>
+
+            <div className="flex gap-2">
+              <button
+                onClick={handleSpawnCharacter}
+                className="px-3 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors flex items-center gap-1"
+                title="Spawn a walking character"
+              >
+                <span>🚶</span>
+                <span>Character</span>
+              </button>
+
+              <button
+                onClick={handleSpawnCar}
+                className="px-3 py-2 bg-green-600 text-white text-sm rounded hover:bg-green-700 transition-colors flex items-center gap-1"
+                title="Spawn a car on a road"
+              >
+                <span>🚗</span>
+                <span>Vehicle</span>
+              </button>
+
+              <button
+                onClick={handleClearAll}
+                className="px-3 py-2 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition-colors"
+                title="Remove all characters and vehicles"
+              >
+                Clear All
+              </button>
+            </div>
+
+            <div className="text-gray-300 text-xs flex gap-3 mt-1">
+              <span>Characters: {characterCount}</span>
+              <span>Vehicles: {vehicleCount}</span>
+            </div>
           </div>
         </div>
       )}
