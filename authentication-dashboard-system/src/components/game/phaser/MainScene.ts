@@ -19,6 +19,8 @@ export class MainScene extends Phaser.Scene {
   private tileMap: Map<string, { x: number; y: number }> = new Map();
   private pendingCallbacks: InputCallbacks | null = null;
   private selectedTile: { x: number; y: number } | null = null;
+  private pendingCenterTile: { x: number; y: number } | null = null;
+  private sceneReady = false;
 
   constructor() {
     super({ key: 'MainScene' });
@@ -63,6 +65,16 @@ export class MainScene extends Phaser.Scene {
     if (this.selectedTile) {
       this.effectsRenderer.drawSelection(this.selectedTile.x, this.selectedTile.y);
     }
+
+    // Apply any pending center tile
+    if (this.pendingCenterTile) {
+      const center = gridToScreen(this.pendingCenterTile.x, this.pendingCenterTile.y);
+      this.cameras.main.centerOn(center.x, center.y);
+      this.pendingCenterTile = null;
+    }
+
+    // Mark scene as ready
+    this.sceneReady = true;
   }
 
   /**
@@ -103,6 +115,11 @@ export class MainScene extends Phaser.Scene {
    * Set center tile and pan camera to it
    */
   setCenterTile(x: number, y: number): void {
+    if (!this.sceneReady) {
+      // Store for later if scene not ready
+      this.pendingCenterTile = { x, y };
+      return;
+    }
     // Pan camera to center tile
     const center = gridToScreen(x, y);
     this.cameras.main.centerOn(center.x, center.y);
@@ -131,8 +148,7 @@ export class MainScene extends Phaser.Scene {
     }
 
     // Apply data if scene is ready (create has been called)
-    // Check inputHandler exists as a proxy for create() having been called
-    if (this.inputHandler) {
+    if (this.sceneReady) {
       this.applySceneData();
     }
   }
