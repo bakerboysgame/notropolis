@@ -57,29 +57,36 @@ export class VehicleSystem {
 
   /**
    * Load vehicle sprites
+   * @returns Promise that resolves when all sprites are loaded
    */
-  loadAssets(): void {
-    if (this.texturesLoaded) return;
+  loadAssets(): Promise<void> {
+    return new Promise((resolve) => {
+      if (this.texturesLoaded) {
+        resolve();
+        return;
+      }
 
-    // Load taxi sprites
-    this.scene.load.image('taxi_n', '/cars/taxin.png');
-    this.scene.load.image('taxi_s', '/cars/taxis.png');
-    this.scene.load.image('taxi_e', '/cars/taxie.png');
-    this.scene.load.image('taxi_w', '/cars/taxiw.png');
+      // Load taxi sprites
+      this.scene.load.image('taxi_n', '/cars/taxin.png');
+      this.scene.load.image('taxi_s', '/cars/taxis.png');
+      this.scene.load.image('taxi_e', '/cars/taxie.png');
+      this.scene.load.image('taxi_w', '/cars/taxiw.png');
 
-    // Load jeep sprites
-    this.scene.load.image('jeep_n', '/cars/jeepn.png');
-    this.scene.load.image('jeep_s', '/cars/jeeps.png');
-    this.scene.load.image('jeep_e', '/cars/jeepe.png');
-    this.scene.load.image('jeep_w', '/cars/jeepw.png');
+      // Load jeep sprites
+      this.scene.load.image('jeep_n', '/cars/jeepn.png');
+      this.scene.load.image('jeep_s', '/cars/jeeps.png');
+      this.scene.load.image('jeep_e', '/cars/jeepe.png');
+      this.scene.load.image('jeep_w', '/cars/jeepw.png');
 
-    // Start loading
-    this.scene.load.once('complete', () => {
-      this.texturesLoaded = true;
-      console.log('VehicleSystem: Vehicle sprites loaded');
+      // Start loading
+      this.scene.load.once('complete', () => {
+        this.texturesLoaded = true;
+        console.log('VehicleSystem: Vehicle sprites loaded');
+        resolve();
+      });
+
+      this.scene.load.start();
     });
-
-    this.scene.load.start();
   }
 
   /**

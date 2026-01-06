@@ -35,7 +35,7 @@ export class MainScene extends Phaser.Scene {
     this.terrainRenderer.preloadTextures();
   }
 
-  create(): void {
+  async create(): Promise<void> {
     // Set default camera zoom for better visibility
     this.cameras.main.setZoom(2.0);
 
@@ -53,15 +53,15 @@ export class MainScene extends Phaser.Scene {
     this.characterSystem = new CharacterSystem(this);
     this.vehicleSystem = new VehicleSystem(this);
 
-    // Load character GIF assets (async, will enable spawning when complete)
-    this.characterSystem.loadAssets();
+    // Load all assets and wait for them to complete
+    await Promise.all([
+      this.characterSystem.loadAssets(),
+      this.vehicleSystem.loadAssets(),
+    ]);
 
-    // Load vehicle sprites
-    this.vehicleSystem.loadAssets();
-
-    // Scene is ready - if we have pending data, apply it
+    // Scene is ready - if we have pending data, apply it (will also load building textures)
     if (this.sceneData) {
-      this.applySceneData();
+      await this.applySceneData();
     }
 
     // Apply any pending selection
