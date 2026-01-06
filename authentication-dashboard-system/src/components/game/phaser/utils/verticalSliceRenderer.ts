@@ -56,6 +56,10 @@ export function createVerticalSlices(config: SliceConfig): SliceSprites {
   const spriteCenter = textureWidth / 2;
   const spriteHeight = textureHeight;
 
+  // Calculate scale factor to normalize high-res sprites to 512px standard
+  // 2560×2560 sprite gets scale = 512/2560 = 0.2 (displays same size as 512×512)
+  const spriteScale = 512 / textureWidth;
+
   // Slice width in texture pixels (scales with texture resolution)
   const sliceWidthInTexture = (spriteCenter / renderSize.width) * 2;
 
@@ -80,6 +84,7 @@ export function createVerticalSlices(config: SliceConfig): SliceSprites {
     const slice = scene.add.image(screenX, screenY, textureKey);
     slice.setOrigin(0.5, 1);
     slice.setCrop(srcX, 0, sliceWidthInTexture, spriteHeight);
+    slice.setScale(spriteScale); // Scale down high-res sprites to 512px standard size
 
     // Depth calculation: each slice to the left is further back
     // Moving WEST means moving toward top-left, which decreases the grid sum
@@ -98,6 +103,7 @@ export function createVerticalSlices(config: SliceConfig): SliceSprites {
     const slice = scene.add.image(screenX, screenY, textureKey);
     slice.setOrigin(0.5, 1);
     slice.setCrop(srcX, 0, sliceWidthInTexture, spriteHeight);
+    slice.setScale(spriteScale); // Scale down high-res sprites to 512px standard size
 
     // Depth calculation: each slice to the right is further back
     // Moving NORTH means moving toward top-right, which also decreases the grid sum
@@ -109,12 +115,16 @@ export function createVerticalSlices(config: SliceConfig): SliceSprites {
     slices.push(slice);
   }
 
+  // Calculate scaled bounds (high-res sprites are scaled down to 512px standard)
+  const scaledWidth = spriteCenter * spriteScale;
+  const scaledHeight = spriteHeight * spriteScale;
+
   return {
     slices,
     bounds: {
-      minX: screenX - spriteCenter,
-      maxX: screenX + spriteCenter,
-      minY: screenY - spriteHeight,
+      minX: screenX - scaledWidth,
+      maxX: screenX + scaledWidth,
+      minY: screenY - scaledHeight,
       maxY: screenY,
     },
   };
