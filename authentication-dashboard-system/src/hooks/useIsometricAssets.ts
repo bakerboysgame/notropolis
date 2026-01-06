@@ -113,14 +113,10 @@ export function useIsometricAssets(): UseIsometricAssetsReturn {
   const spriteUrls = useMemo(() => {
     const urls = new Set<string>();
 
-    // Add all building type sprites (preload all, not just visible ones)
-    // This now uses published sprites where available, fallback otherwise
-    Object.keys(FALLBACK_BUILDING_SPRITES).forEach((buildingType) => {
-      const url = getBuildingSpriteUrl(buildingType);
-      if (url) urls.add(url);
-      // Also preload outline sprites for buildings that have them
-      const outlineUrl = getBuildingOutlineUrl(buildingType);
-      if (outlineUrl) urls.add(outlineUrl);
+    // Add all published building sprites and their outlines directly from state
+    Object.values(publishedSprites).forEach((sprite) => {
+      if (sprite.url) urls.add(sprite.url);
+      if (sprite.outline_url) urls.add(sprite.outline_url);
     });
 
     // Add terrain sprites
@@ -129,7 +125,7 @@ export function useIsometricAssets(): UseIsometricAssetsReturn {
     });
 
     // Add dirty trick overlay sprites
-    Object.values(publishedDirtyTrickSprites).forEach((trick) => {
+    Object.values(dirtyTrickSprites).forEach((trick) => {
       if (trick.overlay) urls.add(trick.overlay);
       if (trick.icon) urls.add(trick.icon);
     });

@@ -287,17 +287,20 @@ export function IsometricView({
               // Tint the white outline with the highlight color
               const tintedOutline = tintOutline(outlineSprite, outlineColor);
 
-              // Scale outline same as sprite
+              // Outline has OUTLINE_SIZE padding around sprite, so position it
+              // so the inner sprite area aligns with where the sprite will be drawn
               const outlineScale = baseScale * zoom * mapScale;
               const outlineWidth = outlineSprite.naturalWidth * outlineScale;
               const outlineHeight = outlineSprite.naturalHeight * outlineScale;
+              const outlinePaddingX = (outlineWidth - spriteWidth) / 2;
+              const outlinePaddingY = (outlineHeight - spriteHeight) / 2;
 
-              // Center outline on same center point as sprite
-              // Sprite center: (screenX, screenY - spriteHeight/2 + tileSize/2)
+              // Sprite top-left is at (screenX - spriteWidth/2, screenY - spriteHeight + tileSize/2)
+              // Outline top-left should be offset by -padding from sprite top-left
               ctx.drawImage(
                 tintedOutline,
-                screenX - outlineWidth / 2,
-                screenY - spriteHeight / 2 + tileSize / 2 - outlineHeight / 2,
+                screenX - spriteWidth / 2 - outlinePaddingX,
+                screenY - spriteHeight + tileSize / 2 - outlinePaddingY,
                 outlineWidth,
                 outlineHeight
               );
@@ -386,12 +389,13 @@ export function IsometricView({
               const outlineScale = stakeScale * zoom;
               const outlineWidth = outlineSprite.naturalWidth * outlineScale;
               const outlineHeight = outlineSprite.naturalHeight * outlineScale;
+              const outlinePaddingX = (outlineWidth - spriteWidth) / 2;
+              const outlinePaddingY = (outlineHeight - spriteHeight) / 2;
 
-              // Center outline on same center point as stake sprite
               ctx.drawImage(
                 tintedOutline,
-                screenX - outlineWidth / 2,
-                screenY - spriteHeight / 2 + tileSize / 2 - outlineHeight / 2,
+                screenX - spriteWidth / 2 - outlinePaddingX,
+                screenY - spriteHeight + tileSize / 2 - outlinePaddingY,
                 outlineWidth,
                 outlineHeight
               );
