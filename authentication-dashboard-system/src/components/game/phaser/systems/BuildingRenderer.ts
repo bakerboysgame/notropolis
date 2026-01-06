@@ -125,18 +125,43 @@ export class BuildingRenderer {
         const expectedWidth = 512; // Standard sprite size
         const scale = expectedWidth / actualWidth;
 
-        // Create new slices
-        const sliceSprites = createVerticalSlices({
-          scene: this.scene,
-          textureKey,
-          screenX,
-          screenY: bottomY,
-          footprint,
-          renderSize,
-          baseDepth: (tilePos.x + tilePos.y) * DEPTH_Y_MULT,
-          tint,
-          scale,
-        });
+        // For custom high-res sprites (>1024px), render as single sprite
+        // Vertical slicing only works with pogocity's 512x512 format
+        const useSimpleRender = actualWidth > 1024;
+
+        let sliceSprites: SliceSprites;
+
+        if (useSimpleRender) {
+          // Render as single sprite without slicing
+          const sprite = this.scene.add.image(screenX, bottomY, textureKey);
+          sprite.setOrigin(0.5, 1);
+          sprite.setScale(scale);
+          sprite.setDepth((tilePos.x + tilePos.y) * DEPTH_Y_MULT);
+          if (tint !== undefined) sprite.setTint(tint);
+
+          sliceSprites = {
+            slices: [sprite],
+            bounds: {
+              minX: screenX - (actualWidth / 2) * scale,
+              maxX: screenX + (actualWidth / 2) * scale,
+              minY: bottomY - texture.getSourceImage().height * scale,
+              maxY: bottomY,
+            },
+          };
+        } else {
+          // Use vertical slicing for standard pogocity sprites
+          sliceSprites = createVerticalSlices({
+            scene: this.scene,
+            textureKey,
+            screenX,
+            screenY: bottomY,
+            footprint,
+            renderSize,
+            baseDepth: (tilePos.x + tilePos.y) * DEPTH_Y_MULT,
+            tint,
+            scale,
+          });
+        }
 
         this.sprites.set(building.id, sliceSprites);
       } else {

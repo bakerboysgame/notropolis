@@ -59,6 +59,11 @@ export function createVerticalSlices(config: SliceConfig): SliceSprites {
   const spriteHeight = texture.getSourceImage().height;
   const spriteCenter = spriteWidth / 2;
 
+  // Calculate slice width in source texture proportional to sprite size
+  // For 512px sprite: SLICE_WIDTH = 31.5px
+  // For 5120px sprite: sliceWidthInTexture = 315px (10x larger)
+  const sliceWidthInTexture = SLICE_WIDTH * (spriteWidth / 512);
+
   // Calculate front corner grid position (reverse engineer from baseDepth)
   // baseDepth is encoded as (x + y) * DEPTH_Y_MULT
   const gridSum = Math.floor(baseDepth / DEPTH_Y_MULT);
@@ -72,17 +77,19 @@ export function createVerticalSlices(config: SliceConfig): SliceSprites {
 
   // LEFT SLICES (WEST direction - moving left from center)
   for (let i = 0; i < renderSize.width; i++) {
-    const srcX = spriteCenter - (i + 1) * SLICE_WIDTH;
-    const slice = scene.add.image(screenX, screenY, textureKey);
+    const srcX = spriteCenter - (i + 1) * sliceWidthInTexture;
+    // Each slice is offset horizontally on screen
+    const sliceScreenX = screenX - (i + 0.5) * SLICE_WIDTH;
+    const slice = scene.add.image(sliceScreenX, screenY, textureKey);
     slice.setOrigin(0.5, 1);
-    slice.setCrop(srcX, 0, SLICE_WIDTH, spriteHeight);
+    slice.setCrop(srcX, 0, sliceWidthInTexture, spriteHeight);
     slice.setScale(scale); // Apply scale multiplier
 
     // Depth calculation: each slice to the left is further back
     // Moving WEST means moving toward top-left, which decreases the grid sum
     const sliceGridSum = gridSum - i;
     const sliceScreenY = (sliceGridSum * TILE_HEIGHT) / 2;
-    slice.setDepth(depthFromSortPoint(screenX, sliceScreenY, DEPTH_LAYERS.BUILDINGS));
+    slice.setDepth(depthFromSortPoint(sliceScreenX, sliceScreenY, DEPTH_LAYERS.BUILDINGS));
 
     if (tint !== undefined) slice.setTint(tint);
     slices.push(slice);
@@ -90,17 +97,19 @@ export function createVerticalSlices(config: SliceConfig): SliceSprites {
 
   // RIGHT SLICES (NORTH direction - moving right from center)
   for (let i = 0; i < renderSize.height; i++) {
-    const srcX = spriteCenter + i * SLICE_WIDTH;
-    const slice = scene.add.image(screenX, screenY, textureKey);
+    const srcX = spriteCenter + i * sliceWidthInTexture;
+    // Each slice is offset horizontally on screen
+    const sliceScreenX = screenX + (i + 0.5) * SLICE_WIDTH;
+    const slice = scene.add.image(sliceScreenX, screenY, textureKey);
     slice.setOrigin(0.5, 1);
-    slice.setCrop(srcX, 0, SLICE_WIDTH, spriteHeight);
+    slice.setCrop(srcX, 0, sliceWidthInTexture, spriteHeight);
     slice.setScale(scale); // Apply scale multiplier
 
     // Depth calculation: each slice to the right is further back
     // Moving NORTH means moving toward top-right, which also decreases the grid sum
     const sliceGridSum = gridSum - i;
     const sliceScreenY = (sliceGridSum * TILE_HEIGHT) / 2;
-    slice.setDepth(depthFromSortPoint(screenX, sliceScreenY, DEPTH_LAYERS.BUILDINGS));
+    slice.setDepth(depthFromSortPoint(sliceScreenX, sliceScreenY, DEPTH_LAYERS.BUILDINGS));
 
     if (tint !== undefined) slice.setTint(tint);
     slices.push(slice);
