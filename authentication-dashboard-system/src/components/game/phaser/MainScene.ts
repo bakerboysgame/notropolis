@@ -201,8 +201,14 @@ export class MainScene extends Phaser.Scene {
       this.cameras.main.centerOn(center.x, center.y);
     }
 
-    // Force Phaser to update the display after all sprites are created
-    this.scene.manager.update(Date.now(), 16);
+    // Force Phaser to render sprites immediately after scene setup
+    // Delay slightly to ensure all sprites are fully created
+    this.time.delayedCall(50, () => {
+      // Force depth sorting to ensure proper rendering order
+      this.sys.displayList.depthSort();
+      // Force alpha update to trigger render
+      this.cameras.main.setAlpha(1);
+    });
   }
 
   /**
