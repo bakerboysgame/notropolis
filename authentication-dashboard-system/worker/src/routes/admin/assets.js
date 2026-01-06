@@ -92,7 +92,12 @@ async function hashString(str) {
  * @param {number} height - Target height
  * @returns {Promise<ArrayBuffer>} - The resized WebP buffer
  */
-async function resizeViaCloudflare(env, imageBuffer, tempKey, width, height) {
+async function resizeViaCloudflare(env, imageBuffer, tempKey, width, height, options = {}) {
+    // Options:
+    // - padToCanvas: if true, use 'pad' fit with bottom gravity (for building sprites)
+    // - fit: override fit mode (default: 'scale-down')
+    const { padToCanvas = false, fit } = options;
+
     // Step 1: Upload source image temporarily to public R2
     console.log(`[Resize] Uploading temp image: ${tempKey} (${imageBuffer.byteLength} bytes)`);
     await env.R2_PUBLIC.put(tempKey, imageBuffer, {
@@ -104,20 +109,31 @@ async function resizeViaCloudflare(env, imageBuffer, tempKey, width, height) {
 
     try {
         // Step 2: Fetch with Cloudflare Image Resizing
-        // Using scale-down instead of contain to ensure we don't upscale small images
-        // and to properly fit within target dimensions
         const imageUrl = `${R2_PUBLIC_URL}/${tempKey}`;
         console.log(`[Resize] Fetching with cf.image transform: ${imageUrl}`);
 
+        // Build image transform options
+        const imageOptions = {
+            width: width,
+            height: height,
+            format: 'webp',
+            quality: 95  // High quality for crisp sprites
+        };
+
+        if (padToCanvas) {
+            // For building sprites: pad to exact dimensions, anchor to bottom
+            imageOptions.fit = 'pad';
+            imageOptions.gravity = 'bottom';
+            imageOptions.background = 'transparent';
+            console.log(`[Resize] Using pad mode with bottom gravity for ${width}x${height} canvas`);
+        } else {
+            // Default: scale down to fit within bounds
+            imageOptions.fit = fit || 'scale-down';
+        }
+
         const response = await fetch(imageUrl, {
             cf: {
-                image: {
-                    width: width,
-                    height: height,
-                    fit: 'scale-down',  // Scale down to fit, don't upscale
-                    format: 'webp',
-                    quality: 95  // High quality for crisp sprites
-                }
+                image: imageOptions
             }
         });
 
@@ -306,7 +322,8 @@ async function postApprovalPipeline(env, assetId, asset, approvedBy) {
                     trimmedBuffer,
                     tempKey,
                     targetDims.width,
-                    targetDims.height
+                    targetDims.height,
+                    { padToCanvas: asset.category === 'building_sprite' }
                 );
                 resized = true;
                 console.log(`[Pipeline] Resized to WebP: ${finalBuffer.byteLength} bytes`);
@@ -4717,7 +4734,8 @@ Please address the above feedback in this generation.`;
                         pngBuffer,
                         tempKey,
                         targetDims.width,
-                        targetDims.height
+                        targetDims.height,
+                        { padToCanvas: sprite.category === 'building_sprite' }
                     );
 
                     // Save to public bucket
