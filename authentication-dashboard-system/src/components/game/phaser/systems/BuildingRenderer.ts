@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { BuildingInstance } from '../../../../types/game';
 import { gridToScreen } from '../utils/coordinates';
-import { DEPTH_Y_MULT } from '../gameConfig';
+import { DEPTH_Y_MULT, TILE_HEIGHT } from '../gameConfig';
 import {
   getBuildingUrl,
   getBuildingTextureKey,
@@ -81,6 +81,8 @@ export class BuildingRenderer {
       if (!tilePos) continue;
 
       const { x: screenX, y: screenY } = gridToScreen(tilePos.x, tilePos.y);
+      // Place building at bottom of tile (pogicity style)
+      const bottomY = screenY + TILE_HEIGHT;
       const depth = (tilePos.x + tilePos.y) * DEPTH_Y_MULT + BUILDING_DEPTH_OFFSET;
 
       // Determine texture key based on collapsed state
@@ -96,14 +98,14 @@ export class BuildingRenderer {
       // Get or create sprite
       let sprite = this.sprites.get(building.id);
       if (!sprite) {
-        sprite = this.scene.add.image(screenX, screenY, textureKey);
+        sprite = this.scene.add.image(screenX, bottomY, textureKey);
         sprite.setOrigin(0.5, 1); // Bottom center anchor
         sprite.setScale(BUILDING_SPRITE_SCALE);
         this.sprites.set(building.id, sprite);
       }
 
       // Update sprite properties
-      sprite.setPosition(screenX, screenY);
+      sprite.setPosition(screenX, bottomY);
       sprite.setDepth(depth);
       sprite.setTexture(textureKey);
 
