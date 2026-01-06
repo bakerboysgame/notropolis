@@ -2,7 +2,6 @@ import { useState, useEffect, useMemo } from 'react';
 import {
   SPRITE_BASE_URL,
   GRASS_BACKGROUND,
-  FALLBACK_BUILDING_SPRITES,
   TERRAIN_SPRITES,
   getBuildingSpriteUrl,
   getBuildingOutlineUrl,
@@ -11,7 +10,6 @@ import {
   setPublishedDirtyTrickSprites,
   PublishedDirtyTrickSprite,
   getDirtyTrickOverlayUrl,
-  publishedDirtyTrickSprites,
 } from '../utils/isometricRenderer';
 import { config } from '../config/environment';
 
