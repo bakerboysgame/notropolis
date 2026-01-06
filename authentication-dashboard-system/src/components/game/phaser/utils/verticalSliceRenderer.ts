@@ -13,10 +13,10 @@
  */
 
 import Phaser from 'phaser';
-import { TILE_WIDTH, TILE_HEIGHT, DEPTH_Y_MULT, depthFromSortPoint, DEPTH_LAYERS } from '../gameConfig';
+import { TILE_HEIGHT, DEPTH_Y_MULT, depthFromSortPoint, DEPTH_LAYERS } from '../gameConfig';
 
-// Constants for slice rendering
-const SLICE_WIDTH = TILE_WIDTH / 2; // 31.5px (half of 63px tile width)
+// Constants for slice rendering - matches pogocity's approach
+const SLICE_WIDTH = TILE_HEIGHT; // 32px (matches tile height, like pogocity's 22px)
 
 export interface SliceConfig {
   scene: Phaser.Scene;
@@ -27,7 +27,6 @@ export interface SliceConfig {
   renderSize: { width: number; height: number };
   baseDepth: number;
   tint?: number;
-  scale?: number; // Scale multiplier for sprite rendering (default: 1.0)
 }
 
 export interface SliceSprites {
@@ -50,22 +49,21 @@ export interface SliceSprites {
  * @returns SliceSprites object containing all slices and bounds
  */
 export function createVerticalSlices(config: SliceConfig): SliceSprites {
-  const { scene, textureKey, screenX, screenY, renderSize, baseDepth, tint, scale = 1.0 } = config;
+  const { scene, textureKey, screenX, screenY, renderSize, baseDepth, tint } = config;
   const slices: Phaser.GameObjects.Image[] = [];
 
-  // Get actual texture dimensions from loaded texture
+  // Get actual texture dimensions from loaded texture (pogocity uses fixed 512x512)
   const texture = scene.textures.get(textureKey);
   const spriteWidth = texture.getSourceImage().width;
   const spriteHeight = texture.getSourceImage().height;
   const spriteCenter = spriteWidth / 2;
 
-  // Calculate slice width in source texture proportional to sprite size
-  // For 512px sprite: SLICE_WIDTH = 31.5px in source
-  // For 2560px sprite (5x): sliceWidthInTexture = 157.5px in source
-  const sliceWidthInTexture = SLICE_WIDTH * (spriteWidth / 512);
+  // Pogocity approach: fixed slice width regardless of sprite resolution
+  // All sprites expected to be 512x512
+  const sliceWidthInTexture = SLICE_WIDTH;
 
-  // Number of slices is always based on renderSize (tile count), NOT sprite resolution
-  // renderSize.width=2 means 2 left slices, regardless of whether sprite is 512px or 2560px
+  // Number of slices is always based on renderSize (tile count)
+  // renderSize.width=2 means 2 left slices
 
   // Calculate front corner grid position (reverse engineer from baseDepth)
   // baseDepth is encoded as (x + y) * DEPTH_Y_MULT
@@ -85,7 +83,6 @@ export function createVerticalSlices(config: SliceConfig): SliceSprites {
     const slice = scene.add.image(screenX, screenY, textureKey);
     slice.setOrigin(0.5, 1);
     slice.setCrop(srcX, 0, sliceWidthInTexture, spriteHeight);
-    slice.setScale(scale); // Apply scale multiplier
 
     // Depth calculation: each slice to the left is further back
     // Moving WEST means moving toward top-left, which decreases the grid sum
@@ -104,7 +101,6 @@ export function createVerticalSlices(config: SliceConfig): SliceSprites {
     const slice = scene.add.image(screenX, screenY, textureKey);
     slice.setOrigin(0.5, 1);
     slice.setCrop(srcX, 0, sliceWidthInTexture, spriteHeight);
-    slice.setScale(scale); // Apply scale multiplier
 
     // Depth calculation: each slice to the right is further back
     // Moving NORTH means moving toward top-right, which also decreases the grid sum
@@ -119,9 +115,9 @@ export function createVerticalSlices(config: SliceConfig): SliceSprites {
   return {
     slices,
     bounds: {
-      minX: screenX - spriteCenter * scale,
-      maxX: screenX + spriteCenter * scale,
-      minY: screenY - spriteHeight * scale,
+      minX: screenX - spriteCenter,
+      maxX: screenX + spriteCenter,
+      minY: screenY - spriteHeight,
       maxY: screenY,
     },
   };

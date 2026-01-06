@@ -129,13 +129,7 @@ export class BuildingRenderer {
           destroyVerticalSlices(existingSlices.slices);
         }
 
-        // Calculate scale based on actual sprite dimensions vs expected 512x512
-        const texture = this.scene.textures.get(textureKey);
-        const actualWidth = texture.getSourceImage().width;
-        const expectedWidth = 512; // Standard sprite size
-        const scale = expectedWidth / actualWidth;
-
-        // Create vertical slices (now works for any sprite resolution)
+        // Create vertical slices (pogocity approach - no scaling, 512x512 sprites)
         const sliceSprites = createVerticalSlices({
           scene: this.scene,
           textureKey,
@@ -145,7 +139,6 @@ export class BuildingRenderer {
           renderSize,
           baseDepth: (tilePos.x + tilePos.y) * DEPTH_Y_MULT,
           tint,
-          scale,
         });
 
         this.sprites.set(building.id, sliceSprites);
