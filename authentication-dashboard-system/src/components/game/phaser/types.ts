@@ -24,4 +24,6 @@ export interface PhaserGameHandle {
   getCarCount: () => number;
   clearCharacters: () => void;
   clearCars: () => void;
+  setZoom: (zoom: number) => void;
+  getZoom: () => number;
 }

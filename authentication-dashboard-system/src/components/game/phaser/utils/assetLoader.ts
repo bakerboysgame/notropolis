@@ -26,9 +26,9 @@ const LOCAL_BUILDING_MAPPING: Record<string, string> = {
   campsite: '/Building/residential/2x2english_townhouse_south.png',
   shop: '/Building/commercial/2x2checkers_south.png',
 
-  // Notropolis Level 2 - 10x10 renderSize (440px of 512px)
+  // Notropolis Level 2 - 4x4 renderSize (176px of 512px)
   burger_bar: '/Building/commercial/2x2martini_bar_south.png',
-  motel: '/Building/commercial/motel10x10.webp',
+  motel: '/Building/commercial/motel4x4.webp',
 
   // Notropolis Level 3 (visual 2x2) - use 2x2 sprites
   high_street_store: '/Building/residential/2x2yellow_apartments_south.png',

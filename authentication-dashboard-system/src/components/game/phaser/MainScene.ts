@@ -36,7 +36,8 @@ export class MainScene extends Phaser.Scene {
   }
 
   async create(): Promise<void> {
-    // Pogocity uses default zoom 1.0 (no setZoom call)
+    // Start with zoom 0.3 to see more of large maps with 10×10 renderSize buildings
+    this.cameras.main.setZoom(0.3);
 
     // Initialize input handler with default no-op callbacks
     const defaultCallbacks: InputCallbacks = {
@@ -331,5 +332,20 @@ export class MainScene extends Phaser.Scene {
 
   clearCars(): void {
     this.vehicleSystem?.clear();
+  }
+
+  /**
+   * Set camera zoom level
+   * @param zoom - Zoom level (1.0 = normal, 0.5 = 50% zoom out, 2.0 = 200% zoom in)
+   */
+  setZoom(zoom: number): void {
+    this.cameras.main.setZoom(zoom);
+  }
+
+  /**
+   * Get current camera zoom level
+   */
+  getZoom(): number {
+    return this.cameras.main.zoom;
   }
 }

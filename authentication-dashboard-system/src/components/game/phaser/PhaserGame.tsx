@@ -13,7 +13,7 @@ export const PhaserGame = forwardRef<PhaserGameHandle, PhaserGameProps>(
     const gameRef = useRef<Phaser.Game | null>(null);
     const sceneRef = useRef<MainScene | null>(null);
 
-    // Expose spawn methods via ref
+    // Expose spawn methods and zoom controls via ref
     useImperativeHandle(ref, () => ({
       spawnCharacter: () => sceneRef.current?.spawnCharacter() ?? false,
       spawnCar: () => sceneRef.current?.spawnCar() ?? false,
@@ -21,6 +21,8 @@ export const PhaserGame = forwardRef<PhaserGameHandle, PhaserGameProps>(
       getCarCount: () => sceneRef.current?.getCarCount() ?? 0,
       clearCharacters: () => sceneRef.current?.clearCharacters(),
       clearCars: () => sceneRef.current?.clearCars(),
+      setZoom: (zoom: number) => sceneRef.current?.setZoom(zoom),
+      getZoom: () => sceneRef.current?.getZoom() ?? 1.0,
     }));
 
     // Expose scene to window for testing (Stage 4)
