@@ -5,6 +5,7 @@
 
 interface Building {
   damage_percent: number;
+  calculated_value?: number;
 }
 
 interface BuildingType {
@@ -53,6 +54,7 @@ export function calculateLandCost(tile: Tile, map: Map): number {
 
 /**
  * Calculate the value when selling a building to the state
+ * Uses dynamic calculated_value if available, falls back to building type cost
  */
 export function calculateSellToStateValue(
   building: Building,
@@ -60,8 +62,10 @@ export function calculateSellToStateValue(
   tile: Tile,
   map: Map
 ): number {
-  // Base: 50% of building cost
-  const buildingValue = Math.round(buildingType.cost * 0.5);
+  // Use dynamic value if available, otherwise fall back to cost
+  const baseValue = building.calculated_value || buildingType.cost;
+  // Base: 50% of building value
+  const buildingValue = Math.round(baseValue * 0.5);
 
   // Damage reduces value (using same formula as profit: 85% damage = 15% health = worthless)
   const healthMultiplier = Math.max(0, (100 - building.damage_percent * 1.176) / 100);
@@ -75,7 +79,11 @@ export function calculateSellToStateValue(
 
 /**
  * Calculate minimum listing price for selling to other players
+ * Uses dynamic calculated_value if available, falls back to building type cost
  */
-export function calculateMinListingPrice(_building: Building, buildingType: BuildingType): number {
-  return Math.round(buildingType.cost * 0.8);
+export function calculateMinListingPrice(building: Building, buildingType: BuildingType): number {
+  // Use dynamic value if available, otherwise fall back to cost
+  const baseValue = building.calculated_value || buildingType.cost;
+  // Minimum listing: 80% of building value
+  return Math.round(baseValue * 0.8);
 }

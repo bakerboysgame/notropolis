@@ -71,7 +71,7 @@ export function HeroStatus({
     setIsLoading(true);
     setError(null);
     try {
-      const token = localStorage.getItem('auth_token');
+      const token = localStorage.getItem('token');
       const response = await fetch(
         `https://api.notropolis.net/api/game/hero/status?company_id=${companyId}`,
         {

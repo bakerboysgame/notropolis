@@ -55,7 +55,7 @@ export function HeroModal({
     setError(null);
 
     try {
-      const token = localStorage.getItem('auth_token');
+      const token = localStorage.getItem('token');
       const response = await fetch('https://api.notropolis.net/api/game/hero/hero-out', {
         method: 'POST',
         headers: {
