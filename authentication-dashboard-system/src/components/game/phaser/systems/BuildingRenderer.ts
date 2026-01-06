@@ -174,11 +174,11 @@ export class BuildingRenderer {
       return Phaser.Display.Color.GetColor(colorValue, colorValue, colorValue);
     }
 
-    // Apply ownership tint (only if no damage and not collapsed)
-    const isOwned = building.company_id === this.activeCompanyId;
-    if (isOwned && !building.is_collapsed && building.damage_percent === 0) {
-      return 0x8888ff; // Light blue tint for ownership
-    }
+    // Ownership tint disabled - buildings render with original colors
+    // const isOwned = building.company_id === this.activeCompanyId;
+    // if (isOwned && !building.is_collapsed && building.damage_percent === 0) {
+    //   return 0x8888ff; // Light blue tint for ownership
+    // }
 
     // No tint
     return undefined;

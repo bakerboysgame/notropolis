@@ -17,8 +17,6 @@ import { TILE_WIDTH, TILE_HEIGHT, DEPTH_Y_MULT, depthFromSortPoint, DEPTH_LAYERS
 
 // Constants for slice rendering
 const SLICE_WIDTH = TILE_WIDTH / 2; // 31.5px (half of 63px tile width)
-const SPRITE_CENTER = 256; // Center X of 512x512 sprite
-const SPRITE_HEIGHT = 512; // Height of 512x512 sprite
 
 export interface SliceConfig {
   scene: Phaser.Scene;
@@ -29,6 +27,7 @@ export interface SliceConfig {
   renderSize: { width: number; height: number };
   baseDepth: number;
   tint?: number;
+  scale?: number; // Scale multiplier for sprite rendering (default: 1.0)
 }
 
 export interface SliceSprites {
@@ -51,8 +50,14 @@ export interface SliceSprites {
  * @returns SliceSprites object containing all slices and bounds
  */
 export function createVerticalSlices(config: SliceConfig): SliceSprites {
-  const { scene, textureKey, screenX, screenY, renderSize, baseDepth, tint } = config;
+  const { scene, textureKey, screenX, screenY, renderSize, baseDepth, tint, scale = 1.0 } = config;
   const slices: Phaser.GameObjects.Image[] = [];
+
+  // Get actual texture dimensions from loaded texture
+  const texture = scene.textures.get(textureKey);
+  const spriteWidth = texture.getSourceImage().width;
+  const spriteHeight = texture.getSourceImage().height;
+  const spriteCenter = spriteWidth / 2;
 
   // Calculate front corner grid position (reverse engineer from baseDepth)
   // baseDepth is encoded as (x + y) * DEPTH_Y_MULT
@@ -67,10 +72,11 @@ export function createVerticalSlices(config: SliceConfig): SliceSprites {
 
   // LEFT SLICES (WEST direction - moving left from center)
   for (let i = 0; i < renderSize.width; i++) {
-    const srcX = SPRITE_CENTER - (i + 1) * SLICE_WIDTH;
+    const srcX = spriteCenter - (i + 1) * SLICE_WIDTH;
     const slice = scene.add.image(screenX, screenY, textureKey);
     slice.setOrigin(0.5, 1);
-    slice.setCrop(srcX, 0, SLICE_WIDTH, SPRITE_HEIGHT);
+    slice.setCrop(srcX, 0, SLICE_WIDTH, spriteHeight);
+    slice.setScale(scale); // Apply scale multiplier
 
     // Depth calculation: each slice to the left is further back
     // Moving WEST means moving toward top-left, which decreases the grid sum
@@ -84,10 +90,11 @@ export function createVerticalSlices(config: SliceConfig): SliceSprites {
 
   // RIGHT SLICES (NORTH direction - moving right from center)
   for (let i = 0; i < renderSize.height; i++) {
-    const srcX = SPRITE_CENTER + i * SLICE_WIDTH;
+    const srcX = spriteCenter + i * SLICE_WIDTH;
     const slice = scene.add.image(screenX, screenY, textureKey);
     slice.setOrigin(0.5, 1);
-    slice.setCrop(srcX, 0, SLICE_WIDTH, SPRITE_HEIGHT);
+    slice.setCrop(srcX, 0, SLICE_WIDTH, spriteHeight);
+    slice.setScale(scale); // Apply scale multiplier
 
     // Depth calculation: each slice to the right is further back
     // Moving NORTH means moving toward top-right, which also decreases the grid sum
@@ -102,9 +109,9 @@ export function createVerticalSlices(config: SliceConfig): SliceSprites {
   return {
     slices,
     bounds: {
-      minX: screenX - SPRITE_CENTER,
-      maxX: screenX + SPRITE_CENTER,
-      minY: screenY - SPRITE_HEIGHT,
+      minX: screenX - spriteCenter * scale,
+      maxX: screenX + spriteCenter * scale,
+      minY: screenY - spriteHeight * scale,
       maxY: screenY,
     },
   };
