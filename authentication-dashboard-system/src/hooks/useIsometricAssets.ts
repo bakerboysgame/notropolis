@@ -24,6 +24,7 @@ interface UseIsometricAssetsReturn {
   isLoading: boolean;
   loadingProgress: number;
   error: string | null;
+  publishedSpritesReady: boolean; // True when published building sprites have been fetched
 }
 
 /**
@@ -216,6 +217,7 @@ export function useIsometricAssets(): UseIsometricAssetsReturn {
     isLoading,
     loadingProgress,
     error,
+    publishedSpritesReady: Object.keys(publishedSprites).length > 0,
   };
 }
 

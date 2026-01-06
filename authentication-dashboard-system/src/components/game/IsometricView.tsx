@@ -118,7 +118,7 @@ export function IsometricView({
   }, [getTintCanvas]);
 
   // Preload sprites
-  const { sprites, grassBackground, isLoading, loadingProgress } = useIsometricAssets();
+  const { sprites, grassBackground, isLoading, loadingProgress, publishedSpritesReady } = useIsometricAssets();
 
   // Build lookup maps for O(1) access
   const tileMap = useMemo(() => {
@@ -437,6 +437,7 @@ export function IsometricView({
     baseTileSize,
     getCompanyHighlight,
     tintOutline,
+    publishedSpritesReady,
   ]);
 
   // Render on changes
