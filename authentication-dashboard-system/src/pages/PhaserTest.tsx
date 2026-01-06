@@ -66,7 +66,7 @@ const mockBuildings: BuildingInstance[] = [
   {
     id: 'building-1',
     tile_id: 'tile-3-3',
-    building_type_id: 'corner_shop',
+    building_type_id: 'bank_v9',
     company_id: 'company-1',
     variant: null,
     damage_percent: 0,
@@ -85,7 +85,7 @@ const mockBuildings: BuildingInstance[] = [
   {
     id: 'building-2',
     tile_id: 'tile-4-4',
-    building_type_id: 'corner_shop',
+    building_type_id: 'bank_v9',
     company_id: 'company-1',
     variant: null,
     damage_percent: 50,
@@ -104,7 +104,7 @@ const mockBuildings: BuildingInstance[] = [
   {
     id: 'building-3',
     tile_id: 'tile-5-5',
-    building_type_id: 'corner_shop',
+    building_type_id: 'bank_v9',
     company_id: 'company-1',
     variant: null,
     damage_percent: 100,
@@ -123,7 +123,7 @@ const mockBuildings: BuildingInstance[] = [
   {
     id: 'building-4',
     tile_id: 'tile-8-8',
-    building_type_id: 'corner_shop',
+    building_type_id: 'bank_v9',
     company_id: 'company-2',
     variant: null,
     damage_percent: 0,
@@ -142,7 +142,7 @@ const mockBuildings: BuildingInstance[] = [
   {
     id: 'building-5',
     tile_id: 'tile-9-9',
-    building_type_id: 'corner_shop',
+    building_type_id: 'bank_v9',
     company_id: 'company-2',
     variant: null,
     damage_percent: 25,
@@ -161,7 +161,7 @@ const mockBuildings: BuildingInstance[] = [
   {
     id: 'building-6',
     tile_id: 'tile-10-10',
-    building_type_id: 'corner_shop',
+    building_type_id: 'bank_v9',
     company_id: 'company-2',
     variant: null,
     damage_percent: 0,
@@ -179,7 +179,7 @@ const mockBuildings: BuildingInstance[] = [
   {
     id: 'building-7',
     tile_id: 'tile-11-11',
-    building_type_id: 'corner_shop',
+    building_type_id: 'bank_v9',
     company_id: 'company-2',
     variant: null,
     damage_percent: 0,
@@ -197,7 +197,7 @@ const mockBuildings: BuildingInstance[] = [
   {
     id: 'building-8',
     tile_id: 'tile-12-12',
-    building_type_id: 'corner_shop',
+    building_type_id: 'bank_v9',
     company_id: 'company-2',
     variant: null,
     damage_percent: 0,

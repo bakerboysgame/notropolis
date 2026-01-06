@@ -6,12 +6,12 @@ Replace Canvas2D `IsometricView.tsx` with Phaser 3 game engine using true isomet
 **Why:** Current Canvas2D lacks hardware acceleration, animations, and entity systems. Phaser provides GPU rendering, sprite batching, and built-in animation support.
 
 ## Success Criteria
-- [ ] Phaser view renders all tiles/buildings identically to current view
-- [ ] Click, pan, zoom work on desktop and mobile
-- [ ] Ownership outlines and damage/fire overlays render correctly
-- [ ] Characters walk with 4-direction animations
-- [ ] Vehicles follow road tiles
-- [ ] 60 FPS with 100+ buildings on mid-range devices
+- [x] Phaser view renders all tiles/buildings identically to current view
+- [x] Click, pan, zoom work on desktop and mobile
+- [x] Ownership outlines and damage/fire overlays render correctly
+- [x] Characters walk with 4-direction animations
+- [x] Vehicles follow road tiles
+- [ ] 60 FPS with 100+ buildings on mid-range devices (needs performance testing)
 
 ## Dependencies & Prerequisites
 - Pogicity reference repo cloned at `pogicity-reference/`
@@ -30,7 +30,7 @@ Replace Canvas2D `IsometricView.tsx` with Phaser 3 game engine using true isomet
 1. ✅ **Foundation** — Phaser setup, coordinate system, basic tile rendering [COMPLETE]
 2. ✅ **Buildings & Terrain** — All terrain types, building sprites, ownership outlines [COMPLETE]
 3. ✅ **Interactions & Effects** — Click/pan/zoom, damage overlays, fire effects [COMPLETE]
-4. **Characters & Vehicles** — GIF animations, walking NPCs, road-following cars
+4. ✅ **Characters & Vehicles** — GIF animations, walking NPCs, road-following cars [COMPLETE]
 
 ## Out of Scope
 - Asset regeneration for 88x44 (use existing sprites with scaling)

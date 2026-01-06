@@ -120,12 +120,15 @@ export class MainScene extends Phaser.Scene {
       this.tileMap.set(tile.id, { x: tile.x, y: tile.y });
     }
 
-    // Preload building textures for any new building types
-    const buildingTypeIds = [...new Set(data.buildings.map((b) => b.building_type_id))];
-    this.buildingRenderer.preloadTextures(buildingTypeIds);
+    // Only preload building textures if buildingRenderer is initialized (scene has started preloading)
+    if (this.buildingRenderer) {
+      // Preload building textures for any new building types
+      const buildingTypeIds = [...new Set(data.buildings.map((b) => b.building_type_id))];
+      this.buildingRenderer.preloadTextures(buildingTypeIds);
 
-    // Set active company for outline display
-    this.buildingRenderer.setActiveCompany(data.activeCompanyId);
+      // Set active company for outline display
+      this.buildingRenderer.setActiveCompany(data.activeCompanyId);
+    }
 
     // Apply data if scene is ready (create has been called)
     if (this.scene.isActive()) {
@@ -138,6 +141,13 @@ export class MainScene extends Phaser.Scene {
    */
   private applySceneData(): void {
     if (!this.sceneData) return;
+
+    // Ensure building textures are preloaded (in case setSceneData was called before preload)
+    if (this.buildingRenderer) {
+      const buildingTypeIds = [...new Set(this.sceneData.buildings.map((b) => b.building_type_id))];
+      this.buildingRenderer.preloadTextures(buildingTypeIds);
+      this.buildingRenderer.setActiveCompany(this.sceneData.activeCompanyId);
+    }
 
     // Update terrain
     this.terrainRenderer.updateTiles(this.sceneData.tiles);
