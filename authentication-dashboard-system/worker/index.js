@@ -450,6 +450,26 @@ export default {
               status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
             });
           }
+
+          // Default map scales per building type (must match BUILDING_SIZE_CLASSES in assets.js)
+          const DEFAULT_MAP_SCALES = {
+            claim_stake: 0.2,
+            demolished: 0.4,
+            market_stall: 0.4,
+            hot_dog_stand: 0.4,
+            campsite: 0.4,
+            shop: 0.6,
+            burger_bar: 0.6,
+            motel: 0.6,
+            high_street_store: 0.8,
+            restaurant: 0.8,
+            manor: 0.8,
+            police_station: 0.8,
+            casino: 1.0,
+            temple: 1.0,
+            bank: 1.0
+          };
+
           const results = await env.DB.prepare(`
             SELECT
               bc.building_type_id as asset_key,
@@ -463,12 +483,13 @@ export default {
           `).all();
 
           // Convert to a map for easy lookup by the client
+          // Apply default map_scale when database value is null
           const sprites = {};
           for (const row of results.results) {
             sprites[row.asset_key] = {
               url: row.sprite_url,
               outline_url: row.outline_url,
-              map_scale: row.map_scale
+              map_scale: row.map_scale ?? DEFAULT_MAP_SCALES[row.asset_key] ?? 1.0
             };
           }
 

@@ -9,9 +9,9 @@ import {
 } from '../../utils/isometricRenderer';
 import { useHighlights } from '../../contexts/HighlightContext';
 
-// Responsive tile size: 64px for mobile/tablet, 85px for desktop (2/3 of 128)
+// Responsive tile size: 64px for mobile/tablet, 128px for desktop
 const MOBILE_TILE_SIZE = 64;
-const DESKTOP_TILE_SIZE = 85;
+const DESKTOP_TILE_SIZE = 128;
 const BREAKPOINT = 1024; // lg breakpoint
 const VIEWPORT_TILES = 15; // Show ~15x15 tiles in view
 
