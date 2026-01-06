@@ -81,9 +81,8 @@ export function createVerticalSlices(config: SliceConfig): SliceSprites {
   // LEFT SLICES (WEST direction - moving left from center)
   for (let i = 0; i < renderSize.width; i++) {
     const srcX = spriteCenter - (i + 1) * sliceWidthInTexture;
-    // Position slices to tile horizontally: i=0 at screenX, i=1 at screenX - SLICE_WIDTH, etc.
-    const sliceScreenX = screenX - i * SLICE_WIDTH;
-    const slice = scene.add.image(sliceScreenX, screenY, textureKey);
+    // Pogocity algorithm: all slices at same position, crop determines visual offset
+    const slice = scene.add.image(screenX, screenY, textureKey);
     slice.setOrigin(0.5, 1);
     slice.setCrop(srcX, 0, sliceWidthInTexture, spriteHeight);
     slice.setScale(scale); // Apply scale multiplier
@@ -92,7 +91,7 @@ export function createVerticalSlices(config: SliceConfig): SliceSprites {
     // Moving WEST means moving toward top-left, which decreases the grid sum
     const sliceGridSum = gridSum - i;
     const sliceScreenY = (sliceGridSum * TILE_HEIGHT) / 2;
-    slice.setDepth(depthFromSortPoint(sliceScreenX, sliceScreenY, DEPTH_LAYERS.BUILDINGS));
+    slice.setDepth(depthFromSortPoint(screenX, sliceScreenY, DEPTH_LAYERS.BUILDINGS));
 
     if (tint !== undefined) slice.setTint(tint);
     slices.push(slice);
@@ -101,9 +100,8 @@ export function createVerticalSlices(config: SliceConfig): SliceSprites {
   // RIGHT SLICES (NORTH direction - moving right from center)
   for (let i = 0; i < renderSize.height; i++) {
     const srcX = spriteCenter + i * sliceWidthInTexture;
-    // Position slices continuing to the right: i=0 at screenX + SLICE_WIDTH, i=1 at screenX + 2*SLICE_WIDTH, etc.
-    const sliceScreenX = screenX + (i + 1) * SLICE_WIDTH;
-    const slice = scene.add.image(sliceScreenX, screenY, textureKey);
+    // Pogocity algorithm: all slices at same position, crop determines visual offset
+    const slice = scene.add.image(screenX, screenY, textureKey);
     slice.setOrigin(0.5, 1);
     slice.setCrop(srcX, 0, sliceWidthInTexture, spriteHeight);
     slice.setScale(scale); // Apply scale multiplier
@@ -112,7 +110,7 @@ export function createVerticalSlices(config: SliceConfig): SliceSprites {
     // Moving NORTH means moving toward top-right, which also decreases the grid sum
     const sliceGridSum = gridSum - i;
     const sliceScreenY = (sliceGridSum * TILE_HEIGHT) / 2;
-    slice.setDepth(depthFromSortPoint(sliceScreenX, sliceScreenY, DEPTH_LAYERS.BUILDINGS));
+    slice.setDepth(depthFromSortPoint(screenX, sliceScreenY, DEPTH_LAYERS.BUILDINGS));
 
     if (tint !== undefined) slice.setTint(tint);
     slices.push(slice);
