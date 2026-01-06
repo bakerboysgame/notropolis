@@ -191,11 +191,61 @@ export class MainScene extends Phaser.Scene {
       this.characterSystem.setMapBounds(bounds.minX, bounds.maxX, bounds.minY, bounds.maxY);
     }
 
+    // Auto-spawn NPCs and vehicles based on tile counts
+    this.autoSpawnEntities();
+
     // Center camera on map center if we have tiles (only on first load)
     if (this.sceneData.tiles.length > 0 && !this.cameras.main.scrollX && !this.cameras.main.scrollY) {
       const centerTile = this.findMapCenter();
       const center = gridToScreen(centerTile.x, centerTile.y);
       this.cameras.main.centerOn(center.x, center.y);
+    }
+  }
+
+  /**
+   * Auto-spawn NPCs and vehicles based on tile counts
+   * - 1 NPC per 10 non-road tiles
+   * - 1 vehicle per 10 road tiles
+   */
+  private autoSpawnEntities(): void {
+    if (!this.sceneData) return;
+
+    // Count road and non-road tiles
+    let roadTileCount = 0;
+    let nonRoadTileCount = 0;
+
+    for (const tile of this.sceneData.tiles) {
+      if (tile.terrain_type === 'road') {
+        roadTileCount++;
+      } else {
+        nonRoadTileCount++;
+      }
+    }
+
+    // Calculate target counts (1 per 10 tiles)
+    const targetNPCs = Math.floor(nonRoadTileCount / 10);
+    const targetVehicles = Math.floor(roadTileCount / 10);
+
+    // Get current counts
+    const currentNPCs = this.characterSystem?.getCount() ?? 0;
+    const currentVehicles = this.vehicleSystem?.getCount() ?? 0;
+
+    // Spawn NPCs if needed
+    if (this.characterSystem?.isReady() && currentNPCs < targetNPCs) {
+      const toSpawn = targetNPCs - currentNPCs;
+      for (let i = 0; i < toSpawn; i++) {
+        this.characterSystem.spawnCharacter();
+      }
+      console.log(`Auto-spawned ${toSpawn} NPCs (${currentNPCs} → ${targetNPCs})`);
+    }
+
+    // Spawn vehicles if needed
+    if (this.vehicleSystem?.isReady() && currentVehicles < targetVehicles) {
+      const toSpawn = targetVehicles - currentVehicles;
+      for (let i = 0; i < toSpawn; i++) {
+        this.vehicleSystem.spawnCar();
+      }
+      console.log(`Auto-spawned ${toSpawn} vehicles (${currentVehicles} → ${targetVehicles})`);
     }
   }
 

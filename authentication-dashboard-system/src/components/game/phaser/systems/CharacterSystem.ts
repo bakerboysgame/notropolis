@@ -124,7 +124,7 @@ export class CharacterSystem {
       targetX: gridX,
       targetY: gridY,
       direction: 'down',
-      speed: 0.002, // Grid units per millisecond delta (10% of original speed)
+      speed: 0.001, // Grid units per millisecond delta (5% of original speed - half of 10%)
       characterType,
     };
 

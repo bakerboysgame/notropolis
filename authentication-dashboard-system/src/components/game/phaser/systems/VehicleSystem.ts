@@ -146,7 +146,7 @@ export class VehicleSystem {
       gridX,
       gridY,
       direction,
-      speed: 0.0075, // 15% of original speed
+      speed: 0.00375, // 7.5% of original speed (half of 15%)
       vehicleType: type,
     };
 
