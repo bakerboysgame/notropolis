@@ -26,27 +26,27 @@ const LOCAL_BUILDING_MAPPING: Record<string, string> = {
   campsite: '/Building/residential/2x2english_townhouse_south.png',
   shop: '/Building/commercial/2x2checkers_south.png',
 
-  // Notropolis Level 2
+  // Notropolis Level 2 - use 2x2 sprites
   burger_bar: '/Building/commercial/2x2martini_bar_south.png',
-  motel: '/Building/residential/2x3brownstone_south.png',
+  motel: '/Building/residential/2x2sf_marina_house_south.png',
 
-  // Notropolis Level 3 (2x2 footprint)
-  high_street_store: '/Building/commercial/4x4bookstore_south.png',
-  restaurant: '/Building/commercial/2x3promptlayer_office_south.png',
+  // Notropolis Level 3 (visual 2x2) - use 2x2 sprites
+  high_street_store: '/Building/residential/2x2yellow_apartments_south.png',
+  restaurant: '/Building/residential/2x2sf_green_apartments_south.png',
 
-  // Notropolis Level 4
-  manor: '/Building/residential/2x3full_house_house_south.png',
+  // Notropolis Level 4 (visual 2x3) - use 3x3 sprite
+  manor: '/Building/residential/3x3romanesque_duplex_south.png',
 
-  // Notropolis Level 5 (3x3 footprint)
-  casino: '/Building/landmark/4x4hp_house_south.png',
+  // Notropolis Level 5 (visual 3x3) - use 3x3 sprite
+  casino: '/Building/residential/3x380s_small_apartment_building_south.png',
 
-  // Notropolis Special Buildings
-  bank: '/Building/landmark/6x3carnagie_mansion_south.png',
-  temple: '/Building/landmark/6x6church_south2.png',
-  police_station: '/Building/civic/6x3private_school_south.png',
+  // Notropolis Special Buildings (visual 3x3) - use 4x4 sprites
+  bank: '/Building/commercial/4x4bookstore_south.png',
+  temple: '/Building/landmark/4x4hp_house_south.png',
+  police_station: '/Building/residential/4x4medium_apartments_south.png',
 
-  // State buildings
-  claim_stake: '/Building/residential/2x2english_townhouse_south.png', // Small marker
+  // State buildings (all placed on 1x1 tiles) - use 2x2 sprites
+  claim_stake: '/Building/residential/2x2limestone_south.png',
 
   // Legacy pogocity buildings (keep for compatibility)
   checkers: '/Building/commercial/2x2checkers_south.png',
