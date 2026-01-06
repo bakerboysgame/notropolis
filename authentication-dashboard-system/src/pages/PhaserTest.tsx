@@ -2,6 +2,16 @@ import { useState, useRef } from 'react';
 import { PhaserGame, PhaserGameHandle } from '../components/game/phaser/PhaserGame';
 import type { GameMap, Tile, BuildingInstance, TerrainType } from '../types/game';
 
+// Available building types from R2
+const BUILDING_TYPES = [
+  'bank_v9',
+  'burger_bar_v10',
+  'campsite_v4',
+  'casino_v5',
+  'bank_v8',
+  'burger_bar_v4',
+];
+
 // Mock map data
 const mockMap: GameMap = {
   id: 'test-map-1',
@@ -60,168 +70,59 @@ function generateMockTiles(): Tile[] {
   return tiles;
 }
 
-// Mock buildings for testing depth sorting, outlines, and damage
-const mockBuildings: BuildingInstance[] = [
-  // Building at (3,3) - owned by active company, no damage
-  {
-    id: 'building-1',
-    tile_id: 'tile-3-3',
-    building_type_id: 'bank_v9',
-    company_id: 'company-1',
-    variant: null,
-    damage_percent: 0,
-    is_on_fire: false,
-    is_collapsed: false,
-    is_for_sale: false,
-    sale_price: null,
-    calculated_profit: 100,
-    profit_modifiers: {},
-    calculated_value: 5000,
-    value_modifiers: {},
-    needs_profit_recalc: false,
-    built_at: new Date().toISOString(),
-  },
-  // Building at (4,4) - owned by active company, 50% damage
-  {
-    id: 'building-2',
-    tile_id: 'tile-4-4',
-    building_type_id: 'bank_v9',
-    company_id: 'company-1',
-    variant: null,
-    damage_percent: 50,
-    is_on_fire: false,
-    is_collapsed: false,
-    is_for_sale: false,
-    sale_price: null,
-    calculated_profit: 50,
-    profit_modifiers: {},
-    calculated_value: 2500,
-    value_modifiers: {},
-    needs_profit_recalc: false,
-    built_at: new Date().toISOString(),
-  },
-  // Building at (5,5) - owned by active company, collapsed
-  {
-    id: 'building-3',
-    tile_id: 'tile-5-5',
-    building_type_id: 'bank_v9',
-    company_id: 'company-1',
-    variant: null,
-    damage_percent: 100,
-    is_on_fire: false,
-    is_collapsed: true,
-    is_for_sale: false,
-    sale_price: null,
-    calculated_profit: 0,
-    profit_modifiers: {},
-    calculated_value: 0,
-    value_modifiers: {},
-    needs_profit_recalc: false,
-    built_at: new Date().toISOString(),
-  },
-  // Building at (8,8) - owned by different company (no outline)
-  {
-    id: 'building-4',
-    tile_id: 'tile-8-8',
-    building_type_id: 'bank_v9',
-    company_id: 'company-2',
-    variant: null,
-    damage_percent: 0,
-    is_on_fire: false,
-    is_collapsed: false,
-    is_for_sale: true, // For sale to test for-sale overlay
-    sale_price: 10000,
-    calculated_profit: 100,
-    profit_modifiers: {},
-    calculated_value: 5000,
-    value_modifiers: {},
-    needs_profit_recalc: false,
-    built_at: new Date().toISOString(),
-  },
-  // Building at (9,9) - on fire to test fire effect
-  {
-    id: 'building-5',
-    tile_id: 'tile-9-9',
-    building_type_id: 'bank_v9',
-    company_id: 'company-2',
-    variant: null,
-    damage_percent: 25,
-    is_on_fire: true, // On fire to test fire overlay
-    is_collapsed: false,
-    is_for_sale: false,
-    sale_price: null,
-    calculated_profit: 75,
-    profit_modifiers: {},
-    calculated_value: 3750,
-    value_modifiers: {},
-    needs_profit_recalc: false,
-    built_at: new Date().toISOString(),
-  },
-  // Buildings for depth sorting test
-  {
-    id: 'building-6',
-    tile_id: 'tile-10-10',
-    building_type_id: 'bank_v9',
-    company_id: 'company-2',
-    variant: null,
-    damage_percent: 0,
-    is_on_fire: false,
-    is_collapsed: false,
-    is_for_sale: false,
-    sale_price: null,
-    calculated_profit: 100,
-    profit_modifiers: {},
-    calculated_value: 5000,
-    value_modifiers: {},
-    needs_profit_recalc: false,
-    built_at: new Date().toISOString(),
-  },
-  {
-    id: 'building-7',
-    tile_id: 'tile-11-11',
-    building_type_id: 'bank_v9',
-    company_id: 'company-2',
-    variant: null,
-    damage_percent: 0,
-    is_on_fire: false,
-    is_collapsed: false,
-    is_for_sale: false,
-    sale_price: null,
-    calculated_profit: 100,
-    profit_modifiers: {},
-    calculated_value: 5000,
-    value_modifiers: {},
-    needs_profit_recalc: false,
-    built_at: new Date().toISOString(),
-  },
-  {
-    id: 'building-8',
-    tile_id: 'tile-12-12',
-    building_type_id: 'bank_v9',
-    company_id: 'company-2',
-    variant: null,
-    damage_percent: 0,
-    is_on_fire: false,
-    is_collapsed: false,
-    is_for_sale: false,
-    sale_price: null,
-    calculated_profit: 100,
-    profit_modifiers: {},
-    calculated_value: 5000,
-    value_modifiers: {},
-    needs_profit_recalc: false,
-    built_at: new Date().toISOString(),
-  },
-];
-
 const mockTiles = generateMockTiles();
+
+// Initial buildings - empty, user will place them
+const initialBuildings: BuildingInstance[] = [];
 
 export function PhaserTest() {
   const [selectedTile, setSelectedTile] = useState<{ x: number; y: number } | null>(null);
   const [centerTile, setCenterTile] = useState({ x: 7, y: 7 });
   const [characterCount, setCharacterCount] = useState(0);
   const [carCount, setCarCount] = useState(0);
+  const [buildings, setBuildings] = useState<BuildingInstance[]>(initialBuildings);
+  const [selectedBuildingType, setSelectedBuildingType] = useState(BUILDING_TYPES[0]);
+  const [placementMode, setPlacementMode] = useState(true);
+  const [buildingIdCounter, setBuildingIdCounter] = useState(1);
   const gameRef = useRef<PhaserGameHandle>(null);
+
+  const handleTileClick = (coords: { x: number; y: number }) => {
+    console.log('Tile clicked:', coords);
+    setSelectedTile(coords);
+
+    if (placementMode) {
+      // Check if there's already a building at this tile
+      const tileId = `tile-${coords.x}-${coords.y}`;
+      const existingBuilding = buildings.find((b) => b.tile_id === tileId);
+
+      if (existingBuilding) {
+        // Remove existing building
+        setBuildings(buildings.filter((b) => b.tile_id !== tileId));
+      } else {
+        // Place new building
+        const newBuilding: BuildingInstance = {
+          id: `building-${buildingIdCounter}`,
+          tile_id: tileId,
+          building_type_id: selectedBuildingType,
+          company_id: 'company-1',
+          variant: null,
+          damage_percent: 0,
+          is_on_fire: false,
+          is_collapsed: false,
+          is_for_sale: false,
+          sale_price: null,
+          calculated_profit: 100,
+          profit_modifiers: {},
+          calculated_value: 5000,
+          value_modifiers: {},
+          needs_profit_recalc: false,
+          built_at: new Date().toISOString(),
+        };
+        setBuildings([...buildings, newBuilding]);
+        setBuildingIdCounter(buildingIdCounter + 1);
+      }
+    }
+  };
 
   const handleSpawnCharacter = () => {
     const success = gameRef.current?.spawnCharacter();
@@ -253,37 +154,76 @@ export function PhaserTest() {
     setCarCount(gameRef.current?.getCarCount() ?? 0);
   };
 
+  const handleClearBuildings = () => {
+    setBuildings([]);
+  };
+
   return (
     <div className="w-screen h-screen bg-gray-900 relative">
       <PhaserGame
         ref={gameRef}
         map={mockMap}
         tiles={mockTiles}
-        buildings={mockBuildings}
+        buildings={buildings}
         activeCompanyId="company-1"
         centerTile={centerTile}
         selectedTile={selectedTile}
-        onTileClick={(coords) => {
-          console.log('Tile clicked:', coords);
-          setSelectedTile(coords);
-        }}
+        onTileClick={handleTileClick}
         onCenterChange={(coords) => {
           console.log('Center changed:', coords);
           setCenterTile(coords);
         }}
       />
+
       {/* Debug overlay */}
       <div className="absolute top-4 left-4 bg-black/70 text-white p-4 rounded-lg text-sm font-mono">
         <div>Selected: {selectedTile ? `(${selectedTile.x}, ${selectedTile.y})` : 'None'}</div>
         <div>Center: ({centerTile.x}, {centerTile.y})</div>
+        <div>Buildings: {buildings.length}</div>
         <div className="mt-2 text-gray-400 text-xs">
-          Click to select tile, drag to pan, scroll to zoom
+          Click to {placementMode ? 'place/remove building' : 'select tile'}
         </div>
+      </div>
+
+      {/* Building Placement Controls */}
+      <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-black/70 text-white p-4 rounded-lg text-sm font-mono">
+        <div className="text-yellow-400 font-bold mb-2">Building Placement</div>
+        <div className="flex items-center gap-2 mb-3">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={placementMode}
+              onChange={(e) => setPlacementMode(e.target.checked)}
+              className="w-4 h-4"
+            />
+            <span>Placement Mode</span>
+          </label>
+        </div>
+        <div className="mb-3">
+          <label className="block text-xs text-gray-400 mb-1">Building Type:</label>
+          <select
+            value={selectedBuildingType}
+            onChange={(e) => setSelectedBuildingType(e.target.value)}
+            className="bg-gray-800 text-white px-2 py-1 rounded text-xs w-full"
+          >
+            {BUILDING_TYPES.map((type) => (
+              <option key={type} value={type}>
+                {type}
+              </option>
+            ))}
+          </select>
+        </div>
+        <button
+          onClick={handleClearBuildings}
+          className="px-3 py-1 bg-red-600 hover:bg-red-700 rounded text-xs w-full"
+        >
+          Clear All Buildings
+        </button>
       </div>
 
       {/* Stage 4 Test Controls */}
       <div className="absolute top-4 right-4 bg-black/70 text-white p-4 rounded-lg text-sm font-mono">
-        <div className="text-yellow-400 font-bold mb-2">Stage 4: Characters & Vehicles</div>
+        <div className="text-yellow-400 font-bold mb-2">Characters & Vehicles</div>
         <div className="mb-2">Characters: {characterCount}</div>
         <div className="mb-3">Cars: {carCount}</div>
         <div className="flex flex-col gap-2">
