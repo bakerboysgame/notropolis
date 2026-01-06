@@ -37,6 +37,7 @@ import { EnemyHeadquarters } from './pages/EnemyHeadquarters';
 import { HeroCelebration } from './pages/HeroCelebration';
 import { ProtectedPageRoute } from './components/ProtectedPageRoute';
 import { PhaserTest } from './pages/PhaserTest';
+import { PhaserTest2 } from './pages/PhaserTest2';
 import { api, apiHelpers } from './services/api';
 
 // Protected Route Component
@@ -129,6 +130,7 @@ function App() {
               <Route path="/auth/magic-link" element={<MagicLinkVerification />} />
               <Route path="/accept-invitation" element={<InvitationAcceptance />} />
               <Route path="/phaser-test" element={<PhaserTest />} />
+              <Route path="/phaser-test2" element={<PhaserTest2 />} />
 
               {/* Protected Routes with Page-Level Access Control */}
               <Route path="/" element={
