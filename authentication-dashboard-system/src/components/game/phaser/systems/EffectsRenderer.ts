@@ -7,12 +7,89 @@ export class EffectsRenderer {
   private scene: Phaser.Scene;
   private fireSprites: Map<string, Phaser.GameObjects.Sprite> = new Map();
   private forSaleSprites: Map<string, Phaser.GameObjects.Image> = new Map();
+  private glowSprites: Map<string, Phaser.GameObjects.Image> = new Map();
+  private glowTextureCreated = false;
   private selectionGraphics: Phaser.GameObjects.Graphics | null = null;
+
+  // Building types that emit glow effects
+  private readonly BUILDING_GLOW_CONFIG: Record<string, {
+    offsetY: number;
+    scale?: number;
+    color?: number;
+  }> = {
+    restaurant: { offsetY: -25, color: 0xff9966, scale: 1.2 },  // Warm bar glow
+  };
 
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
     this.selectionGraphics = scene.add.graphics();
     this.selectionGraphics.setDepth(999999);
+  }
+
+  /**
+   * Create procedural glow texture (called once)
+   */
+  private createGlowTexture(): void {
+    if (this.glowTextureCreated) return;
+
+    const graphics = this.scene.add.graphics();
+    const size = 96;
+    const center = size / 2;
+
+    // Concentric circles with alpha falloff
+    const rings = [
+      { radius: 40, alpha: 0.15 },
+      { radius: 32, alpha: 0.10 },
+      { radius: 24, alpha: 0.06 },
+      { radius: 16, alpha: 0.03 },
+      { radius: 8, alpha: 0.015 },
+    ];
+
+    for (const ring of rings) {
+      graphics.fillStyle(0xffcc66, ring.alpha);
+      graphics.fillCircle(center, center, ring.radius);
+    }
+
+    graphics.generateTexture('lamp_glow', size, size);
+    graphics.destroy();
+    this.glowTextureCreated = true;
+  }
+
+  /**
+   * Add glow effect to a building
+   */
+  private addGlowEffect(
+    buildingId: string,
+    buildingTypeId: string,
+    screenX: number,
+    screenY: number,
+    depth: number
+  ): void {
+    const config = this.BUILDING_GLOW_CONFIG[buildingTypeId];
+    if (!config) return;
+
+    this.createGlowTexture();
+
+    const glow = this.scene.add.image(screenX, screenY + config.offsetY, 'lamp_glow');
+    glow.setBlendMode(Phaser.BlendModes.ADD);
+    glow.setScale(config.scale || 1.0);
+    glow.setDepth(depth); // Use DEPTH_LAYERS.LAMP_GLOW from building's depth
+
+    if (config.color) {
+      glow.setTint(config.color);
+    }
+
+    // Pulsing animation
+    this.scene.tweens.add({
+      targets: glow,
+      alpha: { from: 0.7, to: 1.0 },
+      duration: 2000,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut',
+    });
+
+    this.glowSprites.set(buildingId, glow);
   }
 
   updateEffects(
@@ -21,6 +98,7 @@ export class EffectsRenderer {
   ): void {
     const activeFireIds = new Set<string>();
     const activeForSaleIds = new Set<string>();
+    const activeGlowIds = new Set<string>();
 
     for (const building of buildings) {
       const pos = tileMap.get(building.tile_id);
@@ -57,11 +135,24 @@ export class EffectsRenderer {
           this.forSaleSprites.set(building.id, sign);
         }
       }
+
+      // Glow effect - only show if not collapsed and not on fire
+      if (!building.is_collapsed && !building.is_on_fire) {
+        if (this.BUILDING_GLOW_CONFIG[building.building_type_id]) {
+          activeGlowIds.add(building.id);
+          if (!this.glowSprites.has(building.id)) {
+            // Calculate proper depth for glow (should be behind building)
+            const glowDepth = depth - 100; // Render behind building
+            this.addGlowEffect(building.id, building.building_type_id, x, y, glowDepth);
+          }
+        }
+      }
     }
 
     // Cleanup removed effects
     this.cleanupMap(this.fireSprites, activeFireIds);
     this.cleanupMap(this.forSaleSprites, activeForSaleIds);
+    this.cleanupMap(this.glowSprites, activeGlowIds);
   }
 
   drawSelection(gridX: number | null, gridY: number | null): void {
@@ -107,6 +198,11 @@ export class EffectsRenderer {
       sprite.destroy();
     }
     this.forSaleSprites.clear();
+
+    for (const sprite of this.glowSprites.values()) {
+      sprite.destroy();
+    }
+    this.glowSprites.clear();
 
     if (this.selectionGraphics) {
       this.selectionGraphics.clear();

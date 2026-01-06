@@ -14,6 +14,7 @@ interface Character {
   targetY: number;
   direction: Direction;
   speed: number;
+  characterType: 'banana' | 'apple';
 }
 
 /**
@@ -35,6 +36,10 @@ export class CharacterSystem {
     banana_down: '/Characters/banana_walk_down.gif',
     banana_left: '/Characters/banana_walk_left.gif',
     banana_right: '/Characters/banana_walk_right.gif',
+    apple_up: '/Characters/apple_walk_up.gif',
+    apple_down: '/Characters/apple_walk_down.gif',
+    apple_left: '/Characters/apple_walk_left.gif',
+    apple_right: '/Characters/apple_walk_right.gif',
   };
 
   constructor(scene: Phaser.Scene) {
@@ -77,7 +82,7 @@ export class CharacterSystem {
   /**
    * Spawn a new character at a random position
    */
-  spawnCharacter(characterType: 'banana' | 'apple' = 'banana'): boolean {
+  spawnCharacter(characterType: 'banana' | 'apple' = 'apple'): boolean {
     if (!this.gifsLoaded) {
       console.warn('CharacterSystem: GIFs not yet loaded, cannot spawn');
       return false;
@@ -120,6 +125,7 @@ export class CharacterSystem {
       targetY: gridY,
       direction: 'down',
       speed: 0.002, // Grid units per millisecond delta (10% of original speed)
+      characterType,
     };
 
     this.characters.set(id, character);
@@ -170,7 +176,7 @@ export class CharacterSystem {
     char.sprite.setDepth(depthFromSortPoint(x, y, 0.2));
 
     // Update animation to match direction
-    const animKey = `banana_${char.direction}`;
+    const animKey = `${char.characterType}_${char.direction}`;
     playGifAnimation(char.sprite, animKey);
   }
 
