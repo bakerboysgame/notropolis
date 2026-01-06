@@ -145,7 +145,7 @@ export class VehicleSystem {
       gridX,
       gridY,
       direction,
-      speed: 0.05, // Faster than characters
+      speed: 0.0075, // 15% of original speed
       vehicleType: type,
     };
 

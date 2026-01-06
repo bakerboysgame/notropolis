@@ -118,7 +118,7 @@ export class CharacterSystem {
       targetX: gridX,
       targetY: gridY,
       direction: 'down',
-      speed: 0.02, // Grid units per millisecond delta
+      speed: 0.002, // Grid units per millisecond delta (10% of original speed)
     };
 
     this.characters.set(id, character);
