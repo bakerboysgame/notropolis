@@ -60,8 +60,10 @@ export function createVerticalSlices(config: SliceConfig): SliceSprites {
   // 2560×2560 sprite gets scale = 512/2560 = 0.2 (displays same size as 512×512)
   const spriteScale = 512 / textureWidth;
 
-  // Slice width in texture pixels (scales with texture resolution)
-  const sliceWidthInTexture = (spriteCenter / renderSize.width) * 2;
+  // Slice width in texture pixels - each slice covers a portion of one half
+  // Left slices cover left half (0 to spriteCenter), right slices cover right half (spriteCenter to textureWidth)
+  // For renderSize.width=4: each slice is spriteCenter/4 = 256/4 = 64px (for 512px sprite)
+  const sliceWidthInTexture = spriteCenter / renderSize.width;
 
   // Number of slices is always based on renderSize (tile count)
   // renderSize.width=1 means 1 left slice, renderSize.height=1 means 1 right slice
