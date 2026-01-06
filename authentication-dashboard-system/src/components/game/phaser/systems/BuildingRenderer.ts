@@ -11,7 +11,7 @@ import {
 
 // Building depth offset over terrain
 const BUILDING_DEPTH_OFFSET = 100;
-// Scale 512px sprites to fit 2x2 tile footprint (~126px width at 2x zoom = 252px visible)
+// Pogicity 2x2 buildings scaled to fit 1x1 tile footprint (half size)
 const BUILDING_SPRITE_SCALE = 0.5;
 
 export class BuildingRenderer {
@@ -81,8 +81,8 @@ export class BuildingRenderer {
       if (!tilePos) continue;
 
       const { x: screenX, y: screenY } = gridToScreen(tilePos.x, tilePos.y);
-      // Place building at bottom of tile (pogicity style)
-      const bottomY = screenY + TILE_HEIGHT;
+      // Place building at center of tile (adjusted for 1x1 footprint)
+      const bottomY = screenY + TILE_HEIGHT / 2;
       const depth = (tilePos.x + tilePos.y) * DEPTH_Y_MULT + BUILDING_DEPTH_OFFSET;
 
       // Determine texture key based on collapsed state
