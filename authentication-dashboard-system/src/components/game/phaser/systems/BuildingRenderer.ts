@@ -11,8 +11,8 @@ import {
 
 // Building depth offset over terrain
 const BUILDING_DEPTH_OFFSET = 100;
-// Scale factor for pogicity sprites (512px -> fits 2x2 tile footprint ~126px)
-const BUILDING_SPRITE_SCALE = 0.25;
+// Scale 512px sprites to fit 2x2 tile footprint (~126px width at 2x zoom = 252px visible)
+const BUILDING_SPRITE_SCALE = 0.5;
 
 export class BuildingRenderer {
   private scene: Phaser.Scene;
