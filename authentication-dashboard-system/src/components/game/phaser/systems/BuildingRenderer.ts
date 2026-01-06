@@ -17,6 +17,8 @@ const BUILDING_DEPTH_OFFSET = 100;
 const OUTLINE_DEPTH_OFFSET = -1;
 // Ownership outline tint color (Tailwind blue-500)
 const OWNERSHIP_TINT = 0x3b82f6;
+// Scale factor for R2 sprites (512px -> ~126px for 2x2 building)
+const BUILDING_SPRITE_SCALE = 0.25;
 
 export class BuildingRenderer {
   private scene: Phaser.Scene;
@@ -109,6 +111,7 @@ export class BuildingRenderer {
       if (!sprite) {
         sprite = this.scene.add.image(screenX, screenY, textureKey);
         sprite.setOrigin(0.5, 1); // Bottom center anchor
+        sprite.setScale(BUILDING_SPRITE_SCALE);
         this.sprites.set(building.id, sprite);
       }
 
@@ -182,6 +185,7 @@ export class BuildingRenderer {
     if (!outline) {
       outline = this.scene.add.image(x, y, outlineKey);
       outline.setOrigin(0.5, 1); // Match building anchor
+      outline.setScale(BUILDING_SPRITE_SCALE);
       this.outlines.set(buildingId, outline);
     }
 

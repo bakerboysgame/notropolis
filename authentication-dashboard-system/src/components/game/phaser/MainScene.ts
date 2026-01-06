@@ -36,6 +36,9 @@ export class MainScene extends Phaser.Scene {
   }
 
   create(): void {
+    // Set default camera zoom for better visibility
+    this.cameras.main.setZoom(2.0);
+
     // Initialize input handler with default no-op callbacks
     const defaultCallbacks: InputCallbacks = {
       onTileClick: () => {},
