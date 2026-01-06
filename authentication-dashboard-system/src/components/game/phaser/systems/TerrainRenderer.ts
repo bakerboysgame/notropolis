@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { Tile, TerrainType } from '../../../../types/game';
 import { gridToScreen } from '../utils/coordinates';
 import { DEPTH_Y_MULT } from '../gameConfig';
-import { getTerrainUrl, getTerrainTextureKey, getTerrainVariantUrl } from '../utils/assetLoader';
+import { getTerrainUrl, getTerrainTextureKey } from '../utils/assetLoader';
 
 export class TerrainRenderer {
   private scene: Phaser.Scene;
@@ -29,7 +29,10 @@ export class TerrainRenderer {
       }
     }
 
-    // Preload road variants from R2
+    // Road variants disabled until uploaded to R2
+    // The updateTiles method will automatically fall back to base road texture
+    // TODO: Re-enable once road variant sprites are uploaded to R2
+    /*
     const roadVariants = [
       'straight_ns', 'straight_ew',
       'corner_ne', 'corner_nw', 'corner_se', 'corner_sw',
@@ -46,6 +49,7 @@ export class TerrainRenderer {
         this.scene.load.image(key, url);
       }
     }
+    */
   }
 
   /**
