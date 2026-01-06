@@ -217,7 +217,7 @@ export function IsometricView({
           ctx.drawImage(
             terrainSprite,
             screenX - spriteWidth / 2,
-            screenY - spriteHeight + tileSize / 2,
+            screenY - spriteHeight / 2,
             spriteWidth,
             spriteHeight
           );
@@ -238,11 +238,11 @@ export function IsometricView({
           const spriteWidth = specialSprite.naturalWidth * baseScale * zoom * mapScale;
           const spriteHeight = specialSprite.naturalHeight * baseScale * zoom * mapScale;
 
-          // Center horizontally on tile, bottom at tile center
+          // Center sprite on tile
           ctx.drawImage(
             specialSprite,
             screenX - spriteWidth / 2,
-            screenY - spriteHeight + tileSize / 2,
+            screenY - spriteHeight / 2,
             spriteWidth,
             spriteHeight
           );
@@ -295,23 +295,23 @@ export function IsometricView({
               const outlinePaddingX = (outlineWidth - spriteWidth) / 2;
               const outlinePaddingY = (outlineHeight - spriteHeight) / 2;
 
-              // Sprite top-left is at (screenX - spriteWidth/2, screenY - spriteHeight + tileSize/2)
+              // Sprite top-left is at (screenX - spriteWidth/2, screenY - spriteHeight/2)
               // Outline top-left should be offset by -padding from sprite top-left
               ctx.drawImage(
                 tintedOutline,
                 screenX - spriteWidth / 2 - outlinePaddingX,
-                screenY - spriteHeight + tileSize / 2 - outlinePaddingY,
+                screenY - spriteHeight / 2 - outlinePaddingY,
                 outlineWidth,
                 outlineHeight
               );
             }
           }
 
-          // Building sprite centered horizontally, bottom at tile bottom
+          // Building sprite centered on tile
           ctx.drawImage(
             buildingSprite,
             screenX - spriteWidth / 2,
-            screenY - spriteHeight + tileSize / 2,
+            screenY - spriteHeight / 2,
             spriteWidth,
             spriteHeight
           );
@@ -321,7 +321,7 @@ export function IsometricView({
             ctx.fillStyle = `rgba(0, 0, 0, ${building.damage_percent / 200})`;
             ctx.fillRect(
               screenX - spriteWidth / 2,
-              screenY - spriteHeight + tileSize / 2,
+              screenY - spriteHeight / 2,
               spriteWidth,
               spriteHeight
             );
@@ -338,7 +338,7 @@ export function IsometricView({
               ctx.drawImage(
                 fireOverlay,
                 screenX - overlayWidth / 2,
-                screenY - overlayHeight + tileSize / 2,
+                screenY - overlayHeight / 2,
                 overlayWidth,
                 overlayHeight
               );
@@ -356,7 +356,7 @@ export function IsometricView({
               ctx.drawImage(
                 forSaleOverlay,
                 screenX - overlayWidth / 2,
-                screenY - overlayHeight + tileSize / 2,
+                screenY - overlayHeight / 2,
                 overlayWidth,
                 overlayHeight
               );
@@ -395,7 +395,7 @@ export function IsometricView({
               ctx.drawImage(
                 tintedOutline,
                 screenX - spriteWidth / 2 - outlinePaddingX,
-                screenY - spriteHeight + tileSize / 2 - outlinePaddingY,
+                screenY - spriteHeight / 2 - outlinePaddingY,
                 outlineWidth,
                 outlineHeight
               );
@@ -405,7 +405,7 @@ export function IsometricView({
           ctx.drawImage(
             stakeSprite,
             screenX - spriteWidth / 2,
-            screenY - spriteHeight + tileSize / 2,
+            screenY - spriteHeight / 2,
             spriteWidth,
             spriteHeight
           );
