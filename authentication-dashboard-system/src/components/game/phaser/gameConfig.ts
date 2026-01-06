@@ -1,9 +1,32 @@
 import Phaser from 'phaser';
 
-// Pogicity tile dimensions (63x32 isometric diamonds)
-export const TILE_WIDTH = 63;
-export const TILE_HEIGHT = 32;
+// Pogocity tile dimensions (44x22 isometric diamonds) - EXACT MATCH
+export const TILE_WIDTH = 44;
+export const TILE_HEIGHT = 22;
 export const DEPTH_Y_MULT = 10000;
+
+// Pogocity sprite constants - EXACT MATCH
+export const SPRITE_CENTER = 256; // Center X of 512x512 sprite
+export const SPRITE_HEIGHT = 512; // Height of standard sprite
+
+// Grid dimensions (pogocity uses 48x48)
+export const GRID_WIDTH = 48;
+export const GRID_HEIGHT = 48;
+
+// Calculate canvas size for isometric grid (pogocity approach)
+const isoWidth = (GRID_WIDTH + GRID_HEIGHT) * (TILE_WIDTH / 2);
+const isoHeight = (GRID_WIDTH + GRID_HEIGHT) * (TILE_HEIGHT / 2);
+
+// Add padding for buildings that extend above their footprint
+const CANVAS_PADDING_TOP = 300;
+const CANVAS_PADDING_BOTTOM = 100;
+
+export const GAME_WIDTH = Math.ceil(isoWidth) + TILE_WIDTH * 4;
+export const GAME_HEIGHT = Math.ceil(isoHeight) + CANVAS_PADDING_TOP + CANVAS_PADDING_BOTTOM;
+
+// Grid offsets to center the grid in the canvas (pogocity approach)
+export const GRID_OFFSET_X = GAME_WIDTH / 2;
+export const GRID_OFFSET_Y = CANVAS_PADDING_TOP;
 
 // R2 asset base URL
 export const SPRITE_BASE_URL = 'https://assets.notropolis.net/sprites';

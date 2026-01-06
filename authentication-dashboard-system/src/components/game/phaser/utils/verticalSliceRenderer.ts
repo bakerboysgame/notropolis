@@ -13,10 +13,10 @@
  */
 
 import Phaser from 'phaser';
-import { TILE_HEIGHT, DEPTH_Y_MULT, depthFromSortPoint, DEPTH_LAYERS } from '../gameConfig';
+import { TILE_HEIGHT, DEPTH_Y_MULT, depthFromSortPoint, DEPTH_LAYERS, SPRITE_CENTER, SPRITE_HEIGHT, GRID_OFFSET_Y } from '../gameConfig';
 
-// Constants for slice rendering - matches pogocity's approach
-const SLICE_WIDTH = TILE_HEIGHT; // 32px (matches tile height, like pogocity's 22px)
+// Constants for slice rendering - pogocity EXACT MATCH
+const SLICE_WIDTH = TILE_HEIGHT; // 22px (pogocity's exact value)
 
 export interface SliceConfig {
   scene: Phaser.Scene;
@@ -52,18 +52,11 @@ export function createVerticalSlices(config: SliceConfig): SliceSprites {
   const { scene, textureKey, screenX, screenY, renderSize, baseDepth, tint } = config;
   const slices: Phaser.GameObjects.Image[] = [];
 
-  // Get actual texture dimensions from loaded texture (pogocity uses fixed 512x512)
-  const texture = scene.textures.get(textureKey);
-  const spriteWidth = texture.getSourceImage().width;
-  const spriteHeight = texture.getSourceImage().height;
-  const spriteCenter = spriteWidth / 2;
-
-  // Pogocity approach: fixed slice width regardless of sprite resolution
-  // All sprites expected to be 512x512
+  // Pogocity constants - EXACT MATCH (fixed 512x512 sprites)
   const sliceWidthInTexture = SLICE_WIDTH;
 
   // Number of slices is always based on renderSize (tile count)
-  // renderSize.width=2 means 2 left slices
+  // renderSize.width=1 means 1 left slice, renderSize.height=1 means 1 right slice
 
   // Calculate front corner grid position (reverse engineer from baseDepth)
   // baseDepth is encoded as (x + y) * DEPTH_Y_MULT
@@ -78,17 +71,17 @@ export function createVerticalSlices(config: SliceConfig): SliceSprites {
 
   // LEFT SLICES (WEST direction - moving left from center)
   for (let i = 0; i < renderSize.width; i++) {
-    const srcX = spriteCenter - (i + 1) * sliceWidthInTexture;
+    const srcX = SPRITE_CENTER - (i + 1) * sliceWidthInTexture;
     // Pogocity algorithm: all slices at same position, crop determines visual offset
     const slice = scene.add.image(screenX, screenY, textureKey);
     slice.setOrigin(0.5, 1);
-    slice.setCrop(srcX, 0, sliceWidthInTexture, spriteHeight);
+    slice.setCrop(srcX, 0, sliceWidthInTexture, SPRITE_HEIGHT);
 
     // Depth calculation: each slice to the left is further back
     // Moving WEST means moving toward top-left, which decreases the grid sum
     const sliceGridSum = gridSum - i;
-    const sliceScreenY = (sliceGridSum * TILE_HEIGHT) / 2;
-    slice.setDepth(depthFromSortPoint(screenX, sliceScreenY, DEPTH_LAYERS.BUILDINGS));
+    const sliceScreenY = GRID_OFFSET_Y + (sliceGridSum * TILE_HEIGHT) / 2;
+    slice.setDepth(depthFromSortPoint(screenX, sliceScreenY + TILE_HEIGHT / 2, DEPTH_LAYERS.BUILDINGS));
 
     if (tint !== undefined) slice.setTint(tint);
     slices.push(slice);
@@ -96,17 +89,17 @@ export function createVerticalSlices(config: SliceConfig): SliceSprites {
 
   // RIGHT SLICES (NORTH direction - moving right from center)
   for (let i = 0; i < renderSize.height; i++) {
-    const srcX = spriteCenter + i * sliceWidthInTexture;
+    const srcX = SPRITE_CENTER + i * sliceWidthInTexture;
     // Pogocity algorithm: all slices at same position, crop determines visual offset
     const slice = scene.add.image(screenX, screenY, textureKey);
     slice.setOrigin(0.5, 1);
-    slice.setCrop(srcX, 0, sliceWidthInTexture, spriteHeight);
+    slice.setCrop(srcX, 0, sliceWidthInTexture, SPRITE_HEIGHT);
 
     // Depth calculation: each slice to the right is further back
     // Moving NORTH means moving toward top-right, which also decreases the grid sum
     const sliceGridSum = gridSum - i;
-    const sliceScreenY = (sliceGridSum * TILE_HEIGHT) / 2;
-    slice.setDepth(depthFromSortPoint(screenX, sliceScreenY, DEPTH_LAYERS.BUILDINGS));
+    const sliceScreenY = GRID_OFFSET_Y + (sliceGridSum * TILE_HEIGHT) / 2;
+    slice.setDepth(depthFromSortPoint(screenX, sliceScreenY + TILE_HEIGHT / 2, DEPTH_LAYERS.BUILDINGS));
 
     if (tint !== undefined) slice.setTint(tint);
     slices.push(slice);
@@ -115,9 +108,9 @@ export function createVerticalSlices(config: SliceConfig): SliceSprites {
   return {
     slices,
     bounds: {
-      minX: screenX - spriteCenter,
-      maxX: screenX + spriteCenter,
-      minY: screenY - spriteHeight,
+      minX: screenX - SPRITE_CENTER,
+      maxX: screenX + SPRITE_CENTER,
+      minY: screenY - SPRITE_HEIGHT,
       maxY: screenY,
     },
   };
