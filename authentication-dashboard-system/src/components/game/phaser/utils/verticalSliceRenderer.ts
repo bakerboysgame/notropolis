@@ -64,6 +64,13 @@ export function createVerticalSlices(config: SliceConfig): SliceSprites {
   // For 5120px sprite: sliceWidthInTexture = 315px (10x larger)
   const sliceWidthInTexture = SLICE_WIDTH * (spriteWidth / 512);
 
+  // Scale number of slices based on sprite resolution
+  // For 512px sprite: use renderSize as-is
+  // For 5120px sprite (10x): multiply renderSize by 10
+  const scaleFactor = spriteWidth / 512;
+  const scaledWidth = Math.round(renderSize.width * scaleFactor);
+  const scaledHeight = Math.round(renderSize.height * scaleFactor);
+
   // Calculate front corner grid position (reverse engineer from baseDepth)
   // baseDepth is encoded as (x + y) * DEPTH_Y_MULT
   const gridSum = Math.floor(baseDepth / DEPTH_Y_MULT);
@@ -76,7 +83,7 @@ export function createVerticalSlices(config: SliceConfig): SliceSprites {
   // we primarily need the grid sum for each slice
 
   // LEFT SLICES (WEST direction - moving left from center)
-  for (let i = 0; i < renderSize.width; i++) {
+  for (let i = 0; i < scaledWidth; i++) {
     const srcX = spriteCenter - (i + 1) * sliceWidthInTexture;
     // Each slice is offset horizontally on screen
     const sliceScreenX = screenX - (i + 0.5) * SLICE_WIDTH;
@@ -96,7 +103,7 @@ export function createVerticalSlices(config: SliceConfig): SliceSprites {
   }
 
   // RIGHT SLICES (NORTH direction - moving right from center)
-  for (let i = 0; i < renderSize.height; i++) {
+  for (let i = 0; i < scaledHeight; i++) {
     const srcX = spriteCenter + i * sliceWidthInTexture;
     // Each slice is offset horizontally on screen
     const sliceScreenX = screenX + (i + 0.5) * SLICE_WIDTH;
