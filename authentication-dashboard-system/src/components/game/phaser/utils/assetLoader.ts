@@ -28,7 +28,7 @@ const LOCAL_BUILDING_MAPPING: Record<string, string> = {
 
   // Notropolis Level 2 - use 2x2 sprites
   burger_bar: '/Building/commercial/2x2martini_bar_south.png',
-  motel: '/Building/residential/motel512.webp',
+  motel: '/Building/residential/motelpogo.webp',
 
   // Notropolis Level 3 (visual 2x2) - use 2x2 sprites
   high_street_store: '/Building/residential/2x2yellow_apartments_south.png',
