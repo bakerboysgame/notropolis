@@ -5,9 +5,9 @@ export const TILE_WIDTH = 44;
 export const TILE_HEIGHT = 22;
 export const DEPTH_Y_MULT = 10000;
 
-// High-resolution sprite constants - 2560×2560 for 1:1 mapping
-export const SPRITE_CENTER = 1280; // Center X of 2560x2560 sprite
-export const SPRITE_HEIGHT = 2560; // Height of high-res sprite
+// Pogocity sprite constants - EXACT MATCH (used as defaults)
+export const SPRITE_CENTER = 256; // Center X of 512x512 sprite
+export const SPRITE_HEIGHT = 512; // Height of standard sprite
 
 // Grid dimensions (pogocity uses 48x48)
 export const GRID_WIDTH = 48;

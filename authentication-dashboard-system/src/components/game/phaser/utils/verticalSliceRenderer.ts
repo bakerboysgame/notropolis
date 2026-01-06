@@ -13,10 +13,7 @@
  */
 
 import Phaser from 'phaser';
-import { TILE_HEIGHT, DEPTH_Y_MULT, depthFromSortPoint, DEPTH_LAYERS, SPRITE_CENTER, SPRITE_HEIGHT, GRID_OFFSET_Y } from '../gameConfig';
-
-// Constants for slice rendering - pogocity EXACT MATCH
-const SLICE_WIDTH = TILE_HEIGHT; // 22px (pogocity's exact value)
+import { TILE_HEIGHT, DEPTH_Y_MULT, depthFromSortPoint, DEPTH_LAYERS, GRID_OFFSET_Y } from '../gameConfig';
 
 export interface SliceConfig {
   scene: Phaser.Scene;
@@ -52,8 +49,15 @@ export function createVerticalSlices(config: SliceConfig): SliceSprites {
   const { scene, textureKey, screenX, screenY, renderSize, baseDepth, tint } = config;
   const slices: Phaser.GameObjects.Image[] = [];
 
-  // Pogocity constants - EXACT MATCH (fixed 512x512 sprites)
-  const sliceWidthInTexture = SLICE_WIDTH;
+  // Get actual texture dimensions from Phaser
+  const texture = scene.textures.get(textureKey);
+  const textureWidth = texture.source[0].width;
+  const textureHeight = texture.source[0].height;
+  const spriteCenter = textureWidth / 2;
+  const spriteHeight = textureHeight;
+
+  // Slice width in texture pixels (scales with texture resolution)
+  const sliceWidthInTexture = (spriteCenter / renderSize.width) * 2;
 
   // Number of slices is always based on renderSize (tile count)
   // renderSize.width=1 means 1 left slice, renderSize.height=1 means 1 right slice
@@ -71,11 +75,11 @@ export function createVerticalSlices(config: SliceConfig): SliceSprites {
 
   // LEFT SLICES (WEST direction - moving left from center)
   for (let i = 0; i < renderSize.width; i++) {
-    const srcX = SPRITE_CENTER - (i + 1) * sliceWidthInTexture;
+    const srcX = spriteCenter - (i + 1) * sliceWidthInTexture;
     // Pogocity algorithm: all slices at same position, crop determines visual offset
     const slice = scene.add.image(screenX, screenY, textureKey);
     slice.setOrigin(0.5, 1);
-    slice.setCrop(srcX, 0, sliceWidthInTexture, SPRITE_HEIGHT);
+    slice.setCrop(srcX, 0, sliceWidthInTexture, spriteHeight);
 
     // Depth calculation: each slice to the left is further back
     // Moving WEST means moving toward top-left, which decreases the grid sum
@@ -89,11 +93,11 @@ export function createVerticalSlices(config: SliceConfig): SliceSprites {
 
   // RIGHT SLICES (NORTH direction - moving right from center)
   for (let i = 0; i < renderSize.height; i++) {
-    const srcX = SPRITE_CENTER + i * sliceWidthInTexture;
+    const srcX = spriteCenter + i * sliceWidthInTexture;
     // Pogocity algorithm: all slices at same position, crop determines visual offset
     const slice = scene.add.image(screenX, screenY, textureKey);
     slice.setOrigin(0.5, 1);
-    slice.setCrop(srcX, 0, sliceWidthInTexture, SPRITE_HEIGHT);
+    slice.setCrop(srcX, 0, sliceWidthInTexture, spriteHeight);
 
     // Depth calculation: each slice to the right is further back
     // Moving NORTH means moving toward top-right, which also decreases the grid sum
@@ -108,9 +112,9 @@ export function createVerticalSlices(config: SliceConfig): SliceSprites {
   return {
     slices,
     bounds: {
-      minX: screenX - SPRITE_CENTER,
-      maxX: screenX + SPRITE_CENTER,
-      minY: screenY - SPRITE_HEIGHT,
+      minX: screenX - spriteCenter,
+      maxX: screenX + spriteCenter,
+      minY: screenY - spriteHeight,
       maxY: screenY,
     },
   };
