@@ -283,14 +283,6 @@ export function IsometricView({
           // Draw outline behind building if applicable
           if (outlineColor && !building.is_collapsed) {
             const outlineSprite = getBuildingOutline(sprites, effectiveTypeId);
-            // Debug: log once per building type
-            const debugKey = '_outlineDebugLogged';
-            if (!(window as Record<string, unknown>)[debugKey]) (window as Record<string, unknown>)[debugKey] = new Set();
-            const debugSet = (window as Record<string, unknown>)[debugKey] as Set<string>;
-            if (!debugSet.has(effectiveTypeId)) {
-              debugSet.add(effectiveTypeId);
-              console.log(`[Outline] ${effectiveTypeId}: found=${!!outlineSprite}, mapScale=${mapScale}, sprites.size=${sprites.size}`);
-            }
             if (outlineSprite) {
               // Tint the white outline with the highlight color
               const tintedOutline = tintOutline(outlineSprite, outlineColor);

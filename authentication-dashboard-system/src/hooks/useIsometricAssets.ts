@@ -111,7 +111,6 @@ export function useIsometricAssets(): UseIsometricAssetsReturn {
   // Collect all unique sprite URLs needed (depends on published sprites and dirty tricks)
   const spriteUrls = useMemo(() => {
     const urls = new Set<string>();
-    const outlineCount = { found: 0, missing: 0 };
 
     // Add all building type sprites (preload all, not just visible ones)
     // This now uses published sprites where available, fallback otherwise
@@ -120,14 +119,8 @@ export function useIsometricAssets(): UseIsometricAssetsReturn {
       if (url) urls.add(url);
       // Also preload outline sprites for buildings that have them
       const outlineUrl = getBuildingOutlineUrl(buildingType);
-      if (outlineUrl) {
-        urls.add(outlineUrl);
-        outlineCount.found++;
-      } else {
-        outlineCount.missing++;
-      }
+      if (outlineUrl) urls.add(outlineUrl);
     });
-    console.log(`[useIsometricAssets] Outline URLs: ${outlineCount.found} found, ${outlineCount.missing} missing`);
 
     // Add terrain sprites
     Object.values(TERRAIN_SPRITES).forEach((path) => {
@@ -183,9 +176,6 @@ export function useIsometricAssets(): UseIsometricAssetsReturn {
       }
 
       // Load all sprite images in parallel with progress tracking
-      const outlineUrls = spriteUrls.filter(url => url.includes('_outline'));
-      console.log(`[useIsometricAssets] Loading ${spriteUrls.length} sprites (${outlineUrls.length} outlines)`);
-
       const loadPromises = spriteUrls.map(async (url) => {
         try {
           const img = await loadImage(url);
@@ -203,8 +193,6 @@ export function useIsometricAssets(): UseIsometricAssetsReturn {
       await Promise.all(loadPromises);
 
       if (!cancelled) {
-        const loadedOutlines = Array.from(loaded.keys()).filter(url => url.includes('_outline')).length;
-        console.log(`[useIsometricAssets] Loaded ${loaded.size} sprites (${loadedOutlines} outlines)`);
         setSprites(loaded);
         setIsLoading(false);
       }
