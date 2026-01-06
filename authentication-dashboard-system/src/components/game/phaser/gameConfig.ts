@@ -65,13 +65,15 @@ export function createGameConfig(
   return {
     type: Phaser.AUTO, // WebGL with Canvas fallback
     parent,
+    width: GAME_WIDTH,
+    height: GAME_HEIGHT,
     backgroundColor: '#1a1a2e',
     pixelArt: true,      // Crisp pixel rendering
     roundPixels: true,   // Prevent sub-pixel positioning
     antialias: false,    // Sharp edges
     scale: {
-      mode: Phaser.Scale.RESIZE,
-      autoCenter: Phaser.Scale.CENTER_BOTH,
+      mode: Phaser.Scale.NONE,
+      autoCenter: Phaser.Scale.NO_CENTER,
     },
     scene,
   };

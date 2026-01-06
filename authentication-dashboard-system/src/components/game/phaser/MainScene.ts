@@ -36,8 +36,7 @@ export class MainScene extends Phaser.Scene {
   }
 
   async create(): Promise<void> {
-    // Set default camera zoom for better visibility
-    this.cameras.main.setZoom(2.0);
+    // Pogocity uses default zoom 1.0 (no setZoom call)
 
     // Initialize input handler with default no-op callbacks
     const defaultCallbacks: InputCallbacks = {
