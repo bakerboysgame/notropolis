@@ -20,24 +20,45 @@ const LOCAL_TERRAIN_MAPPING: Record<TerrainType, string> = {
 // Local pogicity building mapping (building_type_id -> local path)
 // Using south-facing variants as default view
 const LOCAL_BUILDING_MAPPING: Record<string, string> = {
-  // Commercial
+  // Notropolis Level 1 (1x1 footprint)
+  market_stall: '/Building/commercial/2x2dunkin_south.png',
+  hot_dog_stand: '/Building/commercial/2x2popeyes_south.png',
+  campsite: '/Building/residential/2x2english_townhouse_south.png',
+  shop: '/Building/commercial/2x2checkers_south.png',
+
+  // Notropolis Level 2
+  burger_bar: '/Building/commercial/2x2martini_bar_south.png',
+  motel: '/Building/residential/2x3brownstone_south.png',
+
+  // Notropolis Level 3 (2x2 footprint)
+  high_street_store: '/Building/commercial/4x4bookstore_south.png',
+  restaurant: '/Building/commercial/2x3promptlayer_office_south.png',
+
+  // Notropolis Level 4
+  manor: '/Building/residential/2x3full_house_house_south.png',
+
+  // Notropolis Level 5 (3x3 footprint)
+  casino: '/Building/landmark/4x4hp_house_south.png',
+
+  // Notropolis Special Buildings
+  bank: '/Building/landmark/6x3carnagie_mansion_south.png',
+  temple: '/Building/landmark/6x6church_south2.png',
+  police_station: '/Building/civic/6x3private_school_south.png',
+
+  // State buildings
+  claim_stake: '/Building/residential/2x2english_townhouse_south.png', // Small marker
+
+  // Legacy pogocity buildings (keep for compatibility)
   checkers: '/Building/commercial/2x2checkers_south.png',
   dunkin: '/Building/commercial/2x2dunkin_south.png',
   martini_bar: '/Building/commercial/2x2martini_bar_south.png',
   popeyes: '/Building/commercial/2x2popeyes_south.png',
-  // Residential
   english_townhouse: '/Building/residential/2x2english_townhouse_south.png',
   limestone: '/Building/residential/2x2limestone_south.png',
   romanesque: '/Building/residential/2x2romanesque_2_south.png',
   sf_apartments: '/Building/residential/2x2sf_green_apartments_south.png',
   marina_house: '/Building/residential/2x2sf_marina_house_south.png',
   yellow_apartments: '/Building/residential/2x2yellow_apartments_south.png',
-  // Civic
-  city_hall: '/Building/civic/3x3city_hall_south.png',
-  fire_station: '/Building/civic/2x2fire_station_south.png',
-  // Landmark
-  empire_state: '/Building/landmark/3x3empire_state_south.png',
-  flatiron: '/Building/landmark/2x2flatiron_south.png',
 };
 
 // Default fallback building
@@ -95,9 +116,9 @@ export function getOutlineTextureKey(buildingTypeId: string): string {
   return `outline_${buildingTypeId}`;
 }
 
-// Demolished building - use a placeholder for now
+// Demolished building - use small rubble sprite
 export function getDemolishedUrl(): string {
-  return '/Building/residential/2x2limestone_south.png'; // placeholder
+  return '/Building/residential/2x2limestone_south.png'; // Small rubble-like building
 }
 
 export const DEMOLISHED_TEXTURE_KEY = 'building_demolished';
