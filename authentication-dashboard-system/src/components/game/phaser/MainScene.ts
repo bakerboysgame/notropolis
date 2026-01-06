@@ -131,7 +131,8 @@ export class MainScene extends Phaser.Scene {
     }
 
     // Apply data if scene is ready (create has been called)
-    if (this.scene.isActive()) {
+    // Check inputHandler exists as a proxy for create() having been called
+    if (this.inputHandler) {
       this.applySceneData();
     }
   }
