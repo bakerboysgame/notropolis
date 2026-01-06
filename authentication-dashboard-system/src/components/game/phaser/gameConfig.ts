@@ -1,7 +1,8 @@
 import Phaser from 'phaser';
 
-export const TILE_WIDTH = 88;
-export const TILE_HEIGHT = 44;
+// Pogicity tile dimensions (63x32 isometric diamonds)
+export const TILE_WIDTH = 63;
+export const TILE_HEIGHT = 32;
 export const DEPTH_Y_MULT = 10000;
 
 // R2 asset base URL

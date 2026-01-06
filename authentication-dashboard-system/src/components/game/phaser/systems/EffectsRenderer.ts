@@ -71,8 +71,8 @@ export class EffectsRenderer {
     if (gridX === null || gridY === null) return;
 
     const { x, y } = gridToScreen(gridX, gridY);
-    const hw = 44; // TILE_WIDTH / 2
-    const hh = 22; // TILE_HEIGHT / 2
+    const hw = 31.5; // TILE_WIDTH / 2 (63/2)
+    const hh = 16; // TILE_HEIGHT / 2 (32/2)
 
     // Golden diamond outline (Tailwind amber-400)
     this.selectionGraphics.lineStyle(3, 0xfbbf24, 1);

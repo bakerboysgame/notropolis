@@ -2,19 +2,17 @@ import { TerrainType } from '../../../../types/game';
 
 const R2_BASE = 'https://assets.notropolis.net';
 
-// R2 terrain asset mapping - using available sprites from R2 bucket
-// Available: grass_bg_v6, road_straight_v5, road_corner_v8, trees_v5
-const R2_TERRAIN_MAPPING: Record<TerrainType, string> = {
-  free_land: 'grass_bg_v6',
-  road: 'road_straight_v5',
-  water: 'grass_bg_v6', // fallback to grass until water sprite available
-  dirt_track: 'grass_bg_v6', // fallback to grass until dirt sprite available
-  trees: 'trees_v5',
+// Local terrain tiles (pogicity-style isometric diamonds)
+const LOCAL_TERRAIN_MAPPING: Record<TerrainType, string> = {
+  free_land: '/Tiles/1x1grass.png',
+  road: '/Tiles/1x1asphalt.png',
+  water: '/Tiles/1x1snow_tile_1.png', // use snow as water placeholder
+  dirt_track: '/Tiles/1x1tile.png',
+  trees: '/Tiles/1x1grass.png', // trees render on grass base
 };
 
 export function getTerrainUrl(terrainType: TerrainType): string {
-  const spriteKey = R2_TERRAIN_MAPPING[terrainType] || R2_TERRAIN_MAPPING.free_land;
-  return `${R2_BASE}/sprites/terrain/${spriteKey}.webp`;
+  return LOCAL_TERRAIN_MAPPING[terrainType] || LOCAL_TERRAIN_MAPPING.free_land;
 }
 
 export function getTerrainTextureKey(terrainType: TerrainType): string {
