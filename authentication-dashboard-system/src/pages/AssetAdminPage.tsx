@@ -59,6 +59,36 @@ export default function AssetAdminPage() {
     setShowGenerateModal(true);
   };
 
+  // Handle importing pogicity tiles
+  const handleImportPogicityTiles = async () => {
+    try {
+      const pogicityMappings = [
+        { file: '1x1grass.png', assetKey: 'grass', terrainType: 'free_land' },
+        { file: '1x1asphalt.png', assetKey: 'road', terrainType: 'road' },
+        { file: '1x1tile.png', assetKey: 'dirt_track', terrainType: 'dirt_track' },
+        { file: '1x1snow_tile_1.png', assetKey: 'snow', terrainType: 'snow' },
+      ];
+
+      for (const mapping of pogicityMappings) {
+        const response = await fetch('/api/admin/assets/import-pogicity-tile', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(mapping),
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to import ${mapping.file}`);
+        }
+      }
+
+      alert('Pogicity tiles imported successfully!');
+      handleRefresh();
+    } catch (error) {
+      console.error('Import failed:', error);
+      alert('Failed to import pogicity tiles');
+    }
+  };
+
   // Handle generating sprite from approved reference
   const handleGenerateSprite = (asset: Asset) => {
     // Determine the sprite category based on the reference category
@@ -186,6 +216,14 @@ export default function AssetAdminPage() {
               <Archive className="w-4 h-4" />
               View Archived & Rejected
             </label>
+            {activeTab === 'terrain' && (
+              <button
+                onClick={handleImportPogicityTiles}
+                className="px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-sm font-medium text-white transition-colors"
+              >
+                Import Pogicity Tiles
+              </button>
+            )}
             <QueueStatus onQueueChange={handleRefresh} />
           </div>
         </div>

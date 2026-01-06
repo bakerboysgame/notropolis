@@ -30,16 +30,11 @@ export class CharacterSystem {
   private mapBounds = { minX: 0, maxX: 20, minY: 0, maxY: 20 };
 
   // GIF animation keys and their URLs
-  // Note: pogicity uses north/south/east/west naming
   private readonly GIF_URLS: Record<string, string> = {
-    banana_up: '/Characters/bananawalknorth.gif',
-    banana_down: '/Characters/bananawalksouth.gif',
-    banana_left: '/Characters/bananawalkwest.gif',
-    banana_right: '/Characters/bananawalkeast.gif',
-    apple_up: '/Characters/applewalknorth.gif',
-    apple_down: '/Characters/applewalksouth.gif',
-    apple_left: '/Characters/applewalkwest.gif',
-    apple_right: '/Characters/applewalkeast.gif',
+    banana_up: '/Characters/banana_walk_up.gif',
+    banana_down: '/Characters/banana_walk_down.gif',
+    banana_left: '/Characters/banana_walk_left.gif',
+    banana_right: '/Characters/banana_walk_right.gif',
   };
 
   constructor(scene: Phaser.Scene) {

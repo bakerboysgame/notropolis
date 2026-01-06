@@ -42,8 +42,35 @@ export function getTerrainUrl(terrainType: TerrainType): string {
   return LOCAL_TERRAIN_MAPPING[terrainType] || LOCAL_TERRAIN_MAPPING.free_land;
 }
 
-export function getTerrainTextureKey(terrainType: TerrainType): string {
+export function getTerrainTextureKey(terrainType: TerrainType, variant?: string | null): string {
+  if (variant && terrainType === 'road') {
+    return `terrain_${terrainType}_${variant}`;
+  }
   return `terrain_${terrainType}`;
+}
+
+// Get terrain variant URL from R2 storage
+export function getTerrainVariantUrl(terrainType: TerrainType, variant?: string | null): string {
+  const R2_BASE = 'https://assets.notropolis.net';
+
+  // If variant specified and terrain type is road, return variant-specific URL
+  if (variant && terrainType === 'road') {
+    return `${R2_BASE}/sprites/terrain/road_${variant}.webp`;
+  }
+
+  // Otherwise return base terrain URL from R2
+  const r2Mapping: Record<TerrainType, string> = {
+    free_land: `${R2_BASE}/sprites/terrain/grass_bg.webp`,
+    road: `${R2_BASE}/sprites/terrain/road.webp`,
+    water: `${R2_BASE}/sprites/terrain/water.webp`,
+    dirt_track: `${R2_BASE}/sprites/terrain/dirt.webp`,
+    trees: `${R2_BASE}/sprites/terrain/trees.webp`,
+    snow: `${R2_BASE}/sprites/terrain/snow.webp`,
+    sand: `${R2_BASE}/sprites/terrain/sand.webp`,
+    mountain: `${R2_BASE}/sprites/terrain/mountain.webp`,
+  };
+
+  return r2Mapping[terrainType] || r2Mapping.free_land;
 }
 
 export function getBuildingUrl(buildingTypeId: string): string {

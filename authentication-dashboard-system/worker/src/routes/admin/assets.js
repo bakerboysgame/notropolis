@@ -1512,7 +1512,7 @@ const BUILDING_SIZE_CLASSES = {
 const SPRITE_OUTPUT_SIZES = {
     building_sprite: 512,     // All sprites now 512px for max quality
     effect: 512,              // Match building size for overlays
-    terrain: 512,             // Standardized to 512
+    terrain: { width: 63, height: 32 },  // Isometric diamond dimensions
     terrain_grass_bg: 512,    // grass_bg is a 512x512 seamless tile
     vehicle: 512,             // Standardized to 512
     npc: 512,                 // Standardized to 512
@@ -3867,6 +3867,55 @@ ${fullPrompt}`;
                 bucket: 'private',
                 note: 'Background removed and transparent pixels trimmed. Use POST /process/:id to publish.'
             });
+        }
+
+        // POST /api/admin/assets/import-pogicity-tile - Import pogicity tile as approved terrain asset
+        if (action === 'import-pogicity-tile' && method === 'POST') {
+            try {
+                const { file, assetKey, terrainType } = await request.json();
+
+                // Fetch pogicity tile from public directory
+                const publicUrl = `${request.url.split('/api')[0]}/Tiles/${file}`;
+                const fileResponse = await fetch(publicUrl);
+
+                if (!fileResponse.ok) {
+                    throw new Error(`Pogicity tile not found: ${file}`);
+                }
+
+                const fileBuffer = await fileResponse.arrayBuffer();
+
+                // Upload to R2 private bucket
+                const r2Key = `raw/terrain/${assetKey}_${Date.now()}.png`;
+                await env.R2_PRIVATE.put(r2Key, fileBuffer, {
+                    httpMetadata: { contentType: 'image/png' }
+                });
+
+                // Create asset record as approved
+                const assetId = crypto.randomUUID();
+                await env.DB.prepare(`
+                    INSERT INTO generated_assets
+                    (id, category, asset_key, status, r2_key_private, approved_at, created_at)
+                    VALUES (?, 'terrain', ?, 'approved', ?, datetime('now'), datetime('now'))
+                `).bind(assetId, assetKey, r2Key).run();
+
+                await logAudit(env, 'import_pogicity_tile', null, user?.username, {
+                    file,
+                    assetKey,
+                    terrainType
+                });
+
+                return Response.json({
+                    success: true,
+                    assetId,
+                    message: `Imported ${file} as ${assetKey}`
+                });
+            } catch (error) {
+                console.error('Import error:', error);
+                return Response.json({
+                    success: false,
+                    error: error.message
+                }, { status: 500 });
+            }
         }
 
         // PUT /api/admin/assets/approve/:id - Approve an asset and set as active

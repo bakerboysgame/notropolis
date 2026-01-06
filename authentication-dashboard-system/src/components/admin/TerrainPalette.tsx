@@ -14,6 +14,9 @@ const TERRAIN_TOOLS: Tool[] = [
   { id: 'road', label: 'Road', color: '#696969' },
   { id: 'dirt_track', label: 'Dirt Track', color: '#8B4513' },
   { id: 'trees', label: 'Trees', color: '#228B22' },
+  { id: 'snow', label: 'Snow', color: '#F0F8FF' },
+  { id: 'sand', label: 'Sand', color: '#F4A460' },
+  { id: 'mountain', label: 'Mountain', color: '#808080' },
 ];
 
 const SPECIAL_BUILDING_TOOLS: Tool[] = [

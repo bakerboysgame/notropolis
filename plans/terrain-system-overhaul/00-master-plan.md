@@ -10,12 +10,12 @@ Update the terrain system to support:
 
 ## Success Criteria
 
-- [ ] Terrain tab shows all terrain types (grass, road, water, dirt_track, trees, snow, sand, mountain)
-- [ ] Pogicity tiles imported as approved placeholders in asset manager
-- [ ] Terrain reference system prompt defines 63x32 isometric diamond specs
-- [ ] Pipeline processes terrain: remove BG → trim → resize to 63x32
-- [ ] Map builder auto-selects road variants based on neighbors (straight/corner/T-junction/crossroad)
-- [ ] Phaser game renderer displays correct terrain variants
+- [x] Terrain tab shows all terrain types (grass, road, water, dirt_track, trees, snow, sand, mountain)
+- [x] Pogicity tiles imported as approved placeholders in asset manager
+- [x] Terrain reference system prompt defines 63x32 isometric diamond specs
+- [x] Pipeline processes terrain: remove BG → trim → resize to 63x32
+- [x] Map builder auto-selects road variants based on neighbors (straight/corner/T-junction/crossroad)
+- [x] Phaser game renderer displays correct terrain variants
 
 ## Dependencies & Prerequisites
 
@@ -34,9 +34,9 @@ Update the terrain system to support:
 
 ## Stage Index
 
-1. **Schema + Backend** — Database migration, types, terrain validation, system prompts
-2. **Asset Manager + Pipeline** — Terrain tab UI, pogicity import, terrain-specific processing
-3. **Auto-Tiling + Renderers** — Map builder auto-tile logic, admin grid + Phaser rendering
+1. ✅ **Schema + Backend** — Database migration, types, terrain validation, system prompts
+2. ✅ **Asset Manager + Pipeline** — Terrain tab UI, pogicity import, terrain-specific processing
+3. ✅ **Auto-Tiling + Renderers** — Map builder auto-tile logic, admin grid + Phaser rendering
 
 ## Out of Scope
 

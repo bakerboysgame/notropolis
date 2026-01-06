@@ -2,6 +2,7 @@ import { useRef, useEffect, useState, useCallback } from 'react';
 import { Tile } from '../../types/game';
 import { ToolType } from '../../hooks/useMapBuilder';
 import { ZoomIn, ZoomOut, Move, RotateCcw } from 'lucide-react';
+import { getTerrainVariantUrl } from '../game/phaser/utils/assetLoader';
 
 const TILE_SIZE = 16; // pixels per tile at 1x zoom
 const COLORS: Record<string, string> = {
@@ -51,6 +52,30 @@ export function MapGrid({
   const [lastPanPos, setLastPanPos] = useState({ x: 0, y: 0 });
   const [hoverPos, setHoverPos] = useState<{ x: number; y: number } | null>(null);
   const [canvasSize, setCanvasSize] = useState({ width: 800, height: 600 });
+  const [imageLoadCounter, setImageLoadCounter] = useState(0); // Trigger re-render when images load
+
+  // Image cache for terrain sprites
+  const imageCache = useRef<Map<string, HTMLImageElement>>(new Map());
+
+  // Load an image and cache it
+  const loadImage = useCallback((key: string, url: string): Promise<HTMLImageElement> => {
+    return new Promise((resolve, reject) => {
+      if (imageCache.current.has(key)) {
+        resolve(imageCache.current.get(key)!);
+        return;
+      }
+
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        imageCache.current.set(key, img);
+        setImageLoadCounter(c => c + 1); // Trigger re-render
+        resolve(img);
+      };
+      img.onerror = () => reject(new Error(`Failed to load ${url}`));
+      img.src = url;
+    });
+  }, []);
 
   // Calculate canvas dimensions based on container
   useEffect(() => {
@@ -109,20 +134,44 @@ export function MapGrid({
     for (let y = startY; y < endY; y++) {
       for (let x = startX; x < endX; x++) {
         const tile = tileMap.get(`${x},${y}`);
-        const color = tile?.special_building
-          ? COLORS[tile.special_building]
-          : COLORS[tile?.terrain_type || 'free_land'];
-
         const px = (x * TILE_SIZE + offset.x) * zoom;
         const py = (y * TILE_SIZE + offset.y) * zoom;
         const size = TILE_SIZE * zoom;
 
-        // Draw tile
-        ctx.fillStyle = color;
-        ctx.fillRect(px, py, size - 1, size - 1);
+        // Try to load and draw terrain variant image
+        if (tile && tile.terrain_type) {
+          const imageKey = tile.terrain_variant
+            ? `${tile.terrain_type}_${tile.terrain_variant}`
+            : tile.terrain_type;
+          const imageUrl = getTerrainVariantUrl(tile.terrain_type, tile.terrain_variant);
 
-        // Draw special building marker
+          const cachedImage = imageCache.current.get(imageKey);
+
+          if (cachedImage) {
+            // Draw the image
+            ctx.drawImage(cachedImage, px, py, size, size);
+          } else {
+            // Load image asynchronously (don't await to avoid blocking render)
+            loadImage(imageKey, imageUrl).catch(() => {
+              // Silently fail - will use fallback color
+            });
+
+            // Draw fallback color while image loads
+            const color = COLORS[tile.terrain_type || 'free_land'];
+            ctx.fillStyle = color;
+            ctx.fillRect(px, py, size - 1, size - 1);
+          }
+        } else {
+          // No tile data, draw default
+          ctx.fillStyle = COLORS['free_land'];
+          ctx.fillRect(px, py, size - 1, size - 1);
+        }
+
+        // Draw special building marker overlay
         if (tile?.special_building) {
+          const color = COLORS[tile.special_building];
+          ctx.fillStyle = color + '80'; // Semi-transparent overlay
+          ctx.fillRect(px, py, size, size);
           ctx.strokeStyle = '#000';
           ctx.lineWidth = 2;
           ctx.strokeRect(px + 2, py + 2, size - 5, size - 5);
@@ -169,7 +218,7 @@ export function MapGrid({
       ctx.strokeRect(startPx, startPy, brushPxSize, brushPxSize);
       ctx.setLineDash([]);
     }
-  }, [tiles, tileMap, zoom, offset, width, height, canvasSize, hoverPos, brushSize, selectedTool]);
+  }, [tiles, tileMap, zoom, offset, width, height, canvasSize, hoverPos, brushSize, selectedTool, imageLoadCounter, loadImage]);
 
   // Mouse handlers
   const handleMouseDown = useCallback(

@@ -6584,7 +6584,7 @@ async function handleUpdateTiles(request, authService, env, corsHeaders) {
     // Update each tile
     let updatedCount = 0;
     for (const tile of tiles) {
-      const { x, y, terrain_type, special_building } = tile;
+      const { x, y, terrain_type, terrain_variant, special_building } = tile;
 
       // Validate coordinates
       if (x < 0 || x >= existingMap.width || y < 0 || y >= existingMap.height) {
@@ -6608,6 +6608,11 @@ async function handleUpdateTiles(request, authService, env, corsHeaders) {
       if (terrain_type) {
         updates.push('terrain_type = ?');
         values.push(terrain_type);
+      }
+
+      if (terrain_variant !== undefined) {
+        updates.push('terrain_variant = ?');
+        values.push(terrain_variant);
       }
 
       if (special_building !== undefined) {

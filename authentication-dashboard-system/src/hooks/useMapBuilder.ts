@@ -53,6 +53,65 @@ export interface CreateMapRequest {
 // Batch tile updates for better performance
 const BATCH_DELAY = 500; // ms
 
+// ============================================================================
+// AUTO-TILING LOGIC FOR ROADS
+// ============================================================================
+
+/**
+ * Check if there's a road at the given neighbor position
+ */
+function hasRoadNeighbor(x: number, y: number, dx: number, dy: number, tiles: Tile[]): boolean {
+  const neighbor = tiles.find(t => t.x === x + dx && t.y === y + dy);
+  return neighbor?.terrain_type === 'road';
+}
+
+/**
+ * Calculate road variant based on 4-directional neighbors (N, S, E, W)
+ * Returns variant string like 'straight_ns', 'corner_ne', 'tjunction_n', 'crossroad', 'deadend_n'
+ */
+function calculateRoadVariant(x: number, y: number, tiles: Tile[]): string {
+  const n = hasRoadNeighbor(x, y, 0, -1, tiles);
+  const s = hasRoadNeighbor(x, y, 0, 1, tiles);
+  const e = hasRoadNeighbor(x, y, 1, 0, tiles);
+  const w = hasRoadNeighbor(x, y, -1, 0, tiles);
+
+  const connections = [n, s, e, w].filter(Boolean).length;
+
+  // 0 connections = isolated tile (use crossroad per spec)
+  if (connections === 0) return 'crossroad';
+
+  // 1 connection = dead end
+  if (connections === 1) {
+    if (n) return 'deadend_n';
+    if (s) return 'deadend_s';
+    if (e) return 'deadend_e';
+    if (w) return 'deadend_w';
+  }
+
+  // 2 connections = straight or corner
+  if (connections === 2) {
+    if (n && s) return 'straight_ns';
+    if (e && w) return 'straight_ew';
+    if (n && e) return 'corner_ne';
+    if (n && w) return 'corner_nw';
+    if (s && e) return 'corner_se';
+    if (s && w) return 'corner_sw';
+  }
+
+  // 3 connections = T-junction
+  if (connections === 3) {
+    if (!s) return 'tjunction_n'; // Open to north
+    if (!w) return 'tjunction_e'; // Open to east
+    if (!n) return 'tjunction_s'; // Open to south
+    if (!e) return 'tjunction_w'; // Open to west
+  }
+
+  // 4 connections = crossroad
+  if (connections === 4) return 'crossroad';
+
+  return 'crossroad'; // Fallback (shouldn't reach here, but use crossroad as safe default)
+}
+
 export function useMapBuilder(mapId?: string): UseMapBuilderReturn {
   const [state, setState] = useState<MapBuilderState>({
     map: null,
@@ -68,7 +127,7 @@ export function useMapBuilder(mapId?: string): UseMapBuilderReturn {
   });
 
   // Pending tile updates for batching
-  const [pendingUpdates, setPendingUpdates] = useState<Map<string, { x: number; y: number; terrain_type?: TerrainType; special_building?: SpecialBuilding }>>(new Map());
+  const [pendingUpdates, setPendingUpdates] = useState<Map<string, { x: number; y: number; terrain_type?: TerrainType; terrain_variant?: string | null; special_building?: SpecialBuilding | null }>>(new Map());
 
   // Convert tiles array to 2D lookup for O(1) access
   const tileMap = useMemo(() => {
@@ -247,7 +306,7 @@ export function useMapBuilder(mapId?: string): UseMapBuilderReturn {
 
     // Calculate brush area
     const halfBrush = Math.floor(brushSize / 2);
-    const updates: Map<string, { x: number; y: number; terrain_type?: TerrainType; special_building?: SpecialBuilding }> = new Map();
+    const updates: Map<string, { x: number; y: number; terrain_type?: TerrainType; terrain_variant?: string | null; special_building?: SpecialBuilding | null }> = new Map();
     const newTiles = [...state.tiles];
 
     if (isSpecialBuilding) {
@@ -274,6 +333,9 @@ export function useMapBuilder(mapId?: string): UseMapBuilderReturn {
       }
     } else {
       // Terrain painting with brush size
+      const isRoadTool = selectedTool === 'road';
+      const affectedRoadTiles = new Set<string>(); // Track which road tiles need recalculation
+
       for (let dx = -halfBrush; dx <= halfBrush; dx++) {
         for (let dy = -halfBrush; dy <= halfBrush; dy++) {
           const x = centerX + dx;
@@ -287,7 +349,47 @@ export function useMapBuilder(mapId?: string): UseMapBuilderReturn {
           if (tileIdx >= 0) {
             const terrainType = selectedTool as TerrainType;
             newTiles[tileIdx] = { ...newTiles[tileIdx], terrain_type: terrainType };
-            updates.set(key, { x, y, terrain_type: terrainType });
+
+            // For roads, calculate the variant
+            if (isRoadTool) {
+              const variant = calculateRoadVariant(x, y, newTiles);
+              newTiles[tileIdx] = { ...newTiles[tileIdx], terrain_variant: variant };
+              affectedRoadTiles.add(key);
+
+              // Mark neighbors for recalculation
+              affectedRoadTiles.add(`${x},${y - 1}`); // North
+              affectedRoadTiles.add(`${x},${y + 1}`); // South
+              affectedRoadTiles.add(`${x + 1},${y}`); // East
+              affectedRoadTiles.add(`${x - 1},${y}`); // West
+            }
+
+            updates.set(key, {
+              x,
+              y,
+              terrain_type: terrainType,
+              ...(isRoadTool && { terrain_variant: newTiles[tileIdx].terrain_variant })
+            });
+          }
+        }
+      }
+
+      // Recalculate variants for all affected road neighbors
+      if (isRoadTool) {
+        for (const key of affectedRoadTiles) {
+          const [xStr, yStr] = key.split(',');
+          const x = parseInt(xStr);
+          const y = parseInt(yStr);
+
+          const tileIdx = newTiles.findIndex(t => t.x === x && t.y === y);
+          if (tileIdx >= 0 && newTiles[tileIdx].terrain_type === 'road') {
+            const variant = calculateRoadVariant(x, y, newTiles);
+            newTiles[tileIdx] = { ...newTiles[tileIdx], terrain_variant: variant };
+            updates.set(key, {
+              x,
+              y,
+              terrain_type: 'road',
+              terrain_variant: variant
+            });
           }
         }
       }

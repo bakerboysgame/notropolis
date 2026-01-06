@@ -23,6 +23,23 @@ export const PhaserGame = forwardRef<PhaserGameHandle, PhaserGameProps>(
       clearCars: () => sceneRef.current?.clearCars(),
     }));
 
+    // Expose scene to window for testing (Stage 4)
+    // This allows testing character/vehicle spawning via browser console
+    useEffect(() => {
+      if (sceneRef.current) {
+        (window as any).__phaserScene = sceneRef.current;
+        console.log('MainScene exposed as window.__phaserScene');
+        console.log('Test commands:');
+        console.log('  window.__phaserScene.spawnCharacter() - Spawn a walking character');
+        console.log('  window.__phaserScene.spawnCar() - Spawn a car on a road');
+        console.log('  window.__phaserScene.getCharacterCount() - Count characters');
+        console.log('  window.__phaserScene.getCarCount() - Count vehicles');
+      }
+      return () => {
+        delete (window as any).__phaserScene;
+      };
+    }, [sceneRef.current]);
+
     // Initialize Phaser game
     useEffect(() => {
       if (!containerRef.current || gameRef.current) return;
