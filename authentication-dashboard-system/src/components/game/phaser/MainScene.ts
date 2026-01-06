@@ -1,0 +1,246 @@
+import Phaser from 'phaser';
+import { gridToScreen } from './utils/coordinates';
+import { TerrainRenderer } from './systems/TerrainRenderer';
+import { BuildingRenderer } from './systems/BuildingRenderer';
+import { InputHandler, InputCallbacks } from './systems/InputHandler';
+import { EffectsRenderer } from './systems/EffectsRenderer';
+import { CharacterSystem } from './systems/CharacterSystem';
+import { VehicleSystem } from './systems/VehicleSystem';
+import { SceneData } from './types';
+
+export class MainScene extends Phaser.Scene {
+  private terrainRenderer!: TerrainRenderer;
+  private buildingRenderer!: BuildingRenderer;
+  private inputHandler!: InputHandler;
+  private effectsRenderer!: EffectsRenderer;
+  private characterSystem!: CharacterSystem;
+  private vehicleSystem!: VehicleSystem;
+  private sceneData: SceneData | null = null;
+  private tileMap: Map<string, { x: number; y: number }> = new Map();
+  private pendingCallbacks: InputCallbacks | null = null;
+  private selectedTile: { x: number; y: number } | null = null;
+
+  constructor() {
+    super({ key: 'MainScene' });
+  }
+
+  preload(): void {
+    // Initialize renderers for preloading
+    this.terrainRenderer = new TerrainRenderer(this);
+    this.buildingRenderer = new BuildingRenderer(this);
+
+    // Preload all terrain textures
+    this.terrainRenderer.preloadTextures();
+  }
+
+  create(): void {
+    // Initialize input handler with default no-op callbacks
+    const defaultCallbacks: InputCallbacks = {
+      onTileClick: () => {},
+      onCenterChange: () => {},
+    };
+    this.inputHandler = new InputHandler(this, this.pendingCallbacks ?? defaultCallbacks);
+
+    // Initialize effects renderer
+    this.effectsRenderer = new EffectsRenderer(this);
+
+    // Initialize character and vehicle systems
+    this.characterSystem = new CharacterSystem(this);
+    this.vehicleSystem = new VehicleSystem(this);
+
+    // Load character GIF assets (async, will enable spawning when complete)
+    this.characterSystem.loadAssets();
+
+    // Load vehicle sprites
+    this.vehicleSystem.loadAssets();
+
+    // Scene is ready - if we have pending data, apply it
+    if (this.sceneData) {
+      this.applySceneData();
+    }
+
+    // Apply any pending selection
+    if (this.selectedTile) {
+      this.effectsRenderer.drawSelection(this.selectedTile.x, this.selectedTile.y);
+    }
+  }
+
+  /**
+   * Phaser update loop - called every frame
+   */
+  update(_time: number, delta: number): void {
+    // Update character and vehicle systems
+    if (this.characterSystem) {
+      this.characterSystem.update(delta);
+    }
+    if (this.vehicleSystem) {
+      this.vehicleSystem.update(delta);
+    }
+  }
+
+  /**
+   * Set callbacks for input events. Call before Phaser game starts or callbacks are stored as pending.
+   */
+  setCallbacks(callbacks: InputCallbacks): void {
+    if (this.inputHandler) {
+      this.inputHandler.setCallbacks(callbacks);
+    } else {
+      this.pendingCallbacks = callbacks;
+    }
+  }
+
+  /**
+   * Set selected tile to draw selection diamond
+   */
+  setSelection(x: number | null, y: number | null): void {
+    this.selectedTile = x !== null && y !== null ? { x, y } : null;
+    if (this.effectsRenderer) {
+      this.effectsRenderer.drawSelection(x, y);
+    }
+  }
+
+  /**
+   * Set center tile and pan camera to it
+   */
+  setCenterTile(x: number, y: number): void {
+    // Pan camera to center tile
+    const center = gridToScreen(x, y);
+    this.cameras.main.centerOn(center.x, center.y);
+  }
+
+  /**
+   * Set scene data from React props. Call this whenever tiles/buildings change.
+   */
+  setSceneData(data: SceneData): void {
+    this.sceneData = data;
+
+    // Build tile position lookup map
+    this.tileMap.clear();
+    for (const tile of data.tiles) {
+      this.tileMap.set(tile.id, { x: tile.x, y: tile.y });
+    }
+
+    // Preload building textures for any new building types
+    const buildingTypeIds = [...new Set(data.buildings.map((b) => b.building_type_id))];
+    this.buildingRenderer.preloadTextures(buildingTypeIds);
+
+    // Set active company for outline display
+    this.buildingRenderer.setActiveCompany(data.activeCompanyId);
+
+    // Apply data if scene is ready (create has been called)
+    if (this.scene.isActive()) {
+      this.applySceneData();
+    }
+  }
+
+  /**
+   * Apply scene data to renderers
+   */
+  private applySceneData(): void {
+    if (!this.sceneData) return;
+
+    // Update terrain
+    this.terrainRenderer.updateTiles(this.sceneData.tiles);
+
+    // Update buildings
+    this.buildingRenderer.updateBuildings(this.sceneData.buildings, this.tileMap);
+
+    // Update effects (fire, for-sale)
+    if (this.effectsRenderer) {
+      this.effectsRenderer.updateEffects(this.sceneData.buildings, this.tileMap);
+    }
+
+    // Update road tiles for vehicle system
+    if (this.vehicleSystem) {
+      this.vehicleSystem.setRoadTiles(this.sceneData.tiles);
+    }
+
+    // Update map bounds for character system
+    if (this.characterSystem && this.sceneData.tiles.length > 0) {
+      const bounds = this.findMapBounds();
+      this.characterSystem.setMapBounds(bounds.minX, bounds.maxX, bounds.minY, bounds.maxY);
+    }
+
+    // Center camera on map center if we have tiles (only on first load)
+    if (this.sceneData.tiles.length > 0 && !this.cameras.main.scrollX && !this.cameras.main.scrollY) {
+      const centerTile = this.findMapCenter();
+      const center = gridToScreen(centerTile.x, centerTile.y);
+      this.cameras.main.centerOn(center.x, center.y);
+    }
+  }
+
+  /**
+   * Find the bounds of the current map
+   */
+  private findMapBounds(): { minX: number; maxX: number; minY: number; maxY: number } {
+    if (!this.sceneData || this.sceneData.tiles.length === 0) {
+      return { minX: 0, maxX: 20, minY: 0, maxY: 20 };
+    }
+
+    let minX = Infinity,
+      maxX = -Infinity;
+    let minY = Infinity,
+      maxY = -Infinity;
+
+    for (const tile of this.sceneData.tiles) {
+      minX = Math.min(minX, tile.x);
+      maxX = Math.max(maxX, tile.x);
+      minY = Math.min(minY, tile.y);
+      maxY = Math.max(maxY, tile.y);
+    }
+
+    return { minX, maxX, minY, maxY };
+  }
+
+  /**
+   * Find the center tile of the current map
+   */
+  private findMapCenter(): { x: number; y: number } {
+    const bounds = this.findMapBounds();
+    return {
+      x: Math.floor((bounds.minX + bounds.maxX) / 2),
+      y: Math.floor((bounds.minY + bounds.maxY) / 2),
+    };
+  }
+
+  /**
+   * Get the terrain renderer for external access
+   */
+  getTerrainRenderer(): TerrainRenderer {
+    return this.terrainRenderer;
+  }
+
+  /**
+   * Get the building renderer for external access
+   */
+  getBuildingRenderer(): BuildingRenderer {
+    return this.buildingRenderer;
+  }
+
+  // Character & Vehicle methods (Stage 4)
+  spawnCharacter(): boolean {
+    if (!this.characterSystem) return false;
+    return this.characterSystem.spawnCharacter();
+  }
+
+  spawnCar(): boolean {
+    if (!this.vehicleSystem) return false;
+    return this.vehicleSystem.spawnCar();
+  }
+
+  getCharacterCount(): number {
+    return this.characterSystem?.getCount() ?? 0;
+  }
+
+  getCarCount(): number {
+    return this.vehicleSystem?.getCount() ?? 0;
+  }
+
+  clearCharacters(): void {
+    this.characterSystem?.clear();
+  }
+
+  clearCars(): void {
+    this.vehicleSystem?.clear();
+  }
+}

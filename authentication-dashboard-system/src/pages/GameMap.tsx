@@ -3,7 +3,7 @@ import { useParams, useSearchParams, Navigate } from 'react-router-dom';
 import { useActiveCompany } from '../contexts/CompanyContext';
 import { useGameMap } from '../hooks/useGameMap';
 import { MapCanvas } from '../components/game/MapCanvas';
-import { IsometricView } from '../components/game/IsometricView';
+import { PhaserGame } from '../components/game/phaser/PhaserGame';
 import { PropertyModal } from '../components/game/PropertyModal';
 import { MapLegend } from '../components/game/MapLegend';
 import { MapControls } from '../components/game/MapControls';
@@ -175,7 +175,7 @@ export function GameMap(): JSX.Element {
       ) : (
         // ZOOMED MODE - Isometric view (full screen)
         <div className="h-full w-full relative overflow-hidden">
-          <IsometricView
+          <PhaserGame
             map={map}
             tiles={tiles}
             buildings={buildings}
