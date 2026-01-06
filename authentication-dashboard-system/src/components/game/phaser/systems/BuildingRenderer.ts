@@ -7,16 +7,17 @@ import {
   getBuildingTextureKey,
   getDemolishedUrl,
   DEMOLISHED_TEXTURE_KEY,
+  getBuildingMetadata,
 } from '../utils/assetLoader';
-
-// Building depth offset over terrain
-const BUILDING_DEPTH_OFFSET = 100;
-// Pogicity 2x2 buildings scaled to fit 1x1 tile footprint (half size)
-const BUILDING_SPRITE_SCALE = 0.5;
+import {
+  createVerticalSlices,
+  destroyVerticalSlices,
+  SliceSprites,
+} from '../utils/verticalSliceRenderer';
 
 export class BuildingRenderer {
   private scene: Phaser.Scene;
-  private sprites: Map<string, Phaser.GameObjects.Image> = new Map();
+  private sprites: Map<string, SliceSprites> = new Map();
   private activeCompanyId: string = '';
   private loadedBuildingTypes: Set<string> = new Set();
 
@@ -80,11 +81,6 @@ export class BuildingRenderer {
       const tilePos = tileMap.get(building.tile_id);
       if (!tilePos) continue;
 
-      const { x: screenX, y: screenY } = gridToScreen(tilePos.x, tilePos.y);
-      // Place building at center of tile (adjusted for 1x1 footprint)
-      const bottomY = screenY + TILE_HEIGHT / 2;
-      const depth = (tilePos.x + tilePos.y) * DEPTH_Y_MULT + BUILDING_DEPTH_OFFSET;
-
       // Determine texture key based on collapsed state
       const textureKey = building.is_collapsed
         ? DEMOLISHED_TEXTURE_KEY
@@ -95,69 +91,114 @@ export class BuildingRenderer {
         continue;
       }
 
-      // Get or create sprite
-      let sprite = this.sprites.get(building.id);
-      if (!sprite) {
-        sprite = this.scene.add.image(screenX, bottomY, textureKey);
-        sprite.setOrigin(0.5, 1); // Bottom center anchor
-        sprite.setScale(BUILDING_SPRITE_SCALE);
-        this.sprites.set(building.id, sprite);
+      // Get building metadata
+      const metadata = getBuildingMetadata(building.building_type_id);
+      if (!metadata) {
+        console.warn(`No metadata for building type: ${building.building_type_id}`);
+        continue;
       }
 
-      // Update sprite properties
-      sprite.setPosition(screenX, bottomY);
-      sprite.setDepth(depth);
-      sprite.setTexture(textureKey);
+      const footprint = metadata.footprint;
+      const renderSize = metadata.renderSize || footprint;
 
-      // Apply damage tint
-      this.applyDamageTint(sprite, building.damage_percent);
+      // Calculate front corner position (origin + footprint - 1)
+      const frontX = tilePos.x + footprint.width - 1;
+      const frontY = tilePos.y + footprint.height - 1;
+      const { x: screenX, y: screenY } = gridToScreen(frontX, frontY);
+      const bottomY = screenY + TILE_HEIGHT;
 
-      // Apply ownership tint (blue tint for owned buildings)
-      const isOwned = building.company_id === this.activeCompanyId;
-      if (isOwned && !building.is_collapsed && building.damage_percent === 0) {
-        sprite.setTint(0x8888ff); // Light blue tint for ownership
+      // Calculate tint based on damage and ownership
+      const tint = this.calculateTint(building);
+
+      // Check if we need to recreate slices (texture changed or doesn't exist)
+      const existingSlices = this.sprites.get(building.id);
+      const needsRecreate = !existingSlices || existingSlices.slices[0]?.texture.key !== textureKey;
+
+      if (needsRecreate) {
+        // Remove old slices if they exist
+        if (existingSlices) {
+          destroyVerticalSlices(existingSlices.slices);
+        }
+
+        // Create new slices
+        const sliceSprites = createVerticalSlices({
+          scene: this.scene,
+          textureKey,
+          screenX,
+          screenY: bottomY,
+          footprint,
+          renderSize,
+          baseDepth: (frontX + frontY) * DEPTH_Y_MULT,
+          tint,
+        });
+
+        this.sprites.set(building.id, sliceSprites);
+      } else {
+        // Update existing slices (position and tint)
+        for (const slice of existingSlices.slices) {
+          slice.setPosition(screenX, bottomY);
+          if (tint !== undefined) {
+            slice.setTint(tint);
+          } else {
+            slice.clearTint();
+          }
+        }
       }
     }
 
     // Cleanup removed buildings
-    for (const [id, sprite] of this.sprites) {
+    for (const [id, sliceSprites] of this.sprites) {
       if (!currentIds.has(id)) {
-        sprite.destroy();
+        destroyVerticalSlices(sliceSprites.slices);
         this.sprites.delete(id);
       }
     }
   }
 
   /**
-   * Apply damage tint to a building sprite
-   * darkness = 1 - (damage_percent / 200)
-   * So 0% damage = full brightness, 100% damage = 50% brightness
+   * Calculate tint for a building based on damage and ownership.
+   * Returns undefined if no tint should be applied.
+   *
+   * Priority:
+   * 1. Damage tint (if damage > 0)
+   * 2. Ownership tint (if owned and no damage and not collapsed)
+   * 3. No tint
+   *
+   * @param building - Building instance
+   * @returns Tint color or undefined
    */
-  private applyDamageTint(sprite: Phaser.GameObjects.Image, damagePercent: number): void {
-    if (damagePercent > 0) {
-      const darkness = 1 - damagePercent / 200;
+  private calculateTint(building: BuildingInstance): number | undefined {
+    // Apply damage tint (highest priority)
+    if (building.damage_percent > 0) {
+      const darkness = 1 - building.damage_percent / 200;
       const colorValue = Math.floor(255 * darkness);
-      const tint = Phaser.Display.Color.GetColor(colorValue, colorValue, colorValue);
-      sprite.setTint(tint);
-    } else {
-      sprite.clearTint();
+      return Phaser.Display.Color.GetColor(colorValue, colorValue, colorValue);
     }
+
+    // Apply ownership tint (only if no damage and not collapsed)
+    const isOwned = building.company_id === this.activeCompanyId;
+    if (isOwned && !building.is_collapsed && building.damage_percent === 0) {
+      return 0x8888ff; // Light blue tint for ownership
+    }
+
+    // No tint
+    return undefined;
   }
 
   /**
    * Clear all building sprites
    */
   clear(): void {
-    for (const sprite of this.sprites.values()) {
-      sprite.destroy();
+    for (const sliceSprites of this.sprites.values()) {
+      destroyVerticalSlices(sliceSprites.slices);
     }
     this.sprites.clear();
   }
 
   /**
-   * Get building sprite by ID
+   * Get building sprite slices by ID
    */
-  getBuildingSprite(buildingId: string): Phaser.GameObjects.Image | undefined {
+  getBuildingSprite(buildingId: string): SliceSprites | undefined {
     return this.sprites.get(buildingId);
   }
 }
