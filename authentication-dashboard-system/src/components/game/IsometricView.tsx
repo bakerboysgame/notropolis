@@ -1,6 +1,6 @@
 import { useRef, useEffect, useState, useMemo, useCallback } from 'react';
 import { GameMap, Tile, BuildingInstance } from '../../types/game';
-import { useIsometricAssets, getSprite, getTerrainSprite, getDirtyTrickOverlay } from '../../hooks/useIsometricAssets';
+import { useIsometricAssets, getSprite, getTerrainSprite, getDirtyTrickOverlay, getBuildingOutline } from '../../hooks/useIsometricAssets';
 import {
   TERRAIN_COLORS,
   gridToScreen,
@@ -74,6 +74,7 @@ export function IsometricView({
   onCenterChange,
 }: IsometricViewProps): JSX.Element {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const tintCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const [zoom, setZoom] = useState(1);
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
@@ -87,6 +88,34 @@ export function IsometricView({
     screenX: number;
     screenY: number;
   } | null>(null);
+
+  // Create offscreen canvas for tinting outlines (lazy init)
+  const getTintCanvas = useCallback(() => {
+    if (!tintCanvasRef.current) {
+      tintCanvasRef.current = document.createElement('canvas');
+    }
+    return tintCanvasRef.current;
+  }, []);
+
+  // Tint a white outline image with a color
+  const tintOutline = useCallback((outline: HTMLImageElement, color: string): HTMLCanvasElement => {
+    const tintCanvas = getTintCanvas();
+    tintCanvas.width = outline.naturalWidth;
+    tintCanvas.height = outline.naturalHeight;
+    const tintCtx = tintCanvas.getContext('2d')!;
+
+    // Draw the white outline
+    tintCtx.clearRect(0, 0, tintCanvas.width, tintCanvas.height);
+    tintCtx.drawImage(outline, 0, 0);
+
+    // Tint it with the color using source-in composite
+    tintCtx.globalCompositeOperation = 'source-in';
+    tintCtx.fillStyle = color;
+    tintCtx.fillRect(0, 0, tintCanvas.width, tintCanvas.height);
+    tintCtx.globalCompositeOperation = 'source-over';
+
+    return tintCanvas;
+  }, [getTintCanvas]);
 
   // Preload sprites
   const { sprites, grassBackground, isLoading, loadingProgress, publishedSpritesReady } = useIsometricAssets();
@@ -244,20 +273,38 @@ export function IsometricView({
           const spriteWidth = buildingSprite.naturalWidth * baseScale * zoom * mapScale;
           const spriteHeight = buildingSprite.naturalHeight * baseScale * zoom * mapScale;
 
-          // Check if we need to draw a glow (owned building or tracked company)
+          // Check if we need to draw an outline (owned building or tracked company)
           const isOwned = building.company_id === activeCompanyId;
           const highlightColor = !isOwned && building.company_id
             ? getCompanyHighlight(building.company_id)
             : null;
-          const glowColor = isOwned ? 'rgba(59, 130, 246, 1)' : highlightColor;
+          const outlineColor = isOwned ? 'rgba(59, 130, 246, 0.9)' : highlightColor;
 
-          // Draw building with glow effect if applicable
-          if (glowColor && !building.is_collapsed) {
-            // Apply shadow glow before drawing sprite
-            ctx.shadowColor = glowColor;
-            ctx.shadowBlur = 15 * zoom;
-            ctx.shadowOffsetX = 0;
-            ctx.shadowOffsetY = 0;
+          // Draw outline behind building if applicable
+          if (outlineColor && !building.is_collapsed) {
+            const outlineSprite = getBuildingOutline(sprites, effectiveTypeId);
+            if (outlineSprite) {
+              // Tint the white outline with the highlight color
+              const tintedOutline = tintOutline(outlineSprite, outlineColor);
+
+              // Outline has OUTLINE_SIZE padding around sprite, so position it
+              // so the inner sprite area aligns with where the sprite will be drawn
+              const outlineScale = baseScale * zoom * mapScale;
+              const outlineWidth = outlineSprite.naturalWidth * outlineScale;
+              const outlineHeight = outlineSprite.naturalHeight * outlineScale;
+              const outlinePaddingX = (outlineWidth - spriteWidth) / 2;
+              const outlinePaddingY = (outlineHeight - spriteHeight) / 2;
+
+              // Sprite top-left is at (screenX - spriteWidth/2, screenY - spriteHeight + tileSize/2)
+              // Outline top-left should be offset by -padding from sprite top-left
+              ctx.drawImage(
+                tintedOutline,
+                screenX - spriteWidth / 2 - outlinePaddingX,
+                screenY - spriteHeight + tileSize / 2 - outlinePaddingY,
+                outlineWidth,
+                outlineHeight
+              );
+            }
           }
 
           // Building sprite centered horizontally, bottom at tile bottom
@@ -268,10 +315,6 @@ export function IsometricView({
             spriteWidth,
             spriteHeight
           );
-
-          // Reset shadow after drawing
-          ctx.shadowColor = 'transparent';
-          ctx.shadowBlur = 0;
 
           // Damage overlay (darken based on damage)
           if (building.damage_percent > 0 && !building.is_collapsed) {
@@ -332,18 +375,31 @@ export function IsometricView({
           const spriteWidth = stakeSprite.naturalWidth * stakeScale * zoom;
           const spriteHeight = stakeSprite.naturalHeight * stakeScale * zoom;
 
-          // Blue glow for user's own claim stakes, or highlight color for tracked companies
+          // Blue outline for user's own claim stakes, or highlight color for tracked companies
           const isOwned = tile.owner_company_id === activeCompanyId;
           const stakeHighlightColor = !isOwned
             ? getCompanyHighlight(tile.owner_company_id) : null;
-          const stakeGlowColor = isOwned ? 'rgba(59, 130, 246, 1)' : stakeHighlightColor;
+          const stakeOutlineColor = isOwned ? 'rgba(59, 130, 246, 0.9)' : stakeHighlightColor;
 
-          // Apply shadow glow if applicable
-          if (stakeGlowColor) {
-            ctx.shadowColor = stakeGlowColor;
-            ctx.shadowBlur = 12 * zoom;
-            ctx.shadowOffsetX = 0;
-            ctx.shadowOffsetY = 0;
+          // Draw outline behind claim stake if applicable
+          if (stakeOutlineColor) {
+            const outlineSprite = getBuildingOutline(sprites, 'claim_stake');
+            if (outlineSprite) {
+              const tintedOutline = tintOutline(outlineSprite, stakeOutlineColor);
+              const outlineScale = stakeScale * zoom;
+              const outlineWidth = outlineSprite.naturalWidth * outlineScale;
+              const outlineHeight = outlineSprite.naturalHeight * outlineScale;
+              const outlinePaddingX = (outlineWidth - spriteWidth) / 2;
+              const outlinePaddingY = (outlineHeight - spriteHeight) / 2;
+
+              ctx.drawImage(
+                tintedOutline,
+                screenX - spriteWidth / 2 - outlinePaddingX,
+                screenY - spriteHeight + tileSize / 2 - outlinePaddingY,
+                outlineWidth,
+                outlineHeight
+              );
+            }
           }
 
           ctx.drawImage(
@@ -353,10 +409,6 @@ export function IsometricView({
             spriteWidth,
             spriteHeight
           );
-
-          // Reset shadow after drawing
-          ctx.shadowColor = 'transparent';
-          ctx.shadowBlur = 0;
         }
       }
 
@@ -388,6 +440,7 @@ export function IsometricView({
     map.height,
     baseTileSize,
     getCompanyHighlight,
+    tintOutline,
     publishedSpritesReady,
   ]);
 
