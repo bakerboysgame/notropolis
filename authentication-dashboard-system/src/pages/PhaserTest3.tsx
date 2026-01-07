@@ -1,17 +1,16 @@
 import { useState, useRef } from 'react';
-import { PhaserGame, PhaserGameHandle } from '../components/game/phaser/PhaserGame';
-import type { GameMap, Tile, BuildingInstance, TerrainType } from '../types/game';
-import { AVAILABLE_BUILDING_TYPES } from '../components/game/phaser/utils/assetLoader';
+import { PhaserGameTopDown } from '../components/game/phaser/PhaserGameTopDown';
+import type { PhaserGameHandle } from '../components/game/phaser/types';
+import type { GameMap, Tile, TerrainType } from '../types/game';
 
-// Mock map data - 200×200 phaser tiles for 50×50 notropolis tiles (4×4 phaser = 1 notro)
-// Using 2560×2560 high-resolution sprites designed for 4×4 phaser tiles
+// Mock map data - 50×50 top-down view test map
 const mockMap: GameMap = {
-  id: 'test-map-2',
-  name: 'Notropolis HD City',
+  id: 'test-map-topdown',
+  name: 'Top-Down Test City',
   country: 'UK',
   location_type: 'city',
-  width: 200,
-  height: 200,
+  width: 50,
+  height: 50,
   hero_net_worth: 1000000,
   hero_cash: 500000,
   hero_land_percentage: 51,
@@ -21,17 +20,17 @@ const mockMap: GameMap = {
   is_active: true,
 };
 
-// Generate 200×200 map with road grid and random terrain
+// Generate 50×50 top-down map with road grid and random terrain
 function generateMockTiles(): Tile[] {
   const tiles: Tile[] = [];
 
-  for (let y = 0; y < 200; y++) {
-    for (let x = 0; x < 200; x++) {
+  for (let y = 0; y < 50; y++) {
+    for (let x = 0; x < 50; x++) {
       let terrainType: TerrainType = 'free_land';
 
-      // Create road grid every 8 tiles with gaps (2 tiles wide roads)
-      const isHorizontalRoad = y % 8 === 0 || y % 8 === 1;
-      const isVerticalRoad = x % 8 === 0 || x % 8 === 1;
+      // Create road grid every 10 tiles
+      const isHorizontalRoad = y % 10 === 0 || y % 10 === 1;
+      const isVerticalRoad = x % 10 === 0 || x % 10 === 1;
 
       if (isHorizontalRoad || isVerticalRoad) {
         terrainType = 'road';
@@ -63,92 +62,17 @@ function generateMockTiles(): Tile[] {
 
 const mockTiles = generateMockTiles();
 
-// Initial buildings - place motel buildings avoiding roads
-function generateInitialBuildings(): BuildingInstance[] {
-  const buildings: BuildingInstance[] = [];
-  let buildingId = 1;
-
-  // Place 4×4 motel buildings avoiding roads (roads every 8 tiles)
-  for (let y = 2; y < 200; y += 4) {
-    for (let x = 2; x < 200; x += 4) {
-      // Check if building (4×4 from this position) would overlap roads (every 8 tiles, 2-tile wide)
-      const wouldOverlapRoad =
-        (x + 3 >= 8 && x <= 9 && (Math.floor(x / 8) !== Math.floor((x + 3) / 8))) ||
-        (y + 3 >= 8 && y <= 9 && (Math.floor(y / 8) !== Math.floor((y + 3) / 8)));
-
-      if (wouldOverlapRoad) continue;
-
-      buildings.push({
-        id: `building-${buildingId}`,
-        tile_id: `tile-${x}-${y}`,
-        building_type_id: 'bank', // Using bank which maps to motelweb.webp
-        company_id: 'company-1',
-        variant: null,
-        damage_percent: 0,
-        is_on_fire: false,
-        is_collapsed: false,
-        is_for_sale: false,
-        sale_price: null,
-        calculated_profit: 100,
-        profit_modifiers: {},
-        calculated_value: 5000,
-        value_modifiers: {},
-        needs_profit_recalc: false,
-        built_at: new Date().toISOString(),
-      });
-      buildingId++;
-    }
-  }
-  return buildings;
-}
-
-const initialBuildings: BuildingInstance[] = generateInitialBuildings();
-
-export function PhaserTest2() {
+export function PhaserTest3() {
   const [selectedTile, setSelectedTile] = useState<{ x: number; y: number } | null>(null);
-  const [centerTile, setCenterTile] = useState({ x: 100, y: 100 });
+  const [centerTile, setCenterTile] = useState({ x: 25, y: 25 });
   const [characterCount, setCharacterCount] = useState(0);
   const [carCount, setCarCount] = useState(0);
-  const [buildings, setBuildings] = useState<BuildingInstance[]>(initialBuildings);
-  const [selectedBuildingType, setSelectedBuildingType] = useState(AVAILABLE_BUILDING_TYPES[0]);
-  const [placementMode, setPlacementMode] = useState(true);
-  const [buildingIdCounter, setBuildingIdCounter] = useState(1);
-  const [zoom, setZoom] = useState(0.3);
+  const [zoom, setZoom] = useState(0.5);
   const gameRef = useRef<PhaserGameHandle>(null);
 
   const handleTileClick = (coords: { x: number; y: number }) => {
     console.log('Tile clicked:', coords);
     setSelectedTile(coords);
-
-    if (placementMode) {
-      const tileId = `tile-${coords.x}-${coords.y}`;
-      const existingBuilding = buildings.find((b) => b.tile_id === tileId);
-
-      if (existingBuilding) {
-        setBuildings(buildings.filter((b) => b.tile_id !== tileId));
-      } else {
-        const newBuilding: BuildingInstance = {
-          id: `building-${buildingIdCounter}`,
-          tile_id: tileId,
-          building_type_id: selectedBuildingType,
-          company_id: 'company-1',
-          variant: null,
-          damage_percent: 0,
-          is_on_fire: false,
-          is_collapsed: false,
-          is_for_sale: false,
-          sale_price: null,
-          calculated_profit: 100,
-          profit_modifiers: {},
-          calculated_value: 5000,
-          value_modifiers: {},
-          needs_profit_recalc: false,
-          built_at: new Date().toISOString(),
-        };
-        setBuildings([...buildings, newBuilding]);
-        setBuildingIdCounter(buildingIdCounter + 1);
-      }
-    }
   };
 
   const handleSpawnCharacter = () => {
@@ -181,10 +105,6 @@ export function PhaserTest2() {
     setCarCount(gameRef.current?.getCarCount() ?? 0);
   };
 
-  const handleClearBuildings = () => {
-    setBuildings([]);
-  };
-
   const handleZoomIn = () => {
     const newZoom = Math.min(zoom * 1.5, 2.0);
     setZoom(newZoom);
@@ -205,11 +125,11 @@ export function PhaserTest2() {
 
   return (
     <div className="w-screen h-screen bg-gray-900 relative">
-      <PhaserGame
+      <PhaserGameTopDown
         ref={gameRef}
         map={mockMap}
         tiles={mockTiles}
-        buildings={buildings}
+        buildings={[]}
         activeCompanyId="company-1"
         centerTile={centerTile}
         selectedTile={selectedTile}
@@ -222,14 +142,13 @@ export function PhaserTest2() {
 
       {/* Debug overlay */}
       <div className="absolute top-4 left-4 bg-black/70 text-white p-4 rounded-lg text-sm font-mono">
-        <div className="text-green-400 font-bold mb-2">Motel Test (WebP)</div>
-        <div>Map: 200×200 phaser (50×50 notro)</div>
+        <div className="text-green-400 font-bold mb-2">TOP-DOWN TEST</div>
+        <div>Map: 50×50 (top-down view)</div>
         <div>Selected: {selectedTile ? `(${selectedTile.x}, ${selectedTile.y})` : 'None'}</div>
         <div>Center: ({centerTile.x}, {centerTile.y})</div>
-        <div>Motels: {buildings.length}</div>
         <div>Zoom: {zoom.toFixed(2)}x</div>
-        <div className="mt-2 text-gray-400 text-xs">
-          Click to {placementMode ? 'place/remove building' : 'select tile'}
+        <div className="mt-2 text-purple-400 text-xs">
+          Testing NPCs and vehicles in top-down perspective
         </div>
       </div>
 
@@ -258,43 +177,7 @@ export function PhaserTest2() {
         </div>
       </div>
 
-      {/* Building Placement Controls */}
-      <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-black/70 text-white p-4 rounded-lg text-sm font-mono">
-        <div className="text-yellow-400 font-bold mb-2">Building Placement</div>
-        <div className="flex items-center gap-2 mb-3">
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={placementMode}
-              onChange={(e) => setPlacementMode(e.target.checked)}
-              className="w-4 h-4"
-            />
-            <span>Placement Mode</span>
-          </label>
-        </div>
-        <div className="mb-3">
-          <label className="block text-xs text-gray-400 mb-1">Building Type:</label>
-          <select
-            value={selectedBuildingType}
-            onChange={(e) => setSelectedBuildingType(e.target.value)}
-            className="bg-gray-800 text-white px-2 py-1 rounded text-xs w-full"
-          >
-            {AVAILABLE_BUILDING_TYPES.map((type) => (
-              <option key={type} value={type}>
-                {type.replace(/_/g, ' ')}
-              </option>
-            ))}
-          </select>
-        </div>
-        <button
-          onClick={handleClearBuildings}
-          className="px-3 py-1 bg-red-600 hover:bg-red-700 rounded text-xs w-full"
-        >
-          Clear All Buildings
-        </button>
-      </div>
-
-      {/* Stage 4 Test Controls */}
+      {/* Characters & Vehicles Controls */}
       <div className="absolute top-4 right-4 bg-black/70 text-white p-4 rounded-lg text-sm font-mono">
         <div className="text-yellow-400 font-bold mb-2">Characters & Vehicles</div>
         <div className="mb-2">Characters: {characterCount}</div>

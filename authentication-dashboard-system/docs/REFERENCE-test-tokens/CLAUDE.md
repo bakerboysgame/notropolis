@@ -195,6 +195,44 @@ CLOUDFLARE_API_TOKEN="RQeVAceZ3VT-McbFF9DnYem0ZDc8YXbnHPH8wbg_" CLOUDFLARE_ACCOU
 
 ---
 
+## How to Deploy the Dashboard
+
+Deploy the authentication dashboard to Cloudflare Pages.
+
+### Step 1: Build the project
+
+From the `authentication-dashboard-system` directory:
+
+```bash
+npm run build
+```
+
+This runs TypeScript compilation and Vite build, outputting to the `dist` folder.
+
+### Step 2: Deploy to Cloudflare Pages
+
+```bash
+CLOUDFLARE_API_TOKEN="RQeVAceZ3VT-McbFF9DnYem0ZDc8YXbnHPH8wbg_" \
+CLOUDFLARE_ACCOUNT_ID="329dc0e016dd5cd512d6566d64d8aa0c" \
+npx wrangler pages deploy dist \
+  --project-name=notropolis-dashboard \
+  --branch=main \
+  --commit-dirty=true
+```
+
+The deployment will return a URL like: `https://1883f137.notropolis-dashboard.pages.dev`
+
+### Deployment Troubleshooting
+
+| Problem | Solution |
+|---------|----------|
+| ENOENT: no such file or directory | Make sure you're in the `authentication-dashboard-system` directory when running the build command |
+| Path not found (authentication-dashboard-system/authentication-dashboard-system) | Don't use `--prefix` with deploy command. Use the commands above from the correct directory |
+| Uncommitted changes warning | Add `--commit-dirty=true` flag to the deploy command |
+| Build fails with TypeScript errors | Fix TypeScript errors before deploying. Run `npm run build` to see errors |
+
+---
+
 ## Available User Roles
 
 | Role | Access Level |

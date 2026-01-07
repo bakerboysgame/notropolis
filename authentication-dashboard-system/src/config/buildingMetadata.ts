@@ -48,8 +48,8 @@ export const BUILDING_METADATA: Record<string, BuildingMetadata> = {
   },
   motel: {
     buildingTypeId: 'motel',
-    footprint: { width: 1, height: 1 },
-    renderSize: { width: 4, height: 4 },
+    footprint: { width: 4, height: 4 }, // 4×4 phaser tiles
+    renderSize: { width: 4, height: 4 }, // 4×4 renderSize for slicing
   },
 
   // Level 3 buildings
@@ -81,17 +81,17 @@ export const BUILDING_METADATA: Record<string, BuildingMetadata> = {
   // Special buildings
   bank: {
     buildingTypeId: 'bank',
-    footprint: { width: 1, height: 1 },
+    footprint: { width: 4, height: 4 }, // 4×4 phaser tiles (pogocity sprite)
     renderSize: { width: 4, height: 4 },
   },
   temple: {
     buildingTypeId: 'temple',
-    footprint: { width: 1, height: 1 },
+    footprint: { width: 4, height: 4 }, // 4×4 phaser tiles (pogocity sprite)
     renderSize: { width: 4, height: 4 },
   },
   police_station: {
     buildingTypeId: 'police_station',
-    footprint: { width: 1, height: 1 },
+    footprint: { width: 4, height: 4 }, // 4×4 phaser tiles (pogocity sprite)
     renderSize: { width: 4, height: 4 },
   },
 

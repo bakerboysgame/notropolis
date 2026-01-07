@@ -1,13 +1,12 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, useSearchParams, Navigate } from 'react-router-dom';
 import { useActiveCompany } from '../contexts/CompanyContext';
 import { useGameMap } from '../hooks/useGameMap';
 import { MapCanvas } from '../components/game/MapCanvas';
-import { PhaserGame, PhaserGameHandle } from '../components/game/phaser/PhaserGame';
+import { PixiGame } from '../components/game/pixijs/PixiGame';
 import { PropertyModal } from '../components/game/PropertyModal';
 import { MapLegend } from '../components/game/MapLegend';
 import { MapControls } from '../components/game/MapControls';
-import { MiniMap } from '../components/game/MiniMap';
 
 type ViewMode = 'overview' | 'zoomed';
 
@@ -31,7 +30,6 @@ export function GameMap(): JSX.Element {
 
   // View mode state - start in zoomed mode if coordinates provided
   const [viewMode, setViewMode] = useState<ViewMode>(hasInitialCoords ? 'zoomed' : 'overview');
-  const [zoomCenter, setZoomCenter] = useState<{ x: number; y: number } | null>(initialCoords);
 
   // Broadcast view mode changes for Layout to use (overlay sidebar in zoomed mode)
   useEffect(() => {
@@ -62,33 +60,6 @@ export function GameMap(): JSX.Element {
   // Overview mode state
   const [zoom, setZoom] = useState(1);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
-
-  // Stage 4: Character & Vehicle controls
-  const gameRef = useRef<PhaserGameHandle>(null);
-  const [characterCount, setCharacterCount] = useState(0);
-  const [vehicleCount, setVehicleCount] = useState(0);
-
-  // Update counts when spawning/clearing
-  const updateCounts = () => {
-    setCharacterCount(gameRef.current?.getCharacterCount() ?? 0);
-    setVehicleCount(gameRef.current?.getCarCount() ?? 0);
-  };
-
-  const handleSpawnCharacter = () => {
-    const success = gameRef.current?.spawnCharacter();
-    if (success) updateCounts();
-  };
-
-  const handleSpawnCar = () => {
-    const success = gameRef.current?.spawnCar();
-    if (success) updateCounts();
-  };
-
-  const handleClearAll = () => {
-    gameRef.current?.clearCharacters();
-    gameRef.current?.clearCars();
-    updateCounts();
-  };
 
   // Redirect if no active company
   if (!activeCompany) {
@@ -133,16 +104,44 @@ export function GameMap(): JSX.Element {
 
   const { map, tiles, buildings } = mapData;
 
+  // Convert API tiles to PixiJS format
+  const pixiTiles = useMemo(() => {
+    const buildingMap = new Map(buildings.map((b) => [b.tile_id, b.building_type_id]));
+
+    return tiles.map((tile) => {
+      // Map terrain types to PixiJS types
+      let type: 'building' | 'road' | 'water' | 'dirt_track' | 'grass';
+
+      if (buildingMap.has(tile.id)) {
+        type = 'building';
+      } else if (tile.terrain_type === 'water') {
+        type = 'water';
+      } else if (tile.terrain_type === 'road') {
+        type = 'road';
+      } else if (tile.terrain_type === 'dirt_track') {
+        type = 'dirt_track';
+      } else {
+        type = 'grass'; // free_land, trees, etc.
+      }
+
+      return {
+        x: tile.x,
+        y: tile.y,
+        type,
+        buildingType: buildingMap.get(tile.id),
+      };
+    });
+  }, [tiles, buildings]);
+
   // Handle click in overview mode - transition to zoomed view
-  const handleOverviewClick = (coords: { x: number; y: number }) => {
-    setZoomCenter(coords);
+  const handleOverviewClick = () => {
     setViewMode('zoomed');
   };
 
   // Handle click in zoomed mode - open property modal (skip terrain tiles)
-  const handleZoomedClick = (coords: { x: number; y: number }) => {
+  const handleZoomedClick = (x: number, y: number) => {
     // Find the tile at these coordinates
-    const tile = tiles.find((t) => t.x === coords.x && t.y === coords.y);
+    const tile = tiles.find((t) => t.x === x && t.y === y);
 
     // Don't open modal for terrain objects (water, road, trees, etc.)
     // These are owned by the map and cannot be interacted with
@@ -150,7 +149,7 @@ export function GameMap(): JSX.Element {
       return;
     }
 
-    setModalTile(coords);
+    setModalTile({ x, y });
   };
 
   // Close property modal
@@ -200,67 +199,23 @@ export function GameMap(): JSX.Element {
           <MapLegend />
         </div>
       ) : (
-        // ZOOMED MODE - Isometric view (full screen)
-        <div className="h-full w-full relative overflow-hidden">
-          <PhaserGame
-            ref={gameRef}
-            map={map}
-            tiles={tiles}
-            buildings={buildings}
-            activeCompanyId={activeCompany.id}
-            centerTile={zoomCenter || { x: Math.floor(map.width / 2), y: Math.floor(map.height / 2) }}
-            selectedTile={modalTile}
+        // ZOOMED MODE - PixiJS top-down view (full screen)
+        <div className="h-full w-full relative">
+          <PixiGame
+            width={window.innerWidth}
+            height={window.innerHeight}
+            tiles={pixiTiles}
+            tileSize={64}
             onTileClick={handleZoomedClick}
-            onCenterChange={setZoomCenter}
           />
 
-          {/* Mini-map overlay */}
-          <div className="absolute top-4 right-4 z-10">
-            <MiniMap
-              map={map}
-              tiles={tiles}
-              buildings={buildings}
-              activeCompanyId={activeCompany.id}
-              centerTile={zoomCenter || { x: Math.floor(map.width / 2), y: Math.floor(map.height / 2) }}
-              onNavigate={setZoomCenter}
-            />
-          </div>
-
-          {/* Stage 4: Character & Vehicle Controls */}
-          <div className="absolute bottom-4 left-4 z-10 flex flex-col gap-2 bg-gray-800/90 rounded-lg p-3 backdrop-blur-sm">
-            <div className="text-white text-sm font-semibold mb-1">NPCs & Vehicles</div>
-
-            <div className="flex gap-2">
-              <button
-                onClick={handleSpawnCharacter}
-                className="px-3 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors flex items-center gap-1"
-                title="Spawn a walking character"
-              >
-                <span>🚶</span>
-                <span>Character</span>
-              </button>
-
-              <button
-                onClick={handleSpawnCar}
-                className="px-3 py-2 bg-green-600 text-white text-sm rounded hover:bg-green-700 transition-colors flex items-center gap-1"
-                title="Spawn a car on a road"
-              >
-                <span>🚗</span>
-                <span>Vehicle</span>
-              </button>
-
-              <button
-                onClick={handleClearAll}
-                className="px-3 py-2 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition-colors"
-                title="Remove all characters and vehicles"
-              >
-                Clear All
-              </button>
-            </div>
-
-            <div className="text-gray-300 text-xs flex gap-3 mt-1">
-              <span>Characters: {characterCount}</span>
-              <span>Vehicles: {vehicleCount}</span>
+          {/* Info overlay */}
+          <div className="absolute top-4 left-4 bg-black/70 text-white p-4 rounded-lg text-sm font-mono z-10">
+            <div className="text-[#0194F9] font-bold mb-2">{map.name}</div>
+            <div>Map: {map.width}×{map.height} tiles</div>
+            <div>Engine: PixiJS v8</div>
+            <div className="mt-2 text-gray-400 text-xs">
+              Drag to pan • Scroll to zoom • Click to interact
             </div>
           </div>
         </div>

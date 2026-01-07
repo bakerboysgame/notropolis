@@ -41,7 +41,7 @@ const LOCAL_BUILDING_MAPPING: Record<string, string> = {
   casino: '/Building/residential/3x380s_small_apartment_building_south.png',
 
   // Notropolis Special Buildings (visual 3x3) - use 4x4 sprites
-  bank: '/Building/commercial/4x4bookstore_south.png',
+  bank: '/Tiles/tiletest.webp',
   temple: '/Building/landmark/4x4hp_house_south.png',
   police_station: '/Building/residential/4x4medium_apartments_south.png',
 

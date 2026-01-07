@@ -38,6 +38,8 @@ import { HeroCelebration } from './pages/HeroCelebration';
 import { ProtectedPageRoute } from './components/ProtectedPageRoute';
 import { PhaserTest } from './pages/PhaserTest';
 import { PhaserTest2 } from './pages/PhaserTest2';
+import { PhaserTest3 } from './pages/PhaserTest3';
+import { PixiJSTest1 } from './pages/PixiJSTest1';
 import { api, apiHelpers } from './services/api';
 
 // Protected Route Component
@@ -131,6 +133,8 @@ function App() {
               <Route path="/accept-invitation" element={<InvitationAcceptance />} />
               <Route path="/phaser-test" element={<PhaserTest />} />
               <Route path="/phaser-test2" element={<PhaserTest2 />} />
+              <Route path="/phaser-test3" element={<PhaserTest3 />} />
+              <Route path="/pixijs-test1" element={<PixiJSTest1 />} />
 
               {/* Protected Routes with Page-Level Access Control */}
               <Route path="/" element={
