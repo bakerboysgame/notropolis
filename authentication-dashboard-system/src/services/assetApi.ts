@@ -8,6 +8,7 @@ export type AssetStatus = 'pending' | 'generating' | 'completed' | 'review' | 'a
 export type AssetCategory =
   | 'building_ref'
   | 'building_sprite'
+  | 'building_batch'  // Multi-building spritesheet generation
   | 'character_ref'
   | 'npc'
   | 'vehicle_ref'
@@ -45,6 +46,7 @@ export const STANDALONE_CATEGORIES: AssetCategory[] = [
   'scene',
   'ui',
   'overlay',
+  'building_batch',  // Multi-building spritesheet generation
 ];
 
 // Asset key mappings by category
@@ -85,6 +87,7 @@ export const ASSET_KEYS: Record<string, string[]> = {
   ],
   ui: ['minimap_player', 'minimap_enemy', 'cursor_select', 'cursor_target'],
   overlay: ['owned_self', 'owned_other', 'for_sale', 'under_attack'],
+  building_batch: ['batch'],  // Single key for batch generation - user describes buildings in prompt
 };
 
 // Tab configuration for the UI
@@ -832,6 +835,7 @@ export const PROMPT_CATEGORIES = [
   '_global',
   'building_ref',
   'building_sprite',
+  'building_batch',
   'character_ref',
   'vehicle_ref',
   'effect_ref',

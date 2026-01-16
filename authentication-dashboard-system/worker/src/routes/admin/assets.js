@@ -3869,6 +3869,179 @@ ${fullPrompt}`;
             });
         }
 
+        // POST /api/admin/assets/remove-background-no-trim/:id - Remove background WITHOUT trimming (for batch processing)
+        if (action === 'remove-background-no-trim' && method === 'POST' && param1) {
+            const id = param1;
+
+            const asset = await env.DB.prepare(`
+                SELECT * FROM generated_assets WHERE id = ?
+            `).bind(id).first();
+
+            if (!asset || !asset.r2_key_private) {
+                return Response.json({ error: 'Asset not found' }, { status: 404 });
+            }
+
+            // Fetch the image from private bucket
+            const originalObj = await env.R2_PRIVATE.get(asset.r2_key_private);
+            if (!originalObj) {
+                return Response.json({ error: 'Original image not found in R2' }, { status: 404 });
+            }
+
+            // Call Slazzer API with image file - NO crop to preserve original dimensions
+            const arrayBuffer = await originalObj.arrayBuffer();
+            const formData = new FormData();
+            formData.append('source_image_file', new Blob([arrayBuffer], { type: 'image/png' }), 'image.png');
+            formData.append('crop', 'false'); // Do NOT trim - preserve original dimensions for grid-based splitting
+
+            const slazzerResponse = await fetch('https://api.slazzer.com/v2.0/remove_image_background', {
+                method: 'POST',
+                headers: {
+                    'API-KEY': env.SLAZZER_API_KEY
+                },
+                body: formData
+            });
+
+            if (!slazzerResponse.ok) {
+                const error = await slazzerResponse.text();
+                return Response.json({ error: `Background removal failed: ${error}` }, { status: 500 });
+            }
+
+            // Slazzer returns the image directly as binary
+            const transparentBuffer = await slazzerResponse.arrayBuffer();
+
+            // Store transparent version in private bucket (same dimensions as original)
+            const newR2Key = asset.r2_key_private.replace('.png', '_transparent_notrim.png');
+            await env.R2_PRIVATE.put(newR2Key, transparentBuffer, {
+                httpMetadata: { contentType: 'image/png' }
+            });
+
+            // Update record
+            await env.DB.prepare(`
+                UPDATE generated_assets
+                SET background_removed = TRUE, r2_key_private = ?, updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+            `).bind(newR2Key, id).run();
+
+            await logAudit(env, 'remove_bg_no_trim', parseInt(id), user?.username);
+
+            return Response.json({
+                success: true,
+                r2_key: newR2Key,
+                bucket: 'private',
+                note: 'Background removed without trimming. Ready for sprite extraction.'
+            });
+        }
+
+        // POST /api/admin/assets/upload-batch-sprite - Upload extracted sprite from batch as building_sprite
+        if (action === 'upload-batch-sprite' && method === 'POST') {
+            try {
+                const { parent_batch_id, asset_key, image_data, bounds } = await request.json();
+
+                if (!parent_batch_id || !asset_key || !image_data) {
+                    return Response.json({ error: 'Missing required fields' }, { status: 400 });
+                }
+
+                // Validate parent batch exists and is approved
+                const parentBatch = await env.DB.prepare(`
+                    SELECT * FROM generated_assets WHERE id = ? AND category = 'building_batch'
+                `).bind(parent_batch_id).first();
+
+                if (!parentBatch) {
+                    return Response.json({ error: 'Parent batch not found' }, { status: 404 });
+                }
+
+                // Convert base64 data URL to buffer
+                const base64Data = image_data.replace(/^data:image\/\w+;base64,/, '');
+                const imageBuffer = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
+
+                // Get next variant number for this asset_key
+                const existingVariants = await env.DB.prepare(`
+                    SELECT MAX(variant) as max_variant FROM generated_assets
+                    WHERE category = 'building_sprite' AND asset_key = ?
+                `).bind(asset_key).first();
+                const nextVariant = (existingVariants?.max_variant || 0) + 1;
+
+                // Upload to R2 private bucket
+                const timestamp = Date.now();
+                const r2KeyPrivate = `raw/building_sprite/${asset_key}_v${nextVariant}_${timestamp}.png`;
+                await env.R2_PRIVATE.put(r2KeyPrivate, imageBuffer, {
+                    httpMetadata: { contentType: 'image/png' }
+                });
+
+                // Create asset record - mark as approved since it came from approved batch
+                const result = await env.DB.prepare(`
+                    INSERT INTO generated_assets
+                    (category, asset_key, variant, status, r2_key_private, parent_asset_id,
+                     background_removed, approved_at, approved_by, created_at, updated_at)
+                    VALUES ('building_sprite', ?, ?, 'approved', ?, ?, TRUE,
+                            CURRENT_TIMESTAMP, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+                    RETURNING id
+                `).bind(asset_key, nextVariant, r2KeyPrivate, parent_batch_id, user?.username || 'system').first();
+
+                // Process to public bucket (resize to 512x512 WebP)
+                let publicUrl = null;
+                const targetDims = { width: 512, height: 512 }; // Standard building sprite size
+
+                try {
+                    const tempKey = `_temp/batch_sprite_${asset_key}_${timestamp}.png`;
+                    const webpBuffer = await resizeViaCloudflare(
+                        env,
+                        imageBuffer,
+                        tempKey,
+                        targetDims.width,
+                        targetDims.height,
+                        { padToCanvas: true } // Use pad mode for building sprites
+                    );
+
+                    // Save to public bucket
+                    const publicKey = `sprites/building_sprite/${asset_key}_v${nextVariant}.webp`;
+                    await env.R2_PUBLIC.put(publicKey, webpBuffer, {
+                        httpMetadata: { contentType: 'image/webp' }
+                    });
+                    publicUrl = `${R2_PUBLIC_URL}/${publicKey}`;
+
+                    // Update database with public URL
+                    await env.DB.prepare(`
+                        UPDATE generated_assets
+                        SET r2_key_public = ?, r2_url = ?, pipeline_status = 'completed',
+                            pipeline_completed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+                        WHERE id = ?
+                    `).bind(publicKey, publicUrl, result.id).run();
+                } catch (resizeErr) {
+                    console.error('[BatchSprite] Resize failed:', resizeErr.message);
+                    // Still succeeded in creating the private asset, just not resized
+                    await env.DB.prepare(`
+                        UPDATE generated_assets
+                        SET pipeline_status = 'failed', pipeline_error = ?
+                        WHERE id = ?
+                    `).bind(`Resize failed: ${resizeErr.message}`, result.id).run();
+                }
+
+                await logAudit(env, 'upload_batch_sprite', result.id, user?.username, {
+                    parent_batch_id,
+                    asset_key,
+                    variant: nextVariant,
+                    bounds
+                });
+
+                return Response.json({
+                    success: true,
+                    asset_id: result.id,
+                    asset_key,
+                    variant: nextVariant,
+                    r2_key_private: r2KeyPrivate,
+                    public_url: publicUrl,
+                    message: `Created building_sprite ${asset_key} v${nextVariant} from batch`
+                });
+            } catch (error) {
+                console.error('Upload batch sprite error:', error);
+                return Response.json({
+                    success: false,
+                    error: error.message
+                }, { status: 500 });
+            }
+        }
+
         // POST /api/admin/assets/import-pogicity-tile - Import pogicity tile as approved terrain asset
         if (action === 'import-pogicity-tile' && method === 'POST') {
             try {

@@ -23,6 +23,7 @@ function CategoryBadge({ category }: { category: string }) {
   const colorMap: Record<string, string> = {
     building_sprite: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300',
     building_ref: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300',
+    building_batch: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300',
     terrain: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
     terrain_ref: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
     effect: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300',

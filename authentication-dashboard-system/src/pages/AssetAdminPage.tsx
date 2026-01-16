@@ -8,6 +8,7 @@ import {
   Film,
   Archive,
   Settings2,
+  Layers,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useAuth } from '../contexts/AuthContext';
@@ -20,10 +21,12 @@ import { AssetManager } from '../components/assets/AssetManager';
 import { AvatarAssets } from '../components/assets/AvatarAssets';
 import { SceneTemplates } from '../components/assets/SceneTemplates';
 import { LlmSettings } from '../components/assets/LlmSettings';
+import { BuildingBatchTab } from '../components/assets/BuildingBatchTab';
 
 // Management tabs (separate from asset category tabs)
 const MANAGEMENT_TABS = [
   { key: 'asset-manager', label: 'Asset Manager', icon: Building2 },
+  { key: 'building-batch', label: 'Building Batch', icon: Layers },
   { key: 'avatar-preview', label: 'Avatar Preview', icon: User },
   { key: 'scene-templates', label: 'Scene Templates', icon: Film },
   { key: 'llm-settings', label: 'LLM Settings', icon: Settings2 },
@@ -277,6 +280,7 @@ export default function AssetAdminPage() {
       <div className="space-y-6">
         {/* Management Tabs Content */}
         {activeTab === 'asset-manager' && <AssetManager />}
+        {activeTab === 'building-batch' && <BuildingBatchTab />}
         {activeTab === 'avatar-preview' && <AvatarAssets />}
         {activeTab === 'scene-templates' && <SceneTemplates />}
         {activeTab === 'llm-settings' && <LlmSettings />}
